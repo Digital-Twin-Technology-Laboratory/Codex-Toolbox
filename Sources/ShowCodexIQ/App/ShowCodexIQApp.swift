@@ -20,10 +20,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
         statusItemController = StatusItemController(appModel: appModel)
 
         Task {
             await appModel.start()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    @objc private func workspaceDidWake(_ notification: Notification) {
+        Task {
+            await appModel.refreshIfNeeded()
         }
     }
 }

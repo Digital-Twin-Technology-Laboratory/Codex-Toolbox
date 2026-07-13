@@ -576,15 +576,15 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Sources/ShowCodexIQ/Config/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.1.0-beta.1";
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQ;
 				PRODUCT_NAME = "Show Codex IQ";
 				SDKROOT = macosx;
+				SHOW_CODEX_IQ_RELEASE_VERSION = "0.1.0-beta.1";
 			};
 			name = Release;
 		};
@@ -598,15 +598,15 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Sources/ShowCodexIQ/Config/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.1.0-beta.1";
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQ;
 				PRODUCT_NAME = "Show Codex IQ";
 				SDKROOT = macosx;
+				SHOW_CODEX_IQ_RELEASE_VERSION = "0.1.0-beta.1";
 			};
 			name = Debug;
 		};

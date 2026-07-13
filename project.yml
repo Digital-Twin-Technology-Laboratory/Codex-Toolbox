@@ -38,18 +38,25 @@ targets:
       - path: Sources/ShowCodexIQ/Resources
     info:
       path: Sources/ShowCodexIQ/Config/Info.plist
+      properties:
+        CFBundleDisplayName: $(PRODUCT_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSUIElement: true
+        ShowCodexIQReleaseVersion: $(SHOW_CODEX_IQ_RELEASE_VERSION)
     dependencies:
       - target: ShowCodexIQCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQ
         PRODUCT_NAME: Show Codex IQ
-        MARKETING_VERSION: 0.1.0-beta.1
+        MARKETING_VERSION: 0.1.0
+        SHOW_CODEX_IQ_RELEASE_VERSION: 0.1.0-beta.1
         CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: YES
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   ShowCodexIQTests:
     type: bundle.unit-test

@@ -1,0 +1,10 @@
+Show Codex IQ 0.1.0-beta.1 首次打开说明
+
+1. 将“Show Codex IQ”拖入旁边的 Applications（应用程序）。
+2. 在“应用程序”中打开 Show Codex IQ。
+3. 本 beta 为免费 ad-hoc 签名、未公证构建，macOS 可能拦截首次打开。
+4. 遇到拦截时，请打开“系统设置 → 隐私与安全性”，在页面下方找到 Show Codex IQ，点击“仍要打开”。
+5. 应用启动后只出现在菜单栏。如果菜单栏空间不足，请展开系统的隐藏菜单栏项，或按住 Command 拖动调整位置。
+
+数据来自 Codex 雷达 codexradar.com。
+项目与 Codex 雷达无官方隶属关系。
