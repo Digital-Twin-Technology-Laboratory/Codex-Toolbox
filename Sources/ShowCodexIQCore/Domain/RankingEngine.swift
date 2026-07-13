@@ -77,16 +77,21 @@ public enum RankingEngine {
         let costScores = percentileMap(complete, metric: .cost)
         let durationScores = percentileMap(complete, metric: .duration)
 
-        let weighted = complete.map { benchmark -> OverallCandidate in
+        let iqWeight = Double(weights.iq)
+        let costWeight = Double(weights.cost)
+        let durationWeight = Double(weights.duration)
+        var weighted: [OverallCandidate] = []
+        weighted.reserveCapacity(complete.count)
+
+        for benchmark in complete {
             let iq = iqScores[benchmark.id] ?? 0
             let cost = costScores[benchmark.id] ?? 0
             let duration = durationScores[benchmark.id] ?? 0
-            let score = (
-                iq * Double(weights.iq)
-                    + cost * Double(weights.cost)
-                    + duration * Double(weights.duration)
-            ) / 100
-            return OverallCandidate(benchmark: benchmark, score: score)
+            let iqComponent = iq * iqWeight
+            let costComponent = cost * costWeight
+            let durationComponent = duration * durationWeight
+            let score = (iqComponent + costComponent + durationComponent) / 100
+            weighted.append(OverallCandidate(benchmark: benchmark, score: score))
         }
 
         let sorted = weighted.sorted { lhs, rhs in
