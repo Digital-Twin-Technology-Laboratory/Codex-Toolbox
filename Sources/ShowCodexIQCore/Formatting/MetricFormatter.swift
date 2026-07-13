@@ -58,6 +58,7 @@ public enum MetricFormatter {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.numberStyle = .decimal
         formatter.usesGroupingSeparator = false
+        formatter.roundingMode = .halfUp
         formatter.minimumFractionDigits = minimumFractionDigits
         formatter.maximumFractionDigits = maximumFractionDigits
         return formatter.string(from: NSNumber(value: value)) ?? String(value)
