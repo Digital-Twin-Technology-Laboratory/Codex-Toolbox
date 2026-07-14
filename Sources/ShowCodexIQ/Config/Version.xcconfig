@@ -1,6 +1,6 @@
 // Full SemVer shown to users and used by Git tags / Release names.
-SHOW_CODEX_IQ_RELEASE_VERSION = 0.1.0-beta.3
+SHOW_CODEX_IQ_RELEASE_VERSION = 0.1.0-beta.4
 
 // Apple bundle versions: numeric marketing version and monotonic build number.
 MARKETING_VERSION = 0.1.0
-CURRENT_PROJECT_VERSION = 3
+CURRENT_PROJECT_VERSION = 4

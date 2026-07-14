@@ -31,6 +31,7 @@
 		760CBE36B2A4D7EE2A684352 /* ShowCodexIQApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F572B7B9800D65E570598ED7 /* ShowCodexIQApp.swift */; };
 		79484E919A573D1416D8D29F /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBDE701A787F8C64E7A29BDB /* MenuBarLabel.swift */; };
 		7F230FE913219D742640D36A /* current-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = FC76CFB3602AFBEA816C0CC7 /* current-v2.json */; };
+		7F2A0FE0ED21B3341F23CAA1 /* DashboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F20772D63564A2D7BE4221 /* DashboardLayout.swift */; };
 		82852BE9BDBB0B8B2501774A /* RankingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8067B8FACFB4467E03BD5A45 /* RankingEngineTests.swift */; };
 		82ABF07492B34847570CEBA7 /* RefreshScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E6A531AA691851F75949CA /* RefreshScheduler.swift */; };
 		836E3A027195A4C55A64CB49 /* TrendChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB876085B1F6769E393BCA7 /* TrendChartView.swift */; };
@@ -102,6 +103,7 @@
 		9F4F8B153BB4248853DF2BF0 /* RadarClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarClientTests.swift; sourceTree = "<group>"; };
 		A00D51FD26307CD89A3A21C4 /* WeightDistributionSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightDistributionSlider.swift; sourceTree = "<group>"; };
 		A3154A1CBBCDA16C7BA0A549 /* RankingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingEngine.swift; sourceTree = "<group>"; };
+		A5F20772D63564A2D7BE4221 /* DashboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardLayout.swift; sourceTree = "<group>"; };
 		AF6859C4A8DE7F564195059A /* RadarDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarDecodingTests.swift; sourceTree = "<group>"; };
 		B386476A0B9241C561E71D4F /* RadarRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarRepositoryTests.swift; sourceTree = "<group>"; };
 		BD441E02A04A11EC51F10D81 /* SnapshotStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStoreTests.swift; sourceTree = "<group>"; };
@@ -224,6 +226,7 @@
 		6307BC7B3CEC65E7933538E4 /* Popover */ = {
 			isa = PBXGroup;
 			children = (
+				A5F20772D63564A2D7BE4221 /* DashboardLayout.swift */,
 				051A5F7B920CB49FF02DBA4D /* DashboardView.swift */,
 				497B52AE8C308FB5DC14C3C3 /* EmptyStateView.swift */,
 				C7870DCF57FF96C58EFF7A0D /* RankingSection.swift */,
@@ -513,6 +516,7 @@
 				05EB085F2C229C5A14156A16 /* AboutView.swift in Sources */,
 				51553AB405A588950C3F1D37 /* AdaptiveVisualStyle.swift in Sources */,
 				DB36D6361CC98B019E438E93 /* AppModel.swift in Sources */,
+				7F2A0FE0ED21B3341F23CAA1 /* DashboardLayout.swift in Sources */,
 				FE1B7E458A7F5BFAC889974B /* DashboardView.swift in Sources */,
 				EC70CCD3C79EAA1CACC30C56 /* EmptyStateView.swift in Sources */,
 				A14474D8162144F455EBE3CB /* GeneralSettingsView.swift in Sources */,

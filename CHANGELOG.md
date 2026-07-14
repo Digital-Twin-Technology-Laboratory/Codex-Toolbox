@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-07-14
+
+### Fixed
+
+- 关闭“显示展开面板趋势图”后，菜单栏弹窗会自动缩短，不再在四组榜单下方保留大面积空白。
+- 弹窗已打开时切换趋势图设置，SwiftUI 内容与 AppKit 弹窗尺寸会立即同步；重新开启趋势图仍恢复完整高度。
+
 ## [0.1.0-beta.3] - 2026-07-14
 
 修复 beta.2 安装包的启动与安装界面回归。
@@ -94,7 +101,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.3...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.4...HEAD
+[0.1.0-beta.4]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.1

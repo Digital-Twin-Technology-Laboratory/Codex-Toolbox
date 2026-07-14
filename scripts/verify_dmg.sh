@@ -64,25 +64,37 @@ fi
 
 rm -rf "$SMOKE_DIR"
 mkdir -p "$SMOKE_DIR/home"
-CFFIXED_USER_HOME="$SMOKE_DIR/home" \
-    "$EXECUTABLE" \
-    >"$SMOKE_DIR/stdout.log" \
-    2>"$SMOKE_DIR/stderr.log" &
-SMOKE_PID=$!
-sleep 3
 
-if ! kill -0 "$SMOKE_PID" >/dev/null 2>&1; then
-    wait "$SMOKE_PID" >/dev/null 2>&1 || true
-    echo "App exited during the launch smoke test" >&2
-    if [[ -s "$SMOKE_DIR/stderr.log" ]]; then
-        sed -n '1,120p' "$SMOKE_DIR/stderr.log" >&2
+run_launch_smoke_test() {
+    local label="$1"
+    local shows_trend_chart="$2"
+    local stdout_log="$SMOKE_DIR/$label-stdout.log"
+    local stderr_log="$SMOKE_DIR/$label-stderr.log"
+
+    CFFIXED_USER_HOME="$SMOKE_DIR/home" \
+        "$EXECUTABLE" \
+        -showsTrendChart "$shows_trend_chart" \
+        >"$stdout_log" \
+        2>"$stderr_log" &
+    SMOKE_PID=$!
+    sleep 3
+
+    if ! kill -0 "$SMOKE_PID" >/dev/null 2>&1; then
+        wait "$SMOKE_PID" >/dev/null 2>&1 || true
+        echo "App exited during the $label launch smoke test" >&2
+        if [[ -s "$stderr_log" ]]; then
+            sed -n '1,120p' "$stderr_log" >&2
+        fi
+        exit 1
     fi
-    exit 1
-fi
 
-kill "$SMOKE_PID" >/dev/null 2>&1 || true
-wait "$SMOKE_PID" >/dev/null 2>&1 || true
-SMOKE_PID=""
+    kill "$SMOKE_PID" >/dev/null 2>&1 || true
+    wait "$SMOKE_PID" >/dev/null 2>&1 || true
+    SMOKE_PID=""
+}
+
+run_launch_smoke_test "trend-visible" true
+run_launch_smoke_test "trend-hidden" false
 
 if [[ -f "$DMG_PATH.sha256" ]]; then
     (cd "$(dirname "$DMG_PATH")" && shasum -a 256 -c "$(basename "$DMG_PATH").sha256")
@@ -91,4 +103,4 @@ fi
 echo "DMG verified: $(basename "$DMG_PATH")"
 echo "Architectures: $ARCHS"
 echo "Installer layout: background and Finder layout present"
-echo "Launch smoke test: passed"
+echo "Launch smoke tests: passed with trend chart shown and hidden"

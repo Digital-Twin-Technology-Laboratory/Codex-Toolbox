@@ -6,8 +6,10 @@ final class StatusItemController: NSObject {
     private let statusItem: NSStatusItem
     private let statusView: MenuBarStatusView
     private let popover: NSPopover
+    private let appModel: AppModel
 
     init(appModel: AppModel) {
+        self.appModel = appModel
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusView = MenuBarStatusView(appModel: appModel)
         popover = NSPopover()
@@ -33,6 +35,7 @@ final class StatusItemController: NSObject {
 
     @objc private func settingsDidChange() {
         updateStatusItemLength()
+        updatePopoverSize()
     }
 
     private func updateStatusItemLength() {
@@ -43,16 +46,26 @@ final class StatusItemController: NSObject {
     private func configurePopover(appModel: AppModel) {
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 430, height: 680)
         popover.contentViewController = NSHostingController(
             rootView: DashboardView(appModel: appModel)
         )
+        updatePopoverSize()
+    }
+
+    private func updatePopoverSize() {
+        let size = DashboardLayout.popoverSize(
+            showsTrendChart: appModel.settings.showsTrendChart
+        )
+        if popover.contentSize != size {
+            popover.contentSize = size
+        }
     }
 
     private func togglePopover() {
         if popover.isShown {
             popover.performClose(nil)
         } else {
+            updatePopoverSize()
             NSApplication.shared.activate(ignoringOtherApps: true)
             popover.show(relativeTo: statusView.bounds, of: statusView, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()

@@ -53,7 +53,12 @@ struct DashboardView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
         }
-        .frame(width: 430, height: 680)
+        .frame(
+            width: DashboardLayout.width,
+            height: DashboardLayout.height(
+                showsTrendChart: appModel.settings.showsTrendChart
+            )
+        )
         .background {
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
