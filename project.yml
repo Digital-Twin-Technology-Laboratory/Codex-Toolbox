@@ -18,16 +18,14 @@ configs:
   Release: release
 targets:
   ShowCodexIQCore:
-    type: framework
+    type: library.static
     platform: macOS
     sources:
       - path: Sources/ShowCodexIQCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQCore
         PRODUCT_NAME: ShowCodexIQCore
         DEFINES_MODULE: YES
-        GENERATE_INFOPLIST_FILE: YES
   ShowCodexIQ:
     type: application
     platform: macOS

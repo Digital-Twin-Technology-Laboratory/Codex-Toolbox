@@ -6,9 +6,22 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-07-14
+
+修复 beta.2 安装包的启动与安装界面回归。
+
+### Fixed
+
+- 将应用 Core 静态链接进主程序，修复 ad-hoc 签名与 Hardened Runtime 组合下被 macOS Library Validation 终止、点击应用后无菜单栏图标的问题。
+- 恢复 DMG 的引导背景、应用与 Applications 图标位置，同时保留首次打开说明。
+- 统一正式归档与便携构建的 DMG 打包入口，新增安装布局、静态依赖及三秒真实启动检查，防止同类回归再次进入 Release。
+
 ## [0.1.0-beta.2] - 2026-07-14
 
 第二个公开预发布版本，重点优化菜单栏展开面板与综合排名权重设置。
+
+> [!WARNING]
+> 此版本的 DMG 存在启动失败和安装引导布局缺失问题，请改用 `v0.1.0-beta.3` 或更高版本。
 
 ### Added
 
@@ -81,6 +94,7 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.3...HEAD
+[0.1.0-beta.3]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.1

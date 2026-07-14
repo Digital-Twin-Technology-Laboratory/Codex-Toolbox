@@ -1,0 +1,7 @@
+# Release packaging repair design
+
+The beta.2 regressions came from two divergent distribution paths. The Xcode archive path produced a normal unstyled DMG and embedded `ShowCodexIQCore` as a dynamic framework. Ad-hoc signing plus Hardened Runtime then caused macOS Library Validation to reject that framework at process launch. The portable path retained the intended Finder background and linked the core statically, but it bypassed the normal Xcode archive.
+
+The repaired release keeps the Xcode archive as the source of the application while changing `ShowCodexIQCore` to an Xcode static-library target. The application remains ad-hoc signed with Hardened Runtime, but it no longer maps project-owned dynamic code at launch. A shared DMG packaging script owns the background, Applications shortcut, first-open guide, icon positions, and persisted Finder layout so the archive and portable paths cannot drift again.
+
+Verification becomes behavioral instead of metadata-only. In addition to versions, architectures, checksum, and signature integrity, it rejects an executable that dynamically references `ShowCodexIQCore`, requires the background and `.DS_Store`, and launches the mounted application with an isolated home directory. The process must remain alive for three seconds. This directly covers the beta.2 failure mode and turns a future packaging regression into a release-blocking error.

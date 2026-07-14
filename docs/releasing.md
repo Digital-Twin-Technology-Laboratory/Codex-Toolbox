@@ -33,7 +33,7 @@ Show Codex IQ 使用 [Semantic Versioning 2.0.0](https://semver.org/) 和 `v<版
      -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
    ```
 
-5. 构建并校验 DMG。正式归档优先使用 `scripts/build_dmg.sh`；没有完整 Xcode 归档环境时，可使用 `scripts/build_portable_dmg.sh` 生成验证构建。
+5. 构建并校验 DMG。正式归档优先使用 `scripts/build_dmg.sh`；没有完整 Xcode 归档环境时，可使用 `scripts/build_portable_dmg.sh` 生成验证构建。两者必须共用 `scripts/package_dmg.sh` 生成安装布局；`scripts/verify_dmg.sh` 会检查背景与 Finder 布局、静态 Core、Hardened Runtime，并实际启动应用三秒。
 6. 提交发布变更，创建与完整版本一致的带注释标签并推送：
 
    ```bash

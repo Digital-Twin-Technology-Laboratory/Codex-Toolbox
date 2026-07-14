@@ -10,22 +10,20 @@
 		0209BED01F0F5C66D5BFA1CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 165DCE019744F79E0C5471C0 /* Assets.xcassets */; };
 		05EB085F2C229C5A14156A16 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA883D9E04141FDB7E69232 /* AboutView.swift */; };
 		0650DFD64C96B5190E17A13D /* MetricFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5E3012219FFC119A12F072F /* MetricFormatter.swift */; };
-		1BF785FA022614057E1FF80A /* ShowCodexIQCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		21121F13701F3F111666A003 /* RankingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3154A1CBBCDA16C7BA0A549 /* RankingEngine.swift */; };
 		23EB4B314830D05A4688115A /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0982597F0422F11BDD5139AD /* LaunchAtLoginController.swift */; };
 		25CBD15C7E6437ACA2823F59 /* URLSessionRadarClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5BCEC0A6C0906A3DDE3093 /* URLSessionRadarClient.swift */; };
 		2FBB3EAE83F6C8749F89FABB /* WeightDistributionSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00D51FD26307CD89A3A21C4 /* WeightDistributionSlider.swift */; };
 		39DF5D8FE61FC4D7BC7AFACE /* MetricFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E15D4785C5410A55744D7B5 /* MetricFormatterTests.swift */; };
 		3BAD19BE15721D94F1466FD5 /* SnapshotStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD441E02A04A11EC51F10D81 /* SnapshotStoreTests.swift */; };
+		400323746EECE299C978F35E /* libShowCodexIQCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 75F21A2EF37C9CAB641B304D /* libShowCodexIQCore.a */; };
 		4365E8583C4554DD8DEA49FE /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED19784C2851446B77745AD /* SmokeTests.swift */; };
 		4427130652D6DE8F3EB83619 /* StatusHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE4A63E03BB09A71B24338B /* StatusHeaderView.swift */; };
 		48B241F2C3F8CE36EF4EC28E /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E17B1B44983E6C5F3F07980D /* AppSettingsTests.swift */; };
 		502B46C7BF63F966AC5AC4B3 /* RadarRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1EE05A6CA04FA73897026C /* RadarRepository.swift */; };
 		51553AB405A588950C3F1D37 /* AdaptiveVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63D00B6743F7BF323741C6E0 /* AdaptiveVisualStyle.swift */; };
-		525A87D4D8D1AFF67896CBE8 /* ShowCodexIQCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */; };
 		59C8C83AC873B7D72066DC67 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A056628ACDD0C197229BF5F /* SettingsView.swift */; };
 		5FB1CE276EB27CB6A83C4A52 /* MetricStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 298FDC7E633DC37FF94A1F09 /* MetricStyle.swift */; };
-		65B9EB599FAA379D6F3304DB /* ShowCodexIQCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */; };
 		6A6E77440240E6E4321268B5 /* TrendPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4856C2A61407FBC29E26C9A7 /* TrendPoint.swift */; };
 		6A9890DF3D3969C480492511 /* RadarClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4F8B153BB4248853DF2BF0 /* RadarClientTests.swift */; };
 		70B37A318BAD5262A9DAD8EF /* RefreshSchedulerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9BB55605B6693D4903400A7 /* RefreshSchedulerTests.swift */; };
@@ -39,6 +37,7 @@
 		84D28B4AD5B7A50219D60C8C /* RankingWeightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49F7C0C0B624194F17947DC /* RankingWeightsTests.swift */; };
 		85BE27B94603613C43319B5E /* TrendPointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0F089EFE6C83F335FB926A /* TrendPointTests.swift */; };
 		9086FCA44E49DA3A54075264 /* RadarRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B386476A0B9241C561E71D4F /* RadarRepositoryTests.swift */; };
+		9184CB6A69DB74C7301714E7 /* libShowCodexIQCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 75F21A2EF37C9CAB641B304D /* libShowCodexIQCore.a */; };
 		94B32C11FC693FCD33804E96 /* ModelBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51262291C42EC4889361097A /* ModelBenchmark.swift */; };
 		9E638D89A0CE9A4595582D9C /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC91566EB6852CED399FE6FE /* SnapshotStore.swift */; };
 		A14474D8162144F455EBE3CB /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18AE050EE9F3FCC08476E0F8 /* GeneralSettingsView.swift */; };
@@ -51,7 +50,6 @@
 		DB36D6361CC98B019E438E93 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8EAB3B31C4A48B6159096 /* AppModel.swift */; };
 		E655DB5FB5AA6A74FC459184 /* RadarDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6859C4A8DE7F564195059A /* RadarDecodingTests.swift */; };
 		EC70CCD3C79EAA1CACC30C56 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 497B52AE8C308FB5DC14C3C3 /* EmptyStateView.swift */; };
-		ED2E2BF8532758BF62B97E38 /* ShowCodexIQCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F6EE795CABC49F9D7BA06D6C /* RankingMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD670E13CE7725738E941285 /* RankingMetric.swift */; };
 		F75ADE7100B6238F58787E1D /* AppMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726B7666FCF954D6C3A5B7CE /* AppMetadata.swift */; };
 		FC627B6E5C71ACA1228500C4 /* RankingSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7870DCF57FF96C58EFF7A0D /* RankingSection.swift */; };
@@ -75,31 +73,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		0492787573C7930E909E9958 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				ED2E2BF8532758BF62B97E38 /* ShowCodexIQCore.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9D225311471F5E05C7F15D5D /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				1BF785FA022614057E1FF80A /* ShowCodexIQCore.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		051A5F7B920CB49FF02DBA4D /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		0982597F0422F11BDD5139AD /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
@@ -111,7 +84,6 @@
 		2D1EE05A6CA04FA73897026C /* RadarRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarRepository.swift; sourceTree = "<group>"; };
 		2D75EE4E72EF0C4620E28A6C /* WeightDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightDraft.swift; sourceTree = "<group>"; };
 		2E0F089EFE6C83F335FB926A /* TrendPointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendPointTests.swift; sourceTree = "<group>"; };
-		2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ShowCodexIQCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3CE4A63E03BB09A71B24338B /* StatusHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusHeaderView.swift; sourceTree = "<group>"; };
 		3DBA32515D099AC4BF06D0EE /* RadarResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarResponse.swift; sourceTree = "<group>"; };
 		3E15D4785C5410A55744D7B5 /* MetricFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatterTests.swift; sourceTree = "<group>"; };
@@ -123,6 +95,7 @@
 		51262291C42EC4889361097A /* ModelBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelBenchmark.swift; sourceTree = "<group>"; };
 		63D00B6743F7BF323741C6E0 /* AdaptiveVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveVisualStyle.swift; sourceTree = "<group>"; };
 		726B7666FCF954D6C3A5B7CE /* AppMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMetadata.swift; sourceTree = "<group>"; };
+		75F21A2EF37C9CAB641B304D /* libShowCodexIQCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libShowCodexIQCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		8067B8FACFB4467E03BD5A45 /* RankingEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingEngineTests.swift; sourceTree = "<group>"; };
 		83A8EAB3B31C4A48B6159096 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		99D06F03FBD882C0505E3B90 /* ShowCodexIQTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ShowCodexIQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -157,7 +130,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				65B9EB599FAA379D6F3304DB /* ShowCodexIQCore.framework in Frameworks */,
+				400323746EECE299C978F35E /* libShowCodexIQCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,7 +138,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				525A87D4D8D1AFF67896CBE8 /* ShowCodexIQCore.framework in Frameworks */,
+				9184CB6A69DB74C7301714E7 /* libShowCodexIQCore.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,8 +304,8 @@
 		B94250B021A054FE9417B870 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				75F21A2EF37C9CAB641B304D /* libShowCodexIQCore.a */,
 				EF98B16BCB655C1C3AF10C38 /* ShowCodexIQ.app */,
-				2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */,
 				99D06F03FBD882C0505E3B90 /* ShowCodexIQTests.xctest */,
 			);
 			name = Products;
@@ -387,6 +360,7 @@
 			buildConfigurationList = 46317BF049C777378BDAD7A1 /* Build configuration list for PBXNativeTarget "ShowCodexIQCore" */;
 			buildPhases = (
 				87B35F0545889D8E8CEAB6C5 /* Sources */,
+				1450C1531E42E2BDB7644475 /* Copy Swift Objective-C Interface Header */,
 			);
 			buildRules = (
 			);
@@ -396,8 +370,8 @@
 			packageProductDependencies = (
 			);
 			productName = ShowCodexIQCore;
-			productReference = 2F3441527B4C7BC94D16BFD1 /* ShowCodexIQCore.framework */;
-			productType = "com.apple.product-type.framework";
+			productReference = 75F21A2EF37C9CAB641B304D /* libShowCodexIQCore.a */;
+			productType = "com.apple.product-type.library.static";
 		};
 		93473C0093A281B3204EDA0B /* ShowCodexIQ */ = {
 			isa = PBXNativeTarget;
@@ -406,7 +380,6 @@
 				7E6F9C9F65423BB1FE2B1275 /* Sources */,
 				59F1D916CA93BCCA501061FD /* Resources */,
 				A904A33A96AAC01F6C99F278 /* Frameworks */,
-				9D225311471F5E05C7F15D5D /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -427,7 +400,6 @@
 				5335CD7AB6EF709DFEEFE1C2 /* Sources */,
 				B07176EEC2D8B99CB6DF3021 /* Resources */,
 				595CD208B08A1AA23996EC5A /* Frameworks */,
-				0492787573C7930E909E9958 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -495,6 +467,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1450C1531E42E2BDB7644475 /* Copy Swift Objective-C Interface Header */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DERIVED_SOURCES_DIR)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			name = "Copy Swift Objective-C Interface Header";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/include/$(PRODUCT_MODULE_NAME)/$(SWIFT_OBJC_INTERFACE_HEADER_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ditto \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5335CD7AB6EF709DFEEFE1C2 /* Sources */ = {
@@ -587,6 +578,10 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQTests;
 				SDKROOT = macosx;
 			};
@@ -605,6 +600,10 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQ;
 				PRODUCT_NAME = "Show Codex IQ";
@@ -626,6 +625,10 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQ;
 				PRODUCT_NAME = "Show Codex IQ";
 				SDKROOT = macosx;
@@ -642,6 +645,10 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zzzzzzjw.ShowCodexIQTests;
 				SDKROOT = macosx;
@@ -711,15 +718,8 @@
 		DEAEE39131EF5967C2AC942E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -728,22 +728,14 @@
 				PRODUCT_NAME = ShowCodexIQCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
 		E68308D401EAC88317997F66 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "";
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				GENERATE_INFOPLIST_FILE = YES;
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -752,7 +744,6 @@
 				PRODUCT_NAME = ShowCodexIQCore;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
