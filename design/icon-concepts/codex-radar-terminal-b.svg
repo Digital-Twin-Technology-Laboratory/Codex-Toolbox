@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="darkBase" x1="160" y1="100" x2="860" y2="930" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#303238"/>
+      <stop offset="0.42" stop-color="#17191E"/>
+      <stop offset="1" stop-color="#090A0D"/>
+    </linearGradient>
+    <radialGradient id="baseLight" cx="0" cy="0" r="1" gradientTransform="translate(390 230) rotate(60) scale(670)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="0.46" stop-color="#7388FF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="codexFill" x1="325" y1="265" x2="690" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C7B7FF"/>
+      <stop offset="0.36" stop-color="#718CFF"/>
+      <stop offset="0.72" stop-color="#4360FF"/>
+      <stop offset="1" stop-color="#3524ED"/>
+    </linearGradient>
+    <linearGradient id="codexEdge" x1="300" y1="220" x2="730" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF3FF"/>
+      <stop offset="0.35" stop-color="#8FC5FF"/>
+      <stop offset="1" stop-color="#756BFF"/>
+    </linearGradient>
+    <linearGradient id="radarSweep" x1="512" y1="510" x2="824" y2="198" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#73F4FF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#B7FFF2" stop-opacity="0.48"/>
+    </linearGradient>
+    <linearGradient id="terminal" x1="395" y1="440" x2="640" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8FBFF"/>
+    </linearGradient>
+    <filter id="badgeShadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#05020F" flood-opacity="0.50"/>
+    </filter>
+    <filter id="terminalGlow" x="-30%" y="-50%" width="160%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="appMask">
+      <rect width="1024" height="1024" rx="228"/>
+    </clipPath>
+    <clipPath id="codexMask">
+      <path d="M500 221C430 189 354 222 329 292C257 297 204 356 212 429C170 482 181 564 241 605C229 679 280 746 354 758C390 826 477 849 541 807C606 836 686 801 711 730C784 721 836 658 826 586C875 535 870 452 814 408C828 335 771 271 697 271C655 209 560 189 500 221Z"/>
+    </clipPath>
+  </defs>
+
+  <g id="background">
+    <rect width="1024" height="1024" rx="228" fill="url(#darkBase)"/>
+  </g>
+  <g clip-path="url(#appMask)">
+    <rect width="1024" height="1024" fill="url(#baseLight)"/>
+    <path d="M98 146C321 39 621 73 883 270" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="110" stroke-linecap="round"/>
+  </g>
+
+  <g id="codex-badge" filter="url(#badgeShadow)">
+    <path d="M500 221C430 189 354 222 329 292C257 297 204 356 212 429C170 482 181 564 241 605C229 679 280 746 354 758C390 826 477 849 541 807C606 836 686 801 711 730C784 721 836 658 826 586C875 535 870 452 814 408C828 335 771 271 697 271C655 209 560 189 500 221Z" fill="url(#codexFill)" stroke="url(#codexEdge)" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+
+  <g id="radar">
+    <circle cx="512" cy="510" r="430" fill="none" stroke="#A7FAFF" stroke-opacity="0.34" stroke-width="11"/>
+    <circle cx="512" cy="510" r="300" fill="none" stroke="#C9FFF5" stroke-opacity="0.34" stroke-width="10"/>
+    <circle cx="512" cy="510" r="170" fill="none" stroke="#D9FFFF" stroke-opacity="0.40" stroke-width="9"/>
+    <path d="M512 510L512 80A430 430 0 0 1 816 206Z" fill="url(#radarSweep)"/>
+    <path d="M512 510L816 206" fill="none" stroke="#BFFFF2" stroke-opacity="0.94" stroke-width="14" stroke-linecap="round"/>
+    <path d="M512 80V207M512 813V940M82 510H209M815 510H942" fill="none" stroke="#E6FFFC" stroke-opacity="0.34" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="810" cy="212" r="22" fill="#C8FFF3"/>
+    <circle cx="810" cy="212" r="42" fill="none" stroke="#C8FFF3" stroke-opacity="0.54" stroke-width="10"/>
+    <circle cx="250" cy="760" r="15" fill="#A9F5FF" fill-opacity="0.90"/>
+    <circle cx="705" cy="818" r="13" fill="#E0DCFF" fill-opacity="0.90"/>
+  </g>
+
+  <g id="terminal-mark" fill="none" stroke="url(#terminal)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" filter="url(#terminalGlow)">
+    <path d="M398 432L470 510L398 588"/>
+    <path d="M529 588H642"/>
+  </g>
+
+  <g id="glass-highlight">
+    <path d="M333 295C395 216 537 211 630 253" fill="none" stroke="#FFFFFF" stroke-opacity="0.24" stroke-width="13" stroke-linecap="round"/>
+    <path d="M250 611C289 694 359 738 431 746" fill="none" stroke="#2437D7" stroke-opacity="0.28" stroke-width="11" stroke-linecap="round"/>
+  </g>
+</svg>

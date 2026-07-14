@@ -4,7 +4,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 XCODE_APP="${XCODE_APP:-/Applications/Xcode-beta.app}"
-VERSION="0.1.0-beta.1"
+source "$ROOT_DIR/scripts/version.sh"
+VERSION="$RELEASE_VERSION"
 BUILD_DIR="${TMPDIR%/}/ShowCodexIQ-xcode-dmg"
 ARCHIVE_PATH="$BUILD_DIR/ShowCodexIQ.xcarchive"
 DIST_DIR="$ROOT_DIR/dist"

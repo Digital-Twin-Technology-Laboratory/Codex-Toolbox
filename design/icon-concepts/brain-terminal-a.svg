@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="180" y1="120" x2="840" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151C5B"/>
+      <stop offset="0.48" stop-color="#102D77"/>
+      <stop offset="1" stop-color="#071433"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="0" cy="0" r="1" gradientTransform="translate(512 448) rotate(90) scale(430)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35D7FF" stop-opacity="0.26"/>
+      <stop offset="0.55" stop-color="#536DFF" stop-opacity="0.11"/>
+      <stop offset="1" stop-color="#071433" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="brainFill" x1="290" y1="250" x2="730" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C8F6FF" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#54CBFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#6672FF" stop-opacity="0.19"/>
+    </linearGradient>
+    <linearGradient id="brainStroke" x1="240" y1="220" x2="780" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A4F4FF"/>
+      <stop offset="0.48" stop-color="#34C8FF"/>
+      <stop offset="1" stop-color="#7B73FF"/>
+    </linearGradient>
+    <linearGradient id="terminalStroke" x1="400" y1="455" x2="625" y2="575" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#BDF7FF"/>
+    </linearGradient>
+    <filter id="iconShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="28" stdDeviation="34" flood-color="#020617" flood-opacity="0.55"/>
+    </filter>
+    <filter id="brainGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="11" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="terminalGlow" x="-40%" y="-60%" width="180%" height="220%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="iconMask">
+      <rect x="56" y="56" width="912" height="912" rx="218"/>
+    </clipPath>
+  </defs>
+
+  <g id="background" filter="url(#iconShadow)">
+    <rect x="56" y="56" width="912" height="912" rx="218" fill="url(#background)"/>
+  </g>
+
+  <g clip-path="url(#iconMask)">
+    <rect x="56" y="56" width="912" height="912" fill="url(#aura)"/>
+    <ellipse cx="374" cy="186" rx="270" ry="170" fill="#70E7FF" opacity="0.08" transform="rotate(-18 374 186)"/>
+    <path d="M120 820C298 703 617 726 918 540V968H56V864C77 849 98 834 120 820Z" fill="#6C63FF" opacity="0.06"/>
+  </g>
+
+  <g id="brain-glass">
+    <path
+      d="M512 258C472 211 405 203 360 239C303 228 248 269 244 328C201 352 183 413 211 459C177 514 202 582 252 609C247 674 297 725 362 723C398 773 467 784 512 742C557 784 626 773 662 723C727 725 777 674 772 609C822 582 847 514 813 459C841 413 823 352 780 328C776 269 721 228 664 239C619 203 552 211 512 258Z"
+      fill="url(#brainFill)"
+      stroke="url(#brainStroke)"
+      stroke-width="24"
+      stroke-linejoin="round"
+      filter="url(#brainGlow)"
+    />
+    <path d="M512 269C491 321 505 369 512 408C519 451 497 491 512 532C527 574 503 620 512 731" fill="none" stroke="#A9F3FF" stroke-opacity="0.64" stroke-width="13" stroke-linecap="round"/>
+    <path d="M316 276C388 228 459 242 502 284" fill="none" stroke="#FFFFFF" stroke-opacity="0.26" stroke-width="13" stroke-linecap="round"/>
+  </g>
+
+  <g id="neural-lines" fill="none" stroke="url(#brainStroke)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity="0.88">
+    <g>
+      <path d="M416 294C365 270 316 301 320 350"/>
+      <path d="M320 350C270 353 248 402 278 440"/>
+      <path d="M278 440C235 475 250 535 292 551"/>
+      <path d="M292 551C267 603 305 656 356 650"/>
+      <path d="M356 650C372 698 426 717 461 686"/>
+      <path d="M389 374C431 374 448 406 432 440"/>
+      <path d="M335 493C381 469 421 486 430 528"/>
+      <path d="M383 588C429 564 463 584 470 625"/>
+    </g>
+    <g transform="translate(1024 0) scale(-1 1)">
+      <path d="M416 294C365 270 316 301 320 350"/>
+      <path d="M320 350C270 353 248 402 278 440"/>
+      <path d="M278 440C235 475 250 535 292 551"/>
+      <path d="M292 551C267 603 305 656 356 650"/>
+      <path d="M356 650C372 698 426 717 461 686"/>
+      <path d="M389 374C431 374 448 406 432 440"/>
+      <path d="M335 493C381 469 421 486 430 528"/>
+      <path d="M383 588C429 564 463 584 470 625"/>
+    </g>
+  </g>
+
+  <g id="nodes" fill="#C9F8FF">
+    <circle cx="320" cy="350" r="11"/>
+    <circle cx="292" cy="551" r="11"/>
+    <circle cx="383" cy="588" r="10"/>
+    <circle cx="704" cy="350" r="11"/>
+    <circle cx="732" cy="551" r="11"/>
+    <circle cx="641" cy="588" r="10"/>
+  </g>
+
+  <g id="terminal">
+    <rect x="343" y="413" width="338" height="210" rx="78" fill="#06102D" fill-opacity="0.70" stroke="#D5F8FF" stroke-opacity="0.32" stroke-width="5"/>
+    <path d="M369 441C417 420 581 417 651 448" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="9" stroke-linecap="round"/>
+    <g fill="none" stroke="url(#terminalStroke)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round" filter="url(#terminalGlow)">
+      <path d="M414 468L473 518L414 568"/>
+      <path d="M518 568H611"/>
+    </g>
+  </g>
+
+  <g id="accent-nodes">
+    <circle cx="258" cy="420" r="8" fill="#8EF2FF"/>
+    <circle cx="766" cy="420" r="8" fill="#9D8CFF"/>
+    <circle cx="512" cy="258" r="8" fill="#D8FCFF"/>
+  </g>
+</svg>

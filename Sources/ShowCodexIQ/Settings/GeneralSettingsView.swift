@@ -21,6 +21,14 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+
+                Picker("排名序号", selection: menuBarRankStyleBinding) {
+                    ForEach(MenuBarRankStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+
+                Toggle("显示后方详细数值", isOn: showsMenuBarDetailsBinding)
             }
 
             Section("数据刷新") {
@@ -95,6 +103,20 @@ struct GeneralSettingsView: View {
                 appModel.settings.automaticRefreshEnabled = $0
                 appModel.settingsDidChange()
             }
+        )
+    }
+
+    private var menuBarRankStyleBinding: Binding<MenuBarRankStyle> {
+        Binding(
+            get: { appModel.settings.menuBarRankStyle },
+            set: { appModel.settings.menuBarRankStyle = $0 }
+        )
+    }
+
+    private var showsMenuBarDetailsBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.showsMenuBarDetails },
+            set: { appModel.settings.showsMenuBarDetails = $0 }
         )
     }
 

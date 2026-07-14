@@ -13,7 +13,7 @@ struct AboutView: View {
             VStack(spacing: 5) {
                 Text("Show Codex IQ")
                     .font(.title2.bold())
-                Text("版本 \(version) （\(build)）")
+                Text("版本 \(AppMetadata.version) （\(AppMetadata.build)）")
                     .foregroundStyle(.secondary)
             }
 
@@ -36,16 +36,5 @@ struct AboutView: View {
             Spacer()
         }
         .padding(28)
-    }
-
-    private var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "ShowCodexIQReleaseVersion") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-            ?? AppMetadata.version
-    }
-
-    private var build: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-            ?? AppMetadata.build
     }
 }

@@ -9,7 +9,7 @@ final class RadarClientTests: XCTestCase {
     }
 
     func testSendsCacheValidatorsAndDecodesPayload() async throws {
-        let payload = try Data(contentsOf: fixtureURL("current-v2.json"))
+        let payload = try Data(contentsOf: try fixtureURL("current-v2.json"))
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "If-None-Match"), "old-etag")
             XCTAssertEqual(request.value(forHTTPHeaderField: "If-Modified-Since"), "old-date")
@@ -86,11 +86,20 @@ final class RadarClientTests: XCTestCase {
         )
     }
 
-    private func fixtureURL(_ name: String) -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures", isDirectory: true)
-            .appendingPathComponent(name)
+    private func fixtureURL(_ name: String) throws -> URL {
+        #if SWIFT_PACKAGE
+        let url = Bundle.module.url(
+            forResource: name,
+            withExtension: nil,
+            subdirectory: "Fixtures"
+        )
+        #else
+        let url = Bundle(for: Self.self).url(forResource: name, withExtension: nil)
+        #endif
+        guard let url else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return url
     }
 }
 

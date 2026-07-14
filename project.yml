@@ -27,9 +27,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQCore
         PRODUCT_NAME: ShowCodexIQCore
         DEFINES_MODULE: YES
+        GENERATE_INFOPLIST_FILE: YES
   ShowCodexIQ:
     type: application
     platform: macOS
+    configFiles:
+      Debug: Sources/ShowCodexIQ/Config/Version.xcconfig
+      Release: Sources/ShowCodexIQ/Config/Version.xcconfig
     sources:
       - path: Sources/ShowCodexIQ
         excludes:
@@ -51,13 +55,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQ
         PRODUCT_NAME: Show Codex IQ
-        MARKETING_VERSION: 0.1.0
-        SHOW_CODEX_IQ_RELEASE_VERSION: 0.1.0-beta.1
-        CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: YES
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: ShowCodexIQIcon
   ShowCodexIQTests:
     type: bundle.unit-test
     platform: macOS

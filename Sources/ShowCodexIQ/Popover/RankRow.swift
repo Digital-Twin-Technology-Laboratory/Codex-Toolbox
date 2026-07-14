@@ -3,23 +3,35 @@ import SwiftUI
 
 struct RankRow: View {
     let ranked: RankedModel
+    let presentation: RankingSectionPresentation
 
     var body: some View {
-        HStack(spacing: 7) {
-            ZStack {
-                Circle()
-                    .fill(medalColor.opacity(0.16))
-                Text("\(ranked.position)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(medalColor)
+        Group {
+            if presentation == .compact {
+                compactBody
+            } else {
+                regularBody
             }
-            .frame(width: 22, height: 22)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
+        )
+    }
+
+    private var regularBody: some View {
+        HStack(spacing: 7) {
+            medal
+                .frame(width: 22, height: 22)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(ranked.benchmark.label)
-                    .font(.system(size: 11, weight: .semibold))
-                    .lineLimit(1)
+                    .font(.system(size: presentation == .expanded ? 12 : 11, weight: .semibold))
+                    .lineLimit(presentation == .expanded ? 2 : 1)
                     .truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(ranked.benchmark.label)
                 Text(statusText)
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
@@ -28,16 +40,42 @@ struct RankRow: View {
 
             Spacer(minLength: 4)
 
-            Text(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(ranked.metric.tint)
+            valueText
         }
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
-        )
+    }
+
+    private var compactBody: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                medal
+                    .frame(width: 18, height: 18)
+                Text(MetricFormatter.compactModelName(ranked.benchmark.label))
+                    .font(.system(size: 9, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(ranked.benchmark.label)
+            }
+            valueText
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private var medal: some View {
+        ZStack {
+            Circle()
+                .fill(medalColor.opacity(0.16))
+            Text("\(ranked.position)")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(medalColor)
+        }
+    }
+
+    private var valueText: some View {
+        Text(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))
+            .font(.system(size: presentation == .compact ? 10 : 11, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(ranked.metric.tint)
+            .lineLimit(1)
     }
 
     private var medalColor: Color {

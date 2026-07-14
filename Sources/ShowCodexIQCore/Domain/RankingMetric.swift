@@ -1,6 +1,6 @@
 import Foundation
 
-public enum RankingMetric: String, Codable, CaseIterable, Identifiable, Sendable {
+public enum RankingMetric: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case iq
     case cost
     case duration

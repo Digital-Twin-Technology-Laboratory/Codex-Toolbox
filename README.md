@@ -1,28 +1,76 @@
-# Show Codex IQ
+<div align="center">
+  <img src="design/icon-concepts/codex-radar-terminal-b-preview.png" width="160" alt="Show Codex IQ 应用图标">
+  <h1>Show Codex IQ</h1>
+  <p>在 macOS 菜单栏快速查看 Codex 模型的智商、费用、耗时与综合排名。</p>
 
-Show Codex IQ 是一个原生 macOS 菜单栏应用，用两行快速展示 Codex 模型当前排名，并在弹窗中集中展示智商、费用、耗时、综合排名与趋势。
+  [![GitHub Release](https://img.shields.io/github/v/release/Digital-Twin-Technology-Laboratory/Show-Codex-IQ?include_prereleases&sort=semver)](https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases)
+  [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple)](https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ#系统要求)
+  [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+</div>
 
-![Show Codex IQ 应用图标](Sources/ShowCodexIQ/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256.png)
+Show Codex IQ 是一款原生 macOS 菜单栏应用。它读取 Codex 雷达的公开快照，把不同模型与推理强度的表现整理为四类榜单，并在本地保留最近一次成功数据，方便快速比较。
 
-## 功能
+> [!IMPORTANT]
+> 本项目与 OpenAI、Codex 雷达均无官方隶属关系。数据来自 [codexradar.com](https://codexradar.com/)，公开分发或二次开发前请阅读[数据来源与授权说明](docs/data-source.md)。
 
-- 菜单栏使用“指标图标 + 两行名次 / 紧凑模型名 / 数值”格式，可切换智商、综合、费用或耗时。
-- 点击后展示四组前三榜单、数据日期、网络状态、立即刷新和 Swift Charts 趋势。
-- 开机先读取最后一次成功快照；离线或请求失败不会清空已有排名。
-- 自动刷新默认 30 分钟，可选 15 / 30 / 60 / 120 / 240 分钟，也可关闭。
-- 综合排名支持 0–100 整数权重；默认智商 50%、费用 25%、耗时 25%，合计必须为 100%。
-- 支持登录时启动；设置未移入 `/Applications` 的应用时会给出提示。
-- 无分析 SDK，不收集个人信息，不保存账号凭据。
+## 功能亮点
 
-## 系统与工程
+- 菜单栏用两行紧凑展示前两名，可切换智商、综合、费用或耗时指标。
+- 序号支持隐藏、`#1`、`1.`、`1、` 四种样式，并可选择是否显示详细数值。
+- 弹窗展示四组前三榜单；点击卡片可展开前五名，其余榜单自动收为摘要。
+- 模型名称支持悬停查看全名，趋势图使用 Swift Charts 绘制。
+- macOS 26+ 使用原生 Liquid Glass，macOS 14–15 自动回退为系统材质。
+- 启动时优先加载最后一次成功快照；离线或请求失败时不清空现有排名。
+- 默认每 30 分钟自动刷新，支持 15 / 30 / 60 / 120 / 240 分钟或关闭自动刷新。
+- 综合排名支持 0–100 整数权重；默认智商 50%、费用 25%、耗时 25%。
+- 支持登录时启动，不含分析 SDK，不收集个人信息或账号凭据。
 
-- macOS 14.0+
-- Swift 6 language mode；当前验证编译器为 Apple Swift 6.4
-- Xcode 27 beta 用于正式归档与 Universal 2 打包
-- SwiftUI、AppKit `NSStatusItem`、Swift Charts、Observation、URLSession、ServiceManagement
-- 不引入第三方运行时依赖
+## 安装
 
-Xcode 工程由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 的 `project.yml` 生成：
+1. 前往 [Releases](https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases) 下载最新 DMG 和对应的 `.sha256` 文件。
+2. 打开 DMG，将 **Show Codex IQ** 拖入 **Applications**。
+3. 从“应用程序”启动。应用只显示在菜单栏，不会出现在程序坞中。
+
+首个公开版本 `v0.1.0-beta.1` 使用免费的 ad-hoc 签名，尚未经过 Apple 公证。如果 macOS 阻止首次打开，请前往“系统设置 → 隐私与安全性”，在页面下方选择“仍要打开”。
+
+可在终端校验下载文件：
+
+```bash
+shasum -a 256 -c Show-Codex-IQ-0.1.0-beta.1-universal-portable.dmg.sha256
+```
+
+> [!WARNING]
+> 当前为预发布版本，界面、配置和数据结构仍可能调整。重要使用场景请先自行验证。
+
+## 系统要求
+
+- macOS 14.0 或更高版本
+- Apple Silicon 或 Intel Mac（Universal 2）
+- 访问 `https://codexradar.com/current.json` 的网络连接
+
+## 排名规则
+
+- 智商按高到低排序，费用和耗时按低到高排序；模型与推理强度的组合视为独立候选项。
+- 综合榜将三个单项名次换算为百分位分数，并列项使用平均名次；只有一个候选项时记 100 分。
+- 综合分同分时依次比较智商、费用、耗时和稳定 model id。
+- 缺少某项指标的模型只会从对应单项榜排除；进入综合榜需要三项指标完整。
+
+## 数据与隐私
+
+应用仅请求 `https://codexradar.com/current.json`，不抓取网页 HTML。请求包含缓存验证器，重复刷新会被合并。
+
+本地数据存放于：
+
+```text
+~/Library/Application Support/ShowCodexIQ/
+```
+
+其中只包含最后一次成功快照、HTTP 缓存验证器，以及安装后累积的费用趋势。应用不会补造数据源未提供的历史费用。字段、刷新策略和授权状态详见 [docs/data-source.md](docs/data-source.md)。
+
+## 本地开发
+
+项目使用 SwiftUI、AppKit `NSStatusItem`、Swift Charts、Observation、URLSession 和 ServiceManagement，不包含第三方运行时依赖。Xcode 工程由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 的 `project.yml` 生成。
 
 ```bash
 brew install xcodegen
@@ -30,17 +78,19 @@ xcodegen generate
 open ShowCodexIQ.xcodeproj
 ```
 
-## 验证与测试
+当前工程使用 Swift 6 language mode；正式归档和 macOS 26 API 验证需要 Xcode 27 或兼容版本。
 
-核心验证器不依赖 Xcode，覆盖解码、排名、自定义权重、趋势、缓存、设置与 repository 状态：
+### 测试
 
 ```bash
 swift run CoreVerification
+swift test
 ```
 
-完整 XCTest 使用 Xcode 运行：
+完整 Xcode 测试：
 
 ```bash
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
 xcodebuild \
   -project ShowCodexIQ.xcodeproj \
   -scheme ShowCodexIQ \
@@ -49,53 +99,41 @@ xcodebuild \
   test
 ```
 
-## 打包
-
-正式 beta 打包脚本显式使用 `/Applications/Xcode-beta.app`，生成 `arm64 + x86_64` 的 ad-hoc 签名 DMG 和 SHA-256 文件：
+### 打包与校验
 
 ```bash
+# Xcode 归档构建
 bash scripts/build_dmg.sh
-```
 
-如果当前机器只有 Swift 6.4 Command Line Tools，可交叉编译用于验证的 Universal 2 便携构建：
-
-```bash
+# 便携 Universal 2 构建
 bash scripts/build_portable_dmg.sh
-```
 
-可重复检查 DMG 的校验值、签名、内容和双架构：
-
-```bash
+# 校验版本、签名、内容、校验值和双架构
 bash scripts/verify_dmg.sh dist/Show-Codex-IQ-0.1.0-beta.1-universal-portable.dmg
 ```
 
-`dist/` 和 DMG 被 Git 忽略，本 beta 不创建公开 GitHub Release。
+`dist/` 与安装包不会提交到 Git；它们只作为 GitHub Release 附件发布。
 
-## 首次打开
+## 版本与发布
 
-`0.1.0-beta.1` 是免费 ad-hoc 签名、未经 Apple 公证的 beta。将应用拖入 Applications 后，如果 macOS 拦截启动，请前往“系统设置 → 隐私与安全性”，在页面下方点击“仍要打开”。这是当前免费分发方案的预期提示。
+项目遵循 [Semantic Versioning 2.0.0](https://semver.org/lang/zh-CN/)：
 
-## 排名规则
+- `MAJOR`：不兼容的行为或公开接口变更。
+- `MINOR`：向后兼容的新功能。
+- `PATCH`：向后兼容的问题修复。
+- `alpha.N`、`beta.N`、`rc.N`：对应阶段的预发布版本。
 
-- 智商降序，费用和耗时升序；模型与推理强度组合视为独立候选项。
-- 综合榜先将三个单项名次转为百分位分数，并列使用平均名次；只有一个候选项时记 100 分。
-- 同分依次比较智商、费用、耗时和稳定 model id。
-- 缺少某个指标的项仅从相应榜单排除；综合榜需要三项完整。
+完整版本、Apple 营销版本和构建号统一维护在 `Sources/ShowCodexIQ/Config/Version.xcconfig`。每次发布必须同步更新 [CHANGELOG.md](CHANGELOG.md)，创建 `v<版本号>` 标签，并发布对应 GitHub Release。具体流程见 [docs/releasing.md](docs/releasing.md)。
 
-## 数据来源与授权
+## 参与贡献
 
-**数据来自 Codex 雷达 [codexradar.com](https://codexradar.com/)。** 应用只请求 `https://codexradar.com/current.json`，不抓取 HTML。
-
-该公开 JSON 当前的 `api_access` 声明指出，完整 API 与二次开发使用需授权。本项目与 Codex 雷达无官方隶属关系；个人或小范围验证之外的分发、公开发布或商业使用，应先向数据源方确认授权。详见 [docs/data-source.md](docs/data-source.md)。
-
-## 隐私
-
-应用只在 `~/Library/Application Support/ShowCodexIQ/` 保存最后一次成功快照、HTTP 缓存验证器和安装后累积的费用历史。费用历史不伪造网站未提供的旧数据。
+欢迎提交 Issue 和 Pull Request。开始前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并确保核心验证器与测试全部通过。
 
 ## 致谢
 
-菜单栏的左侧图标 + 右侧两行信息层级参考了 MIT 许可的 [debugtheworldbot/keyStats](https://github.com/debugtheworldbot/keyStats)。
+- 排名数据由 [Codex 雷达](https://codexradar.com/) 提供。
+- 菜单栏的左侧图标与右侧两行信息层级参考了 MIT 许可的 [debugtheworldbot/keyStats](https://github.com/debugtheworldbot/keyStats)。
 
-## License
+## 许可
 
-MIT
+项目代码采用 [MIT License](LICENSE) 发布。第三方数据仍受其来源方条款约束。

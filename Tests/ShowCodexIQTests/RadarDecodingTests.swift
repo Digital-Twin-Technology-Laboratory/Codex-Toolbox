@@ -4,7 +4,7 @@ import XCTest
 
 final class RadarDecodingTests: XCTestCase {
     func testDecodesCurrentSchemaAndIgnoresUnknownFields() throws {
-        let data = try Data(contentsOf: fixtureURL("current-v2.json"))
+        let data = try Data(contentsOf: try fixtureURL("current-v2.json"))
         let response = try JSONDecoder().decode(RadarResponse.self, from: data)
 
         XCTAssertEqual(response.schemaVersion, "2.0")
@@ -35,10 +35,19 @@ final class RadarDecodingTests: XCTestCase {
         XCTAssertEqual(response.benchmarks[0].latest?.wallSeconds, 42)
     }
 
-    private func fixtureURL(_ name: String) -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures", isDirectory: true)
-            .appendingPathComponent(name)
+    private func fixtureURL(_ name: String) throws -> URL {
+        #if SWIFT_PACKAGE
+        let url = Bundle.module.url(
+            forResource: name,
+            withExtension: nil,
+            subdirectory: "Fixtures"
+        )
+        #else
+        let url = Bundle(for: Self.self).url(forResource: name, withExtension: nil)
+        #endif
+        guard let url else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return url
     }
 }

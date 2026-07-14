@@ -44,7 +44,7 @@ struct StatusHeaderView: View {
                     Image(systemName: "arrow.clockwise")
                 }
             }
-            .buttonStyle(.bordered)
+            .adaptiveGlassControlStyle()
             .controlSize(.small)
             .disabled(appModel.isRefreshing)
             .help("立即刷新")

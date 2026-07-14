@@ -21,7 +21,7 @@ let package = Package(
         .testTarget(
             name: "ShowCodexIQTests",
             dependencies: ["ShowCodexIQCore"],
-            exclude: ["Fixtures"]
+            resources: [.copy("Fixtures")]
         )
     ]
 )

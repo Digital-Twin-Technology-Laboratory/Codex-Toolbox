@@ -33,7 +33,7 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) {
 
 require(AppMetadata.displayName == "Show Codex IQ", "display name")
 require(AppMetadata.bundleIdentifier == "io.github.zzzzzzjw.ShowCodexIQ", "bundle identifier")
-require(AppMetadata.version == "0.1.0-beta.1", "version")
+require(!AppMetadata.version.isEmpty && !AppMetadata.version.contains("$("), "version")
 
 let fixtureURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     .appendingPathComponent("Tests/ShowCodexIQTests/Fixtures/current-v2.json")
@@ -60,9 +60,18 @@ let settingsVerified = await MainActor.run {
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     let settings = AppSettings(defaults: defaults)
+    let compactMenuBarDefaults = settings.menuBarRankStyle == .hidden && !settings.showsMenuBarDetails
+    settings.menuBarRankStyle = .period
+    settings.showsMenuBarDetails = true
+    let menuBarPreferencesPersist = AppSettings(defaults: defaults).menuBarRankStyle == .period
+        && AppSettings(defaults: defaults).showsMenuBarDetails
     let rejectedInvalid = !settings.apply(weights: RankingWeights(iq: 80, cost: 20, duration: 20))
     let acceptedValid = settings.apply(weights: RankingWeights(iq: 70, cost: 20, duration: 10))
-    return rejectedInvalid && acceptedValid && settings.rankingWeights.iq == 70
+    return compactMenuBarDefaults
+        && menuBarPreferencesPersist
+        && rejectedInvalid
+        && acceptedValid
+        && settings.rankingWeights.iq == 70
 }
 require(settingsVerified, "settings validation")
 

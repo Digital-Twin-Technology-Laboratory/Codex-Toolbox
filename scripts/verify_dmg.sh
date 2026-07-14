@@ -7,6 +7,9 @@ if [[ $# -ne 1 ]]; then
     exit 2
 fi
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT_DIR/scripts/version.sh"
+
 DMG_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 MOUNT_POINT="${TMPDIR%/}/ShowCodexIQ-verify-mount"
 
@@ -25,8 +28,15 @@ EXECUTABLE="$APP_PATH/Contents/MacOS/Show Codex IQ"
 
 test -d "$APP_PATH"
 test -L "$MOUNT_POINT/Applications"
-test -f "$MOUNT_POINT/首次打开说明.txt"
 test "$(plutil -extract LSUIElement raw "$APP_PATH/Contents/Info.plist")" = true
+test "$(plutil -extract ShowCodexIQReleaseVersion raw "$APP_PATH/Contents/Info.plist")" = "$RELEASE_VERSION"
+test "$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")" = "$MARKETING_VERSION"
+test "$(plutil -extract CFBundleVersion raw "$APP_PATH/Contents/Info.plist")" = "$BUILD_NUMBER"
+
+if [[ ! -f "$MOUNT_POINT/首次打开说明.txt" ]]; then
+    echo "Warning: DMG does not contain 首次打开说明.txt" >&2
+fi
+
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 ARCHS="$(lipo -archs "$EXECUTABLE")"

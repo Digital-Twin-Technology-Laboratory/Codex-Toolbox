@@ -22,6 +22,21 @@ final class StatusItemController: NSObject {
             self?.togglePopover()
         }
         statusItem.view = statusView
+        updateStatusItemLength()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsDidChange),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func settingsDidChange() {
+        updateStatusItemLength()
+    }
+
+    private func updateStatusItemLength() {
+        statusView.invalidateIntrinsicContentSize()
         statusItem.length = statusView.intrinsicContentSize.width
     }
 
@@ -48,13 +63,15 @@ final class StatusItemController: NSObject {
 @MainActor
 private final class MenuBarStatusView: NSView {
     var onClick: (() -> Void)?
+    private let appModel: AppModel
 
     init(appModel: AppModel) {
-        super.init(frame: NSRect(x: 0, y: 0, width: 128, height: 22))
+        self.appModel = appModel
+        super.init(frame: NSRect(x: 0, y: 0, width: 94, height: 22))
 
         let hostingView = NSHostingView(
             rootView: MenuBarLabel(appModel: appModel)
-                .frame(width: 128, height: 22)
+                .frame(height: 22)
                 .contentShape(Rectangle())
                 .allowsHitTesting(false)
         )
@@ -78,7 +95,14 @@ private final class MenuBarStatusView: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        NSSize(width: 128, height: 22)
+        var width: CGFloat = 94
+        if appModel.settings.menuBarRankStyle != .hidden {
+            width += 14
+        }
+        if appModel.settings.showsMenuBarDetails {
+            width += 38
+        }
+        return NSSize(width: width, height: 22)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {

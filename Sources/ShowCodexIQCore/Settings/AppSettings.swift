@@ -21,6 +21,33 @@ public enum RefreshInterval: Int, Codable, CaseIterable, Identifiable, Sendable 
     }
 }
 
+public enum MenuBarRankStyle: String, Codable, CaseIterable, Identifiable, Sendable {
+    case hidden
+    case hash
+    case period
+    case ideographicComma
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .hidden: "不显示"
+        case .hash: "#1"
+        case .period: "1."
+        case .ideographicComma: "1、"
+        }
+    }
+
+    public func prefix(for position: Int) -> String {
+        switch self {
+        case .hidden: ""
+        case .hash: "#\(position) "
+        case .period: "\(position). "
+        case .ideographicComma: "\(position)、"
+        }
+    }
+}
+
 @MainActor
 @Observable
 public final class AppSettings {
@@ -30,6 +57,14 @@ public final class AppSettings {
 
     public var automaticRefreshEnabled: Bool {
         didSet { defaults.set(automaticRefreshEnabled, forKey: Keys.automaticRefreshEnabled) }
+    }
+
+    public var menuBarRankStyle: MenuBarRankStyle {
+        didSet { defaults.set(menuBarRankStyle.rawValue, forKey: Keys.menuBarRankStyle) }
+    }
+
+    public var showsMenuBarDetails: Bool {
+        didSet { defaults.set(showsMenuBarDetails, forKey: Keys.showsMenuBarDetails) }
     }
 
     public var refreshInterval: RefreshInterval {
@@ -48,6 +83,10 @@ public final class AppSettings {
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         menuBarMetric = RankingMetric(rawValue: defaults.string(forKey: Keys.menuBarMetric) ?? "") ?? .iq
+        menuBarRankStyle = MenuBarRankStyle(
+            rawValue: defaults.string(forKey: Keys.menuBarRankStyle) ?? ""
+        ) ?? .hidden
+        showsMenuBarDetails = defaults.bool(forKey: Keys.showsMenuBarDetails)
 
         if defaults.object(forKey: Keys.automaticRefreshEnabled) == nil {
             automaticRefreshEnabled = true
@@ -82,6 +121,8 @@ public final class AppSettings {
 
     private enum Keys {
         static let menuBarMetric = "menuBarMetric"
+        static let menuBarRankStyle = "menuBarRankStyle"
+        static let showsMenuBarDetails = "showsMenuBarDetails"
         static let automaticRefreshEnabled = "automaticRefreshEnabled"
         static let refreshInterval = "refreshIntervalMinutes"
         static let iqWeight = "rankingWeightIQ"
