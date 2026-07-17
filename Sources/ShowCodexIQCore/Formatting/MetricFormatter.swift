@@ -1,7 +1,10 @@
 import Foundation
 
 public enum MetricFormatter {
-    public static func benchmarkDateLabel(_ dateKey: String) -> String {
+    public static func benchmarkDateLabel(
+        _ dateKey: String,
+        includesDetailedTime: Bool = true
+    ) -> String {
         let value = dateKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard value.count >= 10 else { return dateKey }
 
@@ -13,13 +16,22 @@ public enum MetricFormatter {
         guard let separator = remainder.first else { return date }
 
         if separator == "T" || separator == "t" || separator == " " {
-            let hourText = remainder.dropFirst().prefix(2)
-            guard hourText.count == 2,
-                  let hour = Int(hourText),
-                  (0..<24).contains(hour) else {
+            guard let time = clockComponents(in: remainder) else {
                 return date
             }
-            return "\(date) · \(hour < 12 ? "AM" : "PM")"
+
+            let session = time.hour < 12 ? "AM" : "PM"
+            guard includesDetailedTime else {
+                return "\(date) · \(session)"
+            }
+
+            let detailedTime = String(
+                format: "%02d:%02d:%02d",
+                time.hour,
+                time.minute,
+                time.second
+            )
+            return "\(date) · \(detailedTime)"
         }
 
         if separator == "-" {
@@ -94,6 +106,29 @@ public enum MetricFormatter {
             }
         }
         return true
+    }
+
+    private static func clockComponents(
+        in remainder: Substring
+    ) -> (hour: Int, minute: Int, second: Int)? {
+        let clock = String(remainder.dropFirst().prefix(8))
+        guard clock.count == 8 else { return nil }
+
+        let components = clock.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 3,
+              components[0].count == 2,
+              components[1].count == 2,
+              components[2].count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]),
+              let second = Int(components[2]),
+              (0..<24).contains(hour),
+              (0..<60).contains(minute),
+              (0..<60).contains(second) else {
+            return nil
+        }
+
+        return (hour, minute, second)
     }
 
     private static func formatNumber(

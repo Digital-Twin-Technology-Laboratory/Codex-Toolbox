@@ -16,6 +16,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.showsMenuBarDetails)
         XCTAssertTrue(settings.menuBarModelAliases.isEmpty)
         XCTAssertTrue(settings.showsTrendChart)
+        XCTAssertTrue(settings.showsDetailedBenchmarkTime)
         XCTAssertTrue(settings.automaticRefreshEnabled)
         XCTAssertEqual(settings.refreshInterval, .thirtyMinutes)
         XCTAssertEqual(settings.rankingWeights, .default)
@@ -34,6 +35,7 @@ final class AppSettingsTests: XCTestCase {
         settings.showsMenuBarIcon = false
         settings.showsMenuBarDetails = true
         settings.showsTrendChart = false
+        settings.showsDetailedBenchmarkTime = false
         settings.setMenuBarModelAlias("  Sol xh  ", for: "gpt_56_sol_xhigh")
 
         let restored = AppSettings(defaults: defaults)
@@ -41,6 +43,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(restored.showsMenuBarIcon)
         XCTAssertTrue(restored.showsMenuBarDetails)
         XCTAssertFalse(restored.showsTrendChart)
+        XCTAssertFalse(restored.showsDetailedBenchmarkTime)
         XCTAssertEqual(restored.menuBarRankStyle.prefix(for: 2), "2、")
         XCTAssertEqual(restored.menuBarModelAlias(for: "gpt_56_sol_xhigh"), "Sol xh")
         XCTAssertEqual(

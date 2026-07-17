@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.6.2] - 2026-07-17
+
+### Added
+
+- 设置中新增“显示数据详细时间”开关，默认开启；关闭后恢复 `YYYY-MM-DD · AM/PM` 简洁格式。
+
+### Changed
+
+- 弹窗默认以 `YYYY-MM-DD · HH:mm:ss` 24 小时制展示 Codex 雷达数据时间，同时隐藏 ISO 8601 中的 `T` 和时区偏移。
+
 ## [0.1.0-beta.6.1] - 2026-07-17
 
 ### Fixed
@@ -130,7 +140,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6.1...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6.2...HEAD
+[0.1.0-beta.6.2]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6.1...v0.1.0-beta.6.2
 [0.1.0-beta.6.1]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6...v0.1.0-beta.6.1
 [0.1.0-beta.6]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.5...v0.1.0-beta.6
 [0.1.0-beta.5]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.4...v0.1.0-beta.5

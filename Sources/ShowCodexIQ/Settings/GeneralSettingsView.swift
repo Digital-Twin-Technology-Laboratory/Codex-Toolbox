@@ -52,6 +52,8 @@ struct GeneralSettingsView: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("打开模型名称简称设置")
 
+                Toggle("显示数据详细时间", isOn: showsDetailedBenchmarkTimeBinding)
+                    .help("关闭后仅显示 YYYY-MM-DD · AM/PM")
                 Toggle("显示展开面板趋势图", isOn: showsTrendChartBinding)
             }
 
@@ -157,6 +159,13 @@ struct GeneralSettingsView: View {
         Binding(
             get: { appModel.settings.showsTrendChart },
             set: { appModel.settings.showsTrendChart = $0 }
+        )
+    }
+
+    private var showsDetailedBenchmarkTimeBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.showsDetailedBenchmarkTime },
+            set: { appModel.settings.showsDetailedBenchmarkTime = $0 }
         )
     }
 

@@ -46,7 +46,12 @@ struct StatusHeaderView: View {
                         .foregroundStyle(.secondary)
 
                     if let date = appModel.latestBenchmarkDate {
-                        Text(MetricFormatter.benchmarkDateLabel(date))
+                        Text(
+                            MetricFormatter.benchmarkDateLabel(
+                                date,
+                                includesDetailedTime: appModel.settings.showsDetailedBenchmarkTime
+                            )
+                        )
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .monospacedDigit()
                     } else {

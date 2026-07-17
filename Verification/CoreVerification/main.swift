@@ -55,8 +55,15 @@ require(MetricFormatter.detailValue(82.25, metric: .overall) == "82.3", "stable 
 require(MetricFormatter.menuBarValue(5_103, metric: .duration) == "1.4h", "duration formatting")
 require(MetricFormatter.compactModelName("GPT-5.6 Sol xhigh") == "5.6 Sol xh", "compact model name")
 require(
-    MetricFormatter.benchmarkDateLabel("2026-07-17T13:03:49+08:00") == "2026-07-17 · PM",
+    MetricFormatter.benchmarkDateLabel("2026-07-17T13:03:49+08:00") == "2026-07-17 · 13:03:49",
     "ISO benchmark date"
+)
+require(
+    MetricFormatter.benchmarkDateLabel(
+        "2026-07-17T13:03:49+08:00",
+        includesDetailedTime: false
+    ) == "2026-07-17 · PM",
+    "compact benchmark date"
 )
 
 let settingsVerified = await MainActor.run {
@@ -64,11 +71,15 @@ let settingsVerified = await MainActor.run {
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     let settings = AppSettings(defaults: defaults)
-    let compactMenuBarDefaults = settings.menuBarRankStyle == .hidden && !settings.showsMenuBarDetails
+    let compactMenuBarDefaults = settings.menuBarRankStyle == .hidden
+        && !settings.showsMenuBarDetails
+        && settings.showsDetailedBenchmarkTime
     settings.menuBarRankStyle = .period
     settings.showsMenuBarDetails = true
+    settings.showsDetailedBenchmarkTime = false
     let menuBarPreferencesPersist = AppSettings(defaults: defaults).menuBarRankStyle == .period
         && AppSettings(defaults: defaults).showsMenuBarDetails
+        && !AppSettings(defaults: defaults).showsDetailedBenchmarkTime
     let rejectedInvalid = !settings.apply(weights: RankingWeights(iq: 80, cost: 20, duration: 20))
     let acceptedValid = settings.apply(weights: RankingWeights(iq: 70, cost: 20, duration: 10))
     return compactMenuBarDefaults
