@@ -1,4 +1,4 @@
-name: ShowCodexIQ
+name: CodexToolbox
 options:
   bundleIdPrefix: io.github.zzzzzzjw
   deploymentTarget:
@@ -17,65 +17,66 @@ configs:
   Debug: debug
   Release: release
 targets:
-  ShowCodexIQCore:
+  CodexToolboxCore:
     type: library.static
     platform: macOS
     sources:
-      - path: Sources/ShowCodexIQCore
+      - path: Sources/CodexToolboxCore
     settings:
       base:
-        PRODUCT_NAME: ShowCodexIQCore
+        PRODUCT_NAME: CodexToolboxCore
         DEFINES_MODULE: YES
-  ShowCodexIQ:
+        OTHER_LDFLAGS: -lsqlite3
+  CodexToolbox:
     type: application
     platform: macOS
     configFiles:
-      Debug: Sources/ShowCodexIQ/Config/Version.xcconfig
-      Release: Sources/ShowCodexIQ/Config/Version.xcconfig
+      Debug: Sources/CodexToolbox/Config/Version.xcconfig
+      Release: Sources/CodexToolbox/Config/Version.xcconfig
     sources:
-      - path: Sources/ShowCodexIQ
+      - path: Sources/CodexToolbox
         excludes:
           - Config/Info.plist
     resources:
-      - path: Sources/ShowCodexIQ/Resources
+      - path: Sources/CodexToolbox/Resources
     info:
-      path: Sources/ShowCodexIQ/Config/Info.plist
+      path: Sources/CodexToolbox/Config/Info.plist
       properties:
         CFBundleDisplayName: $(PRODUCT_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.utilities
         LSUIElement: true
-        ShowCodexIQReleaseVersion: $(SHOW_CODEX_IQ_RELEASE_VERSION)
+        CodexToolboxReleaseVersion: $(CODEX_TOOLBOX_RELEASE_VERSION)
     dependencies:
-      - target: ShowCodexIQCore
+      - target: CodexToolboxCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQ
-        PRODUCT_NAME: Show Codex IQ
+        PRODUCT_NAME: Codex Toolbox
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: YES
-        ASSETCATALOG_COMPILER_APPICON_NAME: ShowCodexIQIcon
-  ShowCodexIQTests:
+        ASSETCATALOG_COMPILER_APPICON_NAME: CodexToolboxIcon
+  CodexToolboxTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: Tests/ShowCodexIQTests
+      - path: Tests/CodexToolboxTests
     resources:
-      - path: Tests/ShowCodexIQTests/Fixtures
+      - path: Tests/CodexToolboxTests/Fixtures
     dependencies:
-      - target: ShowCodexIQCore
+      - target: CodexToolboxCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.ShowCodexIQTests
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.CodexToolboxTests
         GENERATE_INFOPLIST_FILE: YES
 schemes:
-  ShowCodexIQ:
+  CodexToolbox:
     build:
       targets:
-        ShowCodexIQ: all
-        ShowCodexIQTests: [test]
+        CodexToolbox: all
+        CodexToolboxTests: [test]
     test:
       targets:
-        - ShowCodexIQTests
+        - CodexToolboxTests

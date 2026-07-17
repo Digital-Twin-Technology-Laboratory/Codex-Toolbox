@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -euo pipefail
+
+TARGET_VOLUME="${2:-/}"
+TARGET_PREFIX="${TARGET_VOLUME%/}"
+OLD_APP="$TARGET_PREFIX/Applications/Show Codex IQ.app"
+NEW_APP="$TARGET_PREFIX/Applications/Codex Toolbox.app"
+BUNDLE_ID="io.github.zzzzzzjw.ShowCodexIQ"
+
+bundle_id_at_path() {
+    /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true
+}
+
+if [[ ! -d "$NEW_APP" || -L "$NEW_APP" ]]; then
+    echo "Codex Toolbox installer: the installed app is missing or is a symbolic link." >&2
+    exit 1
+fi
+
+if [[ "$(bundle_id_at_path "$NEW_APP")" != "$BUNDLE_ID" ]]; then
+    echo "Codex Toolbox installer: installed bundle identifier did not match." >&2
+    exit 1
+fi
+
+/usr/bin/codesign --verify --deep --strict --verbose=2 "$NEW_APP"
+
+EXECUTABLE="$NEW_APP/Contents/MacOS/Codex Toolbox"
+ARCHITECTURES="$(/usr/bin/lipo -archs "$EXECUTABLE")"
+if [[ "$ARCHITECTURES" != *arm64* || "$ARCHITECTURES" != *x86_64* ]]; then
+    echo "Codex Toolbox installer: expected a Universal 2 executable, found $ARCHITECTURES." >&2
+    exit 1
+fi
+
+# Delete only the exact legacy path after every new-app check has succeeded.
+if [[ -d "$OLD_APP" && ! -L "$OLD_APP" && "$(bundle_id_at_path "$OLD_APP")" == "$BUNDLE_ID" ]]; then
+    /bin/rm -rf -- "$OLD_APP"
+fi
+
+exit 0

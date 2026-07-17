@@ -1,4 +1,6 @@
-Show Codex IQ 首次打开说明
+Show Codex IQ 历史 beta DMG 首次打开说明
+
+此文件仅对旧 beta DMG 有效。Codex Toolbox v1.0.0 起请使用已签名、已公证的 PKG。
 
 1. 将“Show Codex IQ”拖入旁边的 Applications（应用程序）。
 2. 在“应用程序”中打开 Show Codex IQ。

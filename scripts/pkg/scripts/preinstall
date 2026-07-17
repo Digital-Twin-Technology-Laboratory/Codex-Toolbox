@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -euo pipefail
+
+TARGET_VOLUME="${2:-/}"
+TARGET_PREFIX="${TARGET_VOLUME%/}"
+OLD_APP="$TARGET_PREFIX/Applications/Show Codex IQ.app"
+NEW_APP="$TARGET_PREFIX/Applications/Codex Toolbox.app"
+BUNDLE_ID="io.github.zzzzzzjw.ShowCodexIQ"
+
+bundle_id_at_path() {
+    /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true
+}
+
+is_running() {
+    local executable="$1"
+    /usr/bin/pgrep -f -x "$executable" >/dev/null 2>&1
+}
+
+OLD_EXECUTABLE="$OLD_APP/Contents/MacOS/Show Codex IQ"
+NEW_EXECUTABLE="$NEW_APP/Contents/MacOS/Codex Toolbox"
+
+if [[ -d "$OLD_APP" && ! -L "$OLD_APP" && "$(bundle_id_at_path "$OLD_APP")" == "$BUNDLE_ID" ]] \
+    || [[ -d "$NEW_APP" && ! -L "$NEW_APP" && "$(bundle_id_at_path "$NEW_APP")" == "$BUNDLE_ID" ]]; then
+    if is_running "$OLD_EXECUTABLE" || is_running "$NEW_EXECUTABLE"; then
+        /usr/bin/osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
+
+        for _ in {1..15}; do
+            if ! is_running "$OLD_EXECUTABLE" && ! is_running "$NEW_EXECUTABLE"; then
+                exit 0
+            fi
+            /bin/sleep 1
+        done
+
+        echo "Codex Toolbox installer: the existing app did not quit within 15 seconds." >&2
+        echo "Quit the app from the menu bar, then run the installer again." >&2
+        exit 1
+    fi
+fi
+
+exit 0

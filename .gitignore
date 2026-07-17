@@ -6,4 +6,5 @@ dist/
 *.xcuserstate
 xcuserdata/
 *.dmg
+*.pkg
 *.sha256

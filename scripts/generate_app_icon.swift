@@ -58,13 +58,13 @@ private func writePNG(_ image: CGImage, to url: URL) throws {
 let scriptURL = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
 let repositoryRoot = scriptURL.deletingLastPathComponent().deletingLastPathComponent()
 let sourceURL = repositoryRoot
-    .appendingPathComponent("design/icon-concepts/codex-radar-terminal-b.svg")
+    .appendingPathComponent("design/icon-concepts/codex-toolbox.svg")
 let masterURL = repositoryRoot
-    .appendingPathComponent("design/icon-composer/ShowCodexIQ-legacy-1024.png")
+    .appendingPathComponent("design/icon-composer/CodexToolbox-legacy-1024.png")
 let previewURL = repositoryRoot
-    .appendingPathComponent("design/icon-concepts/codex-radar-terminal-b-preview.png")
+    .appendingPathComponent("design/icon-concepts/codex-toolbox-preview.png")
 let outputDirectory = repositoryRoot
-    .appendingPathComponent("design/icon-composer/ShowCodexIQLegacy.iconset", isDirectory: true)
+    .appendingPathComponent("design/icon-composer/CodexToolboxLegacy.iconset", isDirectory: true)
 
 let renderer = Process()
 renderer.executableURL = URL(fileURLWithPath: "/usr/bin/sips")

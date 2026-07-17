@@ -1,4 +1,6 @@
-# CodexRadar 数据源说明
+# Codex Toolbox 数据源说明
+
+本文档主要记录模型智商模块的 Codex Radar 来源。Token 与重置卡的只读边界见 [privacy.md](privacy.md)。
 
 ## 请求范围
 

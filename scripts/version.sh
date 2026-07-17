@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-VERSION_CONFIG="$ROOT_DIR/Sources/ShowCodexIQ/Config/Version.xcconfig"
+VERSION_CONFIG="$ROOT_DIR/Sources/CodexToolbox/Config/Version.xcconfig"
 
 read_setting() {
     local key="$1"
@@ -21,13 +21,13 @@ read_setting() {
     ' "$VERSION_CONFIG"
 }
 
-RELEASE_VERSION="$(read_setting SHOW_CODEX_IQ_RELEASE_VERSION)"
+RELEASE_VERSION="$(read_setting CODEX_TOOLBOX_RELEASE_VERSION)"
 MARKETING_VERSION="$(read_setting MARKETING_VERSION)"
 BUILD_NUMBER="$(read_setting CURRENT_PROJECT_VERSION)"
 
 semver_pattern='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 if [[ ! "$RELEASE_VERSION" =~ $semver_pattern ]]; then
-    echo "Invalid SHOW_CODEX_IQ_RELEASE_VERSION: $RELEASE_VERSION" >&2
+    echo "Invalid CODEX_TOOLBOX_RELEASE_VERSION: $RELEASE_VERSION" >&2
     exit 1
 fi
 

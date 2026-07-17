@@ -1,5 +1,5 @@
 import Foundation
-import ShowCodexIQCore
+import CodexToolboxCore
 
 actor VerificationRadarClient: RadarClient {
     private let result: RadarFetchResult
@@ -31,12 +31,12 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) {
     }
 }
 
-require(AppMetadata.displayName == "Show Codex IQ", "display name")
+require(AppMetadata.displayName == "Codex Toolbox", "display name")
 require(AppMetadata.bundleIdentifier == "io.github.zzzzzzjw.ShowCodexIQ", "bundle identifier")
 require(!AppMetadata.version.isEmpty && !AppMetadata.version.contains("$("), "version")
 
 let fixtureURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    .appendingPathComponent("Tests/ShowCodexIQTests/Fixtures/current-v2.json")
+    .appendingPathComponent("Tests/CodexToolboxTests/Fixtures/current-v2.json")
 let fixture = try Data(contentsOf: fixtureURL)
 let response = try JSONDecoder().decode(RadarResponse.self, from: fixture)
 require(response.benchmarks.count == 3, "fixture benchmark count")
@@ -109,7 +109,7 @@ let snapshot = RadarSnapshot(
     validators: CacheValidators(etag: "fixture-etag", lastModified: "fixture-date")
 )
 let temporaryDirectory = FileManager.default.temporaryDirectory
-    .appendingPathComponent("ShowCodexIQ-\(UUID().uuidString)", isDirectory: true)
+    .appendingPathComponent("CodexToolbox-\(UUID().uuidString)", isDirectory: true)
 let diskStore = SnapshotStore(fileURL: temporaryDirectory.appendingPathComponent("latest.json"))
 let stored = StoredRadarState(
     snapshot: snapshot,

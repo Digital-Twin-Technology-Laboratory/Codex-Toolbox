@@ -24,13 +24,15 @@ jobs:
         run: xcodegen generate
 
       - name: Verify core
-        run: swift run CoreVerification
+        run: |
+          swift test
+          swift run CoreVerification
 
       - name: Run Xcode tests
         run: |
           xcodebuild \
-            -project ShowCodexIQ.xcodeproj \
-            -scheme ShowCodexIQ \
+            -project CodexToolbox.xcodeproj \
+            -scheme CodexToolbox \
             -destination 'platform=macOS' \
             ARCHS="$(uname -m)" \
             ONLY_ACTIVE_ARCH=YES \

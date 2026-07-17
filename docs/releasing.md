@@ -1,58 +1,85 @@
-# 发布指南
+# Codex Toolbox 发布指南
 
-Show Codex IQ 使用 [Semantic Versioning 2.0.0](https://semver.org/) 和 `v<版本号>` Git 标签。用户可见变更记录在根目录的 `CHANGELOG.md`，分类采用 Added、Changed、Deprecated、Removed、Fixed 和 Security。
+Codex Toolbox 使用 Semantic Versioning 和 `v<版本号>` 注释标签。v1.0.0 及以后只发布普通 GitHub Release，不标记 Pre-release。
 
-## 版本字段
+## 版本与固定附件名
 
-唯一版本配置位于 `Sources/ShowCodexIQ/Config/Version.xcconfig`：
+唯一版本源是 `Sources/CodexToolbox/Config/Version.xcconfig`：
 
-- `SHOW_CODEX_IQ_RELEASE_VERSION`：完整 SemVer，例如 `0.2.0-beta.1` 或 `1.0.0`。
-- `MARKETING_VERSION`：Apple `CFBundleShortVersionString`，只保留数字核心，例如 `0.2.0`。
-- `CURRENT_PROJECT_VERSION`：Apple `CFBundleVersion`，每次构建发布都必须递增的正整数。
+- `CODEX_TOOLBOX_RELEASE_VERSION`：完整 SemVer。
+- `MARKETING_VERSION`：`CFBundleShortVersionString` 的数字核心。
+- `CURRENT_PROJECT_VERSION`：单调递增的正整数构建号。
 
-预发布阶段依次使用 `alpha.N`、`beta.N`、`rc.N`。`0.y.z` 表示公开接口仍可能变化；稳定公开接口从 `1.0.0` 开始。已经发布的版本不得覆盖附件或重写标签，任何修改都发布为新版本。
+v1.0.0 附件固定为：
 
-## 每次发布
+```text
+Codex-Toolbox-1.0.0-universal.pkg
+Codex-Toolbox-1.0.0-universal.pkg.sha256
+```
 
-1. 在 `Version.xcconfig` 中更新完整版本、数字核心和构建号。
-2. 将 `CHANGELOG.md` 的 Unreleased 内容整理到带 ISO 日期的新版本标题下，并更新底部比较链接。
-3. 同步更新 `README.md`，确保功能亮点、界面截图、系统要求、安装/构建说明以及带版本号的命令和文件名都与本次版本一致。即使相关说明没有结构性变化，也必须检查并更新其中的当前版本引用；不得只更新 CHANGELOG 和 GitHub Release。
-4. 重新生成工程并检查版本配置：
+## 发布门禁
+
+下列条件任一未满足都不得发布：
+
+- `swift test`、`swift run CoreVerification` 和完整 Xcode 测试通过。
+- Release 应用是 arm64 + x86_64 Universal 2，CodexToolboxCore 保持静态链接。
+- 应用使用 Developer ID Application 签名并开启 Hardened Runtime。
+- PKG 使用 Developer ID Installer 签名。
+- Apple 公证成功，ticket 已 staple，`spctl --type install` 通过。
+- PKG 实际验证了 Bundle ID、版本、双架构、签名、安装脚本与 SHA-256。
+- 从最后一个 Show Codex IQ beta 升级后，只留下一个 Codex Toolbox，设置、榜单缓存与登录启动正常继承。
+- README、CHANGELOG、真实截图和 `docs/releases/v1.0.0.md` 与产物一致。
+- GitHub 仓库名为 `Digital-Twin-Technology-Laboratory/Codex-Toolbox`，本地 `origin` 指向新 URL。
+
+## 构建与测试
+
+```bash
+xcodegen generate
+bash scripts/version.sh
+
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
+xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift test \
+  --scratch-path /tmp/codex-toolbox-spm
+
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
+xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift run \
+  --scratch-path /tmp/codex-toolbox-spm CoreVerification
+
+DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
+TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault \
+xcodebuild -project CodexToolbox.xcodeproj -scheme CodexToolbox \
+  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+```
+
+没有证书时可运行 `bash scripts/build_pkg.sh` 生成本地测试 PKG。它使用 ad-hoc 应用签名和未签名安装器，仅用于验证打包结构，不能作为 Release 附件。
+
+## Developer ID 签名、公证与 staple
+
+先把 Developer ID Application、Developer ID Installer 证书导入钥匙串，再使用 `notarytool store-credentials` 创建钥匙串 profile。不要在仓库或 shell 历史中保存密码、API key 或 P8 内容。
+
+```bash
+APP_SIGN_IDENTITY='Developer ID Application: Team Name (TEAMID)' \
+INSTALLER_SIGN_IDENTITY='Developer ID Installer: Team Name (TEAMID)' \
+bash scripts/build_pkg.sh
+
+REQUIRE_DISTRIBUTION_SIGNATURE=1 \
+bash scripts/verify_pkg.sh dist/Codex-Toolbox-1.0.0-universal.pkg
+
+NOTARY_PROFILE='codex-toolbox-notary' \
+bash scripts/notarize_pkg.sh dist/Codex-Toolbox-1.0.0-universal.pkg
+```
+
+`notarize_pkg.sh` 会等待公证结果、staple ticket、验证 ticket、运行 `spctl --assess --type install`，然后重新生成 SHA-256。任一步失败即终止。
+
+## 提交、标签与普通 Release
+
+1. 提交全部源码、文档和生成工程，保持 `dist/` 不入 Git。
+2. 在签名、公证、升级 VM 和系统兼容矩阵全部通过后，才允许执行：
 
    ```bash
-   xcodegen generate
-   bash scripts/version.sh
+   ALLOW_GITHUB_RELEASE=YES bash scripts/release_github.sh
    ```
 
-5. 运行验证与测试：
+3. 脚本会重新执行签名、staple 和 Gatekeeper 门禁，确认本地 `main` 与 `origin/main` 没有分叉，推送 `main`，创建签名注释标签 `v1.0.0`，并创建不带 `--prerelease` 的普通 GitHub Release。
 
-   ```bash
-   swift run CoreVerification
-   swift test
-   DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-     xcodebuild -project ShowCodexIQ.xcodeproj -scheme ShowCodexIQ \
-     -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
-   ```
-
-6. 构建并校验 DMG。正式归档优先使用 `scripts/build_dmg.sh`；没有完整 Xcode 归档环境时，可使用 `scripts/build_portable_dmg.sh` 生成验证构建。两者必须共用 `scripts/package_dmg.sh` 生成安装布局；`scripts/verify_dmg.sh` 会检查背景与 Finder 布局、静态 Core、Hardened Runtime，并实际启动应用三秒。
-7. 提交发布变更，创建与完整版本一致的带注释标签并推送：
-
-   ```bash
-   git commit -m "chore(release): v0.2.0"
-   git tag -a v0.2.0 -m "Show Codex IQ v0.2.0"
-   git push origin main --follow-tags
-   ```
-
-8. 从对应的 `CHANGELOG.md` 章节编写 GitHub Release 说明，并上传 DMG 与 `.sha256`。预发布版本需要勾选 Pre-release：
-
-   ```bash
-   gh release create v0.2.0 \
-     dist/Show-Codex-IQ-0.2.0-universal.dmg \
-     dist/Show-Codex-IQ-0.2.0-universal.dmg.sha256 \
-     --title "Show Codex IQ v0.2.0" \
-     --notes-file /path/to/release-notes.md
-   ```
-
-9. 打开 Release 页面，确认版本标题、说明、附件、校验值和下载链接均正确；再次检查 README、CHANGELOG 与 Release 对用户可见变更的描述一致。发布后立即将 `CHANGELOG.md` 恢复为新的空 Unreleased 区段。
-
-内部测试版本可以只记录在 `CHANGELOG.md`，不创建 GitHub Release，也不附安装包。自 `v0.1.0-beta.1` 起，每个面向用户的版本都必须有对应标签、Release、更新说明、DMG 和 SHA-256 文件。
+已发布的标签与附件不得覆盖；任何修复使用新版本号。

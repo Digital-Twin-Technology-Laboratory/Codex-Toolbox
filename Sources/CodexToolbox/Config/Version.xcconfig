@@ -1,0 +1,6 @@
+// Full SemVer shown to users and used by Git tags / Release names.
+CODEX_TOOLBOX_RELEASE_VERSION = 1.0.0
+
+// Apple bundle versions: numeric marketing version and monotonic build number.
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 9

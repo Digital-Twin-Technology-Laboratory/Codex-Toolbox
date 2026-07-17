@@ -1,0 +1,46 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "04-terminal.svg",
+          "name" : "04-terminal"
+        },
+        {
+          "image-name" : "05-tools.svg",
+          "name" : "05-tools"
+        },
+        {
+          "image-name" : "03-codex-badge.svg",
+          "name" : "03-codex-badge"
+        },
+        {
+          "image-name" : "02-radar.svg",
+          "name" : "02-radar"
+        },
+        {
+          "image-name" : "01-background.svg",
+          "name" : "01-background"
+        }
+      ],
+      "name" : "Codex Toolbox",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

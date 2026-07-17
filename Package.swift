@@ -3,24 +3,27 @@
 import PackageDescription
 
 let package = Package(
-    name: "ShowCodexIQ",
+    name: "CodexToolbox",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .library(name: "ShowCodexIQCore", targets: ["ShowCodexIQCore"]),
+        .library(name: "CodexToolboxCore", targets: ["CodexToolboxCore"]),
         .executable(name: "CoreVerification", targets: ["CoreVerification"])
     ],
     targets: [
-        .target(name: "ShowCodexIQCore"),
+        .target(
+            name: "CodexToolboxCore",
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
         .executableTarget(
             name: "CoreVerification",
-            dependencies: ["ShowCodexIQCore"],
+            dependencies: ["CodexToolboxCore"],
             path: "Verification/CoreVerification"
         ),
         .testTarget(
-            name: "ShowCodexIQTests",
-            dependencies: ["ShowCodexIQCore"],
+            name: "CodexToolboxTests",
+            dependencies: ["CodexToolboxCore"],
             resources: [.copy("Fixtures")]
         )
     ]

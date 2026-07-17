@@ -6,6 +6,30 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-18
+
+### Added
+
+- 新增本机 Token 用量模块：逐流解析 Codex rollout，按根任务聚合当日 Top 3、其余任务和可配置天数趋势。
+- 新增带 schema 版本、文件偏移和累计 Token 检查点的原子 Usage Ledger，支持历史回填、增量更新、缺失标记与用户主动清除。
+- 新增账户重置卡模块，通过本机 Codex app-server 只读查询可用数量和脱敏过期详情，不保存 opaque ID，不发送 consume 请求。
+- 新增可隐藏、折叠、拖动排序和键盘排序的三模块看板，并为 Token、模型智商、重置卡提供独立设置。
+- 新增 Show Codex IQ 快照缓存迁移和登录启动项一次性重注册。
+- 新增具有精确旧应用迁移、Universal 2 检查、Developer ID 双签名、公证和 Gatekeeper 发布门禁的 PKG 工作流。
+
+### Changed
+
+- 产品、Swift 模块、Xcode 工程和仓库统一更名为 Codex Toolbox，同时保留 `io.github.zzzzzzjw.ShowCodexIQ` Bundle ID 和原 UserDefaults 键。
+- 模型排名成为 Codex Toolbox 的首个模块，原有榜单、别名、趋势、权重和菜单栏展示全部保留。
+- 交互控件改为真正的可键盘操作 `Button`，统一为无弹跳临界阻尼动效、140ms 按压反馈与 Reduced Motion 交叉淡化。
+- 应用图标在原有 Codex/终端/雷达基底中加入低对比交叉扳手与锯子图层，同步提供 Icon Composer 分层源和扁平回退图标。
+- 正式发布附件从 DMG 改为已签名、公证并 staple 的 `Codex-Toolbox-1.0.0-universal.pkg`。
+
+### Fixed
+
+- 单一数据源失败不再影响其他看板模块或最后一次成功缓存。
+- 使用累计 Token 去重，避免重复事件、cached input 和 reasoning output 被重复计算。
+
 ## [0.1.0-beta.6.2] - 2026-07-17
 
 ### Added
@@ -140,12 +164,13 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6.2...HEAD
-[0.1.0-beta.6.2]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6.1...v0.1.0-beta.6.2
-[0.1.0-beta.6.1]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.6...v0.1.0-beta.6.1
-[0.1.0-beta.6]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.5...v0.1.0-beta.6
-[0.1.0-beta.5]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/compare/v0.1.0-beta.4...v0.1.0-beta.5
-[0.1.0-beta.4]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.4
-[0.1.0-beta.3]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.3
-[0.1.0-beta.2]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.2
-[0.1.0-beta.1]: https://github.com/Digital-Twin-Technology-Laboratory/Show-Codex-IQ/releases/tag/v0.1.0-beta.1
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.2...v1.0.0
+[0.1.0-beta.6.2]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.1...v0.1.0-beta.6.2
+[0.1.0-beta.6.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6...v0.1.0-beta.6.1
+[0.1.0-beta.6]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.5...v0.1.0-beta.6
+[0.1.0-beta.5]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.4...v0.1.0-beta.5
+[0.1.0-beta.4]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v0.1.0-beta.4
+[0.1.0-beta.3]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v0.1.0-beta.3
+[0.1.0-beta.2]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v0.1.0-beta.2
+[0.1.0-beta.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v0.1.0-beta.1
