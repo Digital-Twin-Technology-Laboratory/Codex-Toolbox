@@ -96,11 +96,19 @@ struct TokenUsageModuleView: View {
                         HStack {
                             Text("其余任务")
                             Spacer()
-                            Text(format(remainingTokens)).monospacedDigit()
+                            Text(usageAndQuotaText(tokens: remainingTokens))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
+
+                    Text(quotaEstimateFootnote)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(11)
@@ -147,6 +155,16 @@ struct TokenUsageModuleView: View {
                     .foregroundStyle(.orange)
             }
 
+            if taskCount > 0 {
+                Text(hasAdditionalTasks ? "共 \(taskCount) 项" : "今日仅 \(taskCount) 项")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.quaternary, in: Capsule())
+            }
+
             if hasAdditionalTasks {
                 Image(systemName: isTaskListExpanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 10, weight: .bold))
@@ -170,14 +188,16 @@ struct TokenUsageModuleView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(format(task.tokens))
+                Text(usageAndQuotaText(tokens: task.tokens))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
             ProgressView(value: Double(task.tokens), total: Double(max(1, todaySummary?.totalTokens ?? 0)))
                 .tint(.indigo)
                 .accessibilityLabel(task.title)
-                .accessibilityValue("\(format(task.tokens)) Token")
+                .accessibilityValue(usageAndQuotaText(tokens: task.tokens))
         }
     }
 
@@ -279,7 +299,11 @@ struct TokenUsageModuleView: View {
     }
 
     private var hasAdditionalTasks: Bool {
-        (todaySummary?.tasks.count ?? 0) > 3
+        taskCount > 3
+    }
+
+    private var taskCount: Int {
+        todaySummary?.tasks.count ?? 0
     }
 
     private var remainingTokens: Int64 {
@@ -287,10 +311,42 @@ struct TokenUsageModuleView: View {
     }
 
     private var taskCardHelp: String {
-        if !hasAdditionalTasks { return "当前没有更多任务" }
+        if !hasAdditionalTasks { return "今日仅有 \(taskCount) 个根任务，没有更多可展开项" }
         return isTaskListExpanded
             ? "点击收起为 Top 3"
             : "点击展开为 \(appModel.settings.usageExpandedTaskLimit.displayName)"
+    }
+
+    private func usageAndQuotaText(tokens: Int64) -> String {
+        "\(format(tokens)) · \(quotaEstimateText(tokens: tokens))"
+    }
+
+    private func quotaEstimateText(tokens: Int64) -> String {
+        guard let history = appModel.usageHistory else { return "额度—" }
+        let windows = appModel.resetCreditsSnapshot?.quotaWindows ?? []
+        let estimates = windows.compactMap { window -> String? in
+            guard let percent = QuotaUsageEstimator.estimatedPercent(
+                taskTokens: tokens,
+                history: history,
+                window: window,
+                now: Date(),
+                calendar: .current
+            ) else { return nil }
+            return "\(window.displayName)≈\(formatPercent(percent))"
+        }
+        return estimates.isEmpty ? "额度—" : estimates.joined(separator: " / ")
+    }
+
+    private var quotaEstimateFootnote: String {
+        if appModel.resetCreditsSnapshot?.quotaWindows.isEmpty == false {
+            return "额度占比按账户窗口已用比例与本机同期 Token 推算，仅供参考。"
+        }
+        return "账户未返回 5 小时/周窗口，额度占比暂不可估算。"
+    }
+
+    private func formatPercent(_ value: Double) -> String {
+        if value > 0, value < 0.05 { return "<0.1%" }
+        return String(format: "%.1f%%", value)
     }
 
     private var trendPoints: [TokenTrendPoint] {

@@ -59,6 +59,39 @@ final class TrendPointTests: XCTestCase {
         ]))
     }
 
+    func testTrendRangeKeepsOnlyRecentDatedPoints() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 7, day: 18, hour: 12))!
+        let points = [
+            TrendPoint(
+                modelID: "model",
+                modelLabel: "Model",
+                dateKey: "2026-07-11-am",
+                sequence: 0,
+                value: 90,
+                recordedAt: calendar.date(from: DateComponents(year: 2026, month: 7, day: 11))
+            ),
+            TrendPoint(
+                modelID: "model",
+                modelLabel: "Model",
+                dateKey: "2026-07-12-am",
+                sequence: 1,
+                value: 100,
+                recordedAt: calendar.date(from: DateComponents(year: 2026, month: 7, day: 12))
+            )
+        ]
+
+        let recent = TrendPointBuilder.recentPoints(
+            points,
+            days: 7,
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(recent.map(\.dateKey), ["2026-07-12-am"])
+    }
+
     private func record(_ date: String, score: Double, duration: Double) -> BenchmarkRecord {
         BenchmarkRecord(
             date: date,

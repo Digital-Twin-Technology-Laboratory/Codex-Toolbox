@@ -180,6 +180,7 @@ final class AppModel {
     func refreshResetCreditsIfNeeded() async {
         let interval = TimeInterval(settings.resetCreditsRefreshInterval.rawValue * 60)
         guard resetCreditsSnapshot == nil
+            || resetCreditsSnapshot?.quotaWindows.isEmpty == true
             || Date().timeIntervalSince(resetCreditsSnapshot?.fetchedAt ?? .distantPast) >= interval else { return }
         await refreshResetCredits()
     }

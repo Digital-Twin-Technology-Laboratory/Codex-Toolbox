@@ -38,7 +38,49 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
                             dateKey: key,
                             rootTaskID: "docs",
                             title: "同步 GitHub README 与隐私说明",
-                            tokens: 73_300,
+                            tokens: 18_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "quota",
+                            title: "实现账户额度占比估算",
+                            tokens: 15_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "charts",
+                            title: "为模型趋势图增加时间范围",
+                            tokens: 12_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "tests",
+                            title: "补充用量与账户窗口测试",
+                            tokens: 10_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "accessibility",
+                            title: "检查 VoiceOver 榜单提示",
+                            tokens: 8_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "migration",
+                            title: "验证旧版缓存迁移",
+                            tokens: 6_000,
+                            descendantCount: 0
+                        ),
+                        DailyTaskUsage(
+                            dateKey: key,
+                            rootTaskID: "release-notes",
+                            title: "更新发布说明",
+                            tokens: 4_300,
                             descendantCount: 0
                         )
                     ],
@@ -95,6 +137,18 @@ actor DemoResetCreditsReader: AccountRateLimitsReading {
                     status: "available",
                     grantedAt: now,
                     expiresAt: now.addingTimeInterval(7 * 86_400)
+                )
+            ],
+            quotaWindows: [
+                AccountQuotaWindow(
+                    durationMinutes: 300,
+                    usedPercent: 18.4,
+                    resetsAt: now.addingTimeInterval(3 * 3_600)
+                ),
+                AccountQuotaWindow(
+                    durationMinutes: 10_080,
+                    usedPercent: 42.7,
+                    resetsAt: now.addingTimeInterval(4 * 86_400)
                 )
             ],
             fetchedAt: now

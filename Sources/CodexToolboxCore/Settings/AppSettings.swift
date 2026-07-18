@@ -76,6 +76,16 @@ public enum UsageExpandedTaskLimit: Int, Codable, CaseIterable, Identifiable, Se
     public var displayName: String { "Top \(rawValue)" }
 }
 
+public enum ModelTrendRange: Int, Codable, CaseIterable, Identifiable, Sendable {
+    case sevenDays = 7
+    case fourteenDays = 14
+    case thirtyDays = 30
+    case ninetyDays = 90
+
+    public var id: Int { rawValue }
+    public var displayName: String { "\(rawValue) 天" }
+}
+
 public enum ResetCreditsRefreshInterval: Int, Codable, CaseIterable, Identifiable, Sendable {
     case fifteenMinutes = 15
     case thirtyMinutes = 30
@@ -171,6 +181,10 @@ public final class AppSettings {
         didSet { defaults.set(showsTrendChart, forKey: Keys.showsTrendChart) }
     }
 
+    public var modelTrendRange: ModelTrendRange {
+        didSet { defaults.set(modelTrendRange.rawValue, forKey: Keys.modelTrendRange) }
+    }
+
     public var showsDetailedBenchmarkTime: Bool {
         didSet {
             defaults.set(showsDetailedBenchmarkTime, forKey: Keys.showsDetailedBenchmarkTime)
@@ -245,10 +259,13 @@ public final class AppSettings {
         )
 
         if defaults.object(forKey: Keys.showsTrendChart) == nil {
-            showsTrendChart = true
+            showsTrendChart = false
         } else {
             showsTrendChart = defaults.bool(forKey: Keys.showsTrendChart)
         }
+        modelTrendRange = ModelTrendRange(
+            rawValue: defaults.integer(forKey: Keys.modelTrendRange)
+        ) ?? .sevenDays
 
         if defaults.object(forKey: Keys.showsDetailedBenchmarkTime) == nil {
             showsDetailedBenchmarkTime = true
@@ -397,6 +414,7 @@ public final class AppSettings {
         static let showsMenuBarDetails = "showsMenuBarDetails"
         static let menuBarModelAliases = "menuBarModelAliases"
         static let showsTrendChart = "showsTrendChart"
+        static let modelTrendRange = "modelTrendRangeDays"
         static let showsDetailedBenchmarkTime = "showsDetailedBenchmarkTime"
         static let automaticRefreshEnabled = "automaticRefreshEnabled"
         static let refreshInterval = "refreshIntervalMinutes"

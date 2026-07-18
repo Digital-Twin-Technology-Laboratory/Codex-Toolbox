@@ -21,6 +21,9 @@ struct TrendChartView: View {
                 Label("变化趋势", systemImage: "chart.xyaxis.line")
                     .font(.system(size: 12, weight: .bold))
                 Spacer()
+                Text("最近 \(appModel.settings.modelTrendRange.rawValue) 天")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Picker("趋势指标", selection: $state.metric) {
                     ForEach(availableMetrics) { metric in
                         Text(metric.displayName).tag(metric)
@@ -134,6 +137,15 @@ struct TrendChartView: View {
     }
 
     private var points: [TrendPoint] {
+        TrendPointBuilder.recentPoints(
+            rawPoints,
+            days: appModel.settings.modelTrendRange.rawValue,
+            now: Date(),
+            calendar: .current
+        )
+    }
+
+    private var rawPoints: [TrendPoint] {
         TrendPointBuilder.points(
             benchmarks: appModel.snapshot?.benchmarks ?? [],
             costHistory: appModel.costHistory,

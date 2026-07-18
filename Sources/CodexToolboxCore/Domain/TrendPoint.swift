@@ -6,15 +6,24 @@ public struct TrendPoint: Identifiable, Hashable, Sendable {
     public let dateKey: String
     public let sequence: Int
     public let value: Double
+    public let recordedAt: Date?
 
     public var id: String { "\(modelID)|\(dateKey)" }
 
-    public init(modelID: String, modelLabel: String, dateKey: String, sequence: Int, value: Double) {
+    public init(
+        modelID: String,
+        modelLabel: String,
+        dateKey: String,
+        sequence: Int,
+        value: Double,
+        recordedAt: Date? = nil
+    ) {
         self.modelID = modelID
         self.modelLabel = modelLabel
         self.dateKey = dateKey
         self.sequence = sequence
         self.value = value
+        self.recordedAt = recordedAt
     }
 }
 
@@ -40,7 +49,8 @@ public enum TrendPointBuilder {
                             modelLabel: benchmark.label,
                             dateKey: record.date,
                             sequence: index,
-                            value: value
+                            value: value,
+                            recordedAt: sourceDate(record.date)
                         )
                     }
                     return byDate.values.sorted {
@@ -64,7 +74,8 @@ public enum TrendPointBuilder {
                             modelLabel: labels[modelID] ?? modelID,
                             dateKey: point.dateKey,
                             sequence: index,
-                            value: point.costUSD
+                            value: point.costUSD,
+                            recordedAt: point.recordedAt
                         )
                     }
                 }
@@ -78,6 +89,24 @@ public enum TrendPointBuilder {
         Dictionary(grouping: points, by: \.modelID).values.contains { $0.count >= 2 }
     }
 
+    public static func recentPoints(
+        _ points: [TrendPoint],
+        days: Int,
+        now: Date,
+        calendar: Calendar
+    ) -> [TrendPoint] {
+        guard days > 0,
+              let cutoff = calendar.date(
+                  byAdding: .day,
+                  value: -(days - 1),
+                  to: calendar.startOfDay(for: now)
+              ) else { return points }
+        return points.filter { point in
+            guard let recordedAt = point.recordedAt else { return true }
+            return recordedAt >= cutoff
+        }
+    }
+
     public static func shortDateLabel(_ dateKey: String) -> String {
         let base = dateKey.split(separator: "_").first.map(String.init) ?? dateKey
         let components = base.split(separator: "-")
@@ -86,6 +115,18 @@ public enum TrendPointBuilder {
         let day = components[2]
         let session = components[3].uppercased()
         return "\(month)/\(day) \(session)"
+    }
+
+    private static func sourceDate(_ dateKey: String) -> Date? {
+        let base = dateKey.split(separator: "_").first.map(String.init) ?? dateKey
+        let components = base.split(separator: "-")
+        guard components.count >= 3,
+              let year = Int(components[0]),
+              let month = Int(components[1]),
+              let day = Int(components[2]) else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar.date(from: DateComponents(year: year, month: month, day: day))
     }
 
     private static func pointOrdering(_ lhs: TrendPoint, _ rhs: TrendPoint) -> Bool {

@@ -274,8 +274,14 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
         guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ResetCreditsError.protocolIncompatible("rateLimits/read 结果不是 JSON 对象")
         }
+        let quotaWindows = Self.quotaWindows(from: result["rateLimits"])
         guard let container = result["rateLimitResetCredits"] as? [String: Any] else {
-            return ResetCreditsSnapshot(availableCount: 0, credits: [], fetchedAt: now())
+            return ResetCreditsSnapshot(
+                availableCount: 0,
+                credits: [],
+                quotaWindows: quotaWindows,
+                fetchedAt: now()
+            )
         }
         let availableCount = (container["availableCount"] as? NSNumber)?.intValue ?? 0
         let rows = container["credits"] as? [[String: Any]] ?? []
@@ -290,8 +296,28 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
         return ResetCreditsSnapshot(
             availableCount: availableCount,
             credits: credits,
+            quotaWindows: quotaWindows,
             fetchedAt: now()
         )
+    }
+
+    private static func quotaWindows(from value: Any?) -> [AccountQuotaWindow] {
+        guard let container = value as? [String: Any] else { return [] }
+        var seenDurations = Set<Int>()
+        return ["primary", "secondary"].compactMap { key in
+            guard let row = container[key] as? [String: Any],
+                  let duration = (row["windowDurationMins"] as? NSNumber)?.intValue,
+                  duration > 0,
+                  let usedPercent = (row["usedPercent"] as? NSNumber)?.doubleValue,
+                  usedPercent.isFinite,
+                  let resetsAt = date(row["resetsAt"]),
+                  seenDurations.insert(duration).inserted else { return nil }
+            return AccountQuotaWindow(
+                durationMinutes: duration,
+                usedPercent: usedPercent,
+                resetsAt: resetsAt
+            )
+        }
     }
 
     private static func date(_ value: Any?) -> Date? {

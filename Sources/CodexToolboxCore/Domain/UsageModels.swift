@@ -79,6 +79,51 @@ public struct UsageHistory: Codable, Hashable, Sendable {
     }
 }
 
+public enum QuotaUsageEstimator {
+    public static func estimatedPercent(
+        taskTokens: Int64,
+        history: UsageHistory,
+        window: AccountQuotaWindow,
+        now: Date,
+        calendar: Calendar
+    ) -> Double? {
+        guard taskTokens >= 0,
+              window.usedPercent >= 0,
+              now < window.resetsAt else { return nil }
+
+        var ledgerCalendar = calendar
+        if let timezone = TimeZone(identifier: history.timezoneIdentifier) {
+            ledgerCalendar.timeZone = timezone
+        }
+        let windowStart = window.resetsAt.addingTimeInterval(
+            -TimeInterval(window.durationMinutes * 60)
+        )
+        let startKey = dayKey(windowStart, calendar: ledgerCalendar)
+        let endKey = dayKey(now, calendar: ledgerCalendar)
+        let localWindowTokens = history.days
+            .filter { $0.dateKey >= startKey && $0.dateKey <= endKey }
+            .reduce(Int64(0)) { partial, day in
+                let (sum, overflow) = partial.addingReportingOverflow(day.totalTokens)
+                return overflow ? Int64.max : sum
+            }
+        guard localWindowTokens > 0 else { return nil }
+
+        let estimate = Double(taskTokens) / Double(localWindowTokens) * window.usedPercent
+        guard estimate.isFinite else { return nil }
+        return min(window.usedPercent, max(0, estimate))
+    }
+
+    private static func dayKey(_ date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+    }
+}
+
 public protocol CodexUsageReading: Sendable {
     func readUsage(now: Date, calendar: Calendar) async throws -> UsageHistory
 }

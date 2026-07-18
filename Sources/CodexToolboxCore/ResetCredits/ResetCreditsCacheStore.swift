@@ -22,7 +22,7 @@ public actor ResetCreditsCacheStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let header = try decoder.decode(Header.self, from: data)
-        guard header.schemaVersion == 2 else {
+        guard (2...3).contains(header.schemaVersion) else {
             throw ResetCreditsError.protocolIncompatible(
                 "重置卡缓存 schemaVersion \(header.schemaVersion) 不受支持"
             )
@@ -39,7 +39,7 @@ public actor ResetCreditsCacheStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(Envelope(schemaVersion: 2, snapshot: snapshot))
+        try encoder.encode(Envelope(schemaVersion: 3, snapshot: snapshot))
             .write(to: fileURL, options: .atomic)
     }
 

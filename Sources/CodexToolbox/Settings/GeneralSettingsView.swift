@@ -54,6 +54,12 @@ struct ModelRadarSettingsView: View {
                 Toggle("显示数据详细时间", isOn: showsDetailedBenchmarkTimeBinding)
                     .help("关闭后仅显示 YYYY-MM-DD · AM/PM")
                 Toggle("显示展开面板趋势图", isOn: showsTrendChartBinding)
+                Picker("趋势范围", selection: modelTrendRangeBinding) {
+                    ForEach(ModelTrendRange.allCases) { range in
+                        Text(range.displayName).tag(range)
+                    }
+                }
+                .disabled(!appModel.settings.showsTrendChart)
             }
 
             Section("数据刷新") {
@@ -153,6 +159,13 @@ struct ModelRadarSettingsView: View {
         Binding(
             get: { appModel.settings.showsDetailedBenchmarkTime },
             set: { appModel.settings.showsDetailedBenchmarkTime = $0 }
+        )
+    }
+
+    private var modelTrendRangeBinding: Binding<ModelTrendRange> {
+        Binding(
+            get: { appModel.settings.modelTrendRange },
+            set: { appModel.settings.modelTrendRange = $0 }
         )
     }
 

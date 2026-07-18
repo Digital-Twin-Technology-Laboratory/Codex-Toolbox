@@ -5,6 +5,19 @@ import XCTest
 final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
     func testSanitizesOpaqueIDsAndUsesAvailableCountAsAuthority() async throws {
         let response: [String: Any] = [
+            "rateLimits": [
+                "limitId": "opaque-rate-limit-id",
+                "primary": [
+                    "usedPercent": 12.5,
+                    "windowDurationMins": 300,
+                    "resetsAt": 1_800_000_000
+                ],
+                "secondary": [
+                    "usedPercent": 24,
+                    "windowDurationMins": 10_080,
+                    "resetsAt": 1_800_100_000
+                ]
+            ],
             "rateLimitResetCredits": [
                 "availableCount": 3,
                 "credits": [
@@ -40,6 +53,8 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
 
         XCTAssertEqual(snapshot.availableCount, 3)
         XCTAssertEqual(snapshot.credits.count, 2)
+        XCTAssertEqual(snapshot.quotaWindows.map(\.durationMinutes), [300, 10_080])
+        XCTAssertEqual(snapshot.quotaWindows.map(\.usedPercent), [12.5, 24])
         XCTAssertTrue(snapshot.credits.first?.isAvailable == true)
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
         let requestedMethods = await transport.methods
@@ -53,6 +68,7 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
         XCTAssertFalse(encoded.contains("must-never-persist"))
         XCTAssertFalse(encoded.localizedCaseInsensitiveContains("title"))
         XCTAssertFalse(encoded.localizedCaseInsensitiveContains("description"))
+        XCTAssertFalse(encoded.contains("opaque-rate-limit-id"))
     }
 
     func testCacheContainsOnlySanitizedSnapshotFields() async throws {
@@ -79,12 +95,64 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
 
         XCTAssertEqual(restored, snapshot)
         let text = try String(contentsOf: cacheURL, encoding: .utf8)
-        XCTAssertTrue(text.contains("\"schemaVersion\" : 2"))
+        XCTAssertTrue(text.contains("\"schemaVersion\" : 3"))
         XCTAssertFalse(text.localizedCaseInsensitiveContains("creditId"))
         XCTAssertFalse(text.localizedCaseInsensitiveContains("access_token"))
         XCTAssertFalse(text.localizedCaseInsensitiveContains("refresh_token"))
         XCTAssertFalse(text.localizedCaseInsensitiveContains("cookie"))
         XCTAssertFalse(text.localizedCaseInsensitiveContains("description"))
+    }
+
+    func testLoadsLegacyVersionTwoCacheWithoutQuotaWindows() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let cacheURL = directory.appendingPathComponent("reset-credits.json")
+        let legacy = """
+        {
+          "schemaVersion": 2,
+          "snapshot": {
+            "availableCount": 1,
+            "credits": [],
+            "fetchedAt": "2026-07-18T00:00:00Z"
+          }
+        }
+        """
+        try Data(legacy.utf8).write(to: cacheURL)
+
+        let restored = try await ResetCreditsCacheStore(fileURL: cacheURL).load()
+
+        XCTAssertEqual(restored?.availableCount, 1)
+        XCTAssertTrue(restored?.quotaWindows.isEmpty == true)
+    }
+
+    func testQuotaEstimateAllocatesAccountUsageAcrossLocalWindowTokens() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_768_608_000)
+        let history = UsageHistory(
+            generatedAt: now,
+            timezoneIdentifier: calendar.timeZone.identifier,
+            days: [
+                DailyUsageSummary(dateKey: "2026-01-16", totalTokens: 400, tasks: [], isComplete: true),
+                DailyUsageSummary(dateKey: "2026-01-17", totalTokens: 600, tasks: [], isComplete: true)
+            ]
+        )
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 20,
+            resetsAt: now.addingTimeInterval(86_400)
+        )
+
+        let estimate = QuotaUsageEstimator.estimatedPercent(
+            taskTokens: 100,
+            history: history,
+            window: window,
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(estimate ?? -1, 2, accuracy: 0.0001)
     }
 
     func testTransportRejectsConsumeWithoutLaunchingAProcess() async throws {

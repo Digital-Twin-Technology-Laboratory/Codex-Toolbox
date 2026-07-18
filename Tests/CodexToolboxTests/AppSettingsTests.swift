@@ -25,7 +25,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(settings.showsMenuBarIcon)
         XCTAssertFalse(settings.showsMenuBarDetails)
         XCTAssertTrue(settings.menuBarModelAliases.isEmpty)
-        XCTAssertTrue(settings.showsTrendChart)
+        XCTAssertFalse(settings.showsTrendChart)
+        XCTAssertEqual(settings.modelTrendRange, .sevenDays)
         XCTAssertTrue(settings.showsDetailedBenchmarkTime)
         XCTAssertTrue(settings.automaticRefreshEnabled)
         XCTAssertEqual(settings.refreshInterval, .thirtyMinutes)
@@ -51,6 +52,7 @@ final class AppSettingsTests: XCTestCase {
         settings.resetCreditsRefreshInterval = .twoHours
         settings.resetExpiryWarning = .sevenDays
         settings.automaticUpdateChecksEnabled = false
+        settings.modelTrendRange = .ninetyDays
 
         let restored = AppSettings(defaults: defaults)
         XCTAssertEqual(restored.dashboardModuleOrder, [.resetCredits, .modelRadar, .tokenUsage])
@@ -63,6 +65,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(restored.resetCreditsRefreshInterval, .twoHours)
         XCTAssertEqual(restored.resetExpiryWarning, .sevenDays)
         XCTAssertFalse(restored.automaticUpdateChecksEnabled)
+        XCTAssertEqual(restored.modelTrendRange, .ninetyDays)
 
         restored.resetDashboardConfiguration()
         XCTAssertEqual(restored.dashboardModuleOrder, ToolboxModule.allCases)
@@ -79,7 +82,8 @@ final class AppSettingsTests: XCTestCase {
         settings.menuBarRankStyle = .ideographicComma
         settings.showsMenuBarIcon = false
         settings.showsMenuBarDetails = true
-        settings.showsTrendChart = false
+        settings.showsTrendChart = true
+        settings.modelTrendRange = .fourteenDays
         settings.showsDetailedBenchmarkTime = false
         settings.setMenuBarModelAlias("  Sol xh  ", for: "gpt_56_sol_xhigh")
 
@@ -87,7 +91,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(restored.menuBarRankStyle, .ideographicComma)
         XCTAssertFalse(restored.showsMenuBarIcon)
         XCTAssertTrue(restored.showsMenuBarDetails)
-        XCTAssertFalse(restored.showsTrendChart)
+        XCTAssertTrue(restored.showsTrendChart)
+        XCTAssertEqual(restored.modelTrendRange, .fourteenDays)
         XCTAssertFalse(restored.showsDetailedBenchmarkTime)
         XCTAssertEqual(restored.menuBarRankStyle.prefix(for: 2), "2、")
         XCTAssertEqual(restored.menuBarModelAlias(for: "gpt_56_sol_xhigh"), "Sol xh")
