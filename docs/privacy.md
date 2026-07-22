@@ -5,7 +5,8 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 ## Token 用量
 
 - 只读访问当前用户的 `~/.codex/state_*.sqlite` 和 rollout JSONL。
-- 本机 Usage Ledger 包含逐线程、逐日 Token 总量、文件路径检查点、文件偏移与累计 Token，不保存对话正文。
+- 本机 Usage Ledger 包含逐线程、逐日 Token 总量、文件路径检查点、文件偏移与累计 Token；为估算任务额度，还保存 rollout 已包含的事件时间、单轮 Token、窗口时长、已用百分比和重置时间，不保存对话正文。
+- rollout 中的额度快照会在写入账本前脱敏；不保存额度 limit ID、套餐字段、积分余额或其他账户字段。
 - 看板使用 Codex SQLite 中的具体对话/任务标题；通用标题会回退到本机首条用户消息或预览摘要，数据不会上传。
 - 用户可清除历史账本；不会因 rollout 被删除而自动删除已记录历史。
 
@@ -22,7 +23,9 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 
 ## 更新检查
 
-开启“自动检查更新”时，应用启动后只读请求 GitHub REST API 的最新正式 Release 端点。请求不携带 GitHub token、Codex 账户凭据或本机任务信息。
+开启“自动检查并在后台下载”时，Sparkle 按用户选择的每小时或每天频率读取 GitHub Release 中的 `appcast.xml`。发现更新后会从同一 GitHub Release 下载 DMG，在本机使用 Ed25519 与 Apple 代码签名验证后暂存，等待用户点击“立即更新”或退出应用。
+
+更新请求不携带 GitHub token、Codex/ChatGPT 账户凭据、本机任务信息或系统画像；应用未启用 Sparkle 的系统信息上报。
 
 ## 应用支持文件
 

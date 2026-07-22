@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 usageReader: DemoUsageReader(),
                 resetCreditsReader: DemoResetCreditsReader(),
                 resetCreditsCache: ResetCreditsCacheStore(fileURL: demoCacheURL),
+                updateManager: AppUpdateManager(isEnabled: false),
                 isDemoMode: true
             )
         } else {

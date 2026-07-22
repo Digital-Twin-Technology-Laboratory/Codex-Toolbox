@@ -96,16 +96,22 @@ struct TokenUsageModuleView: View {
                         HStack {
                             Text("其余任务")
                             Spacer()
-                            Text(usageAndQuotaText(tokens: remainingTokens))
+                            Text(
+                                usageAndQuotaText(
+                                    tokens: remainingTokens,
+                                    taskIDs: remainingTaskIDs
+                                )
+                            )
                                 .monospacedDigit()
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.78)
+                                .help(quotaEstimateHelp(taskIDs: remainingTaskIDs))
                         }
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
 
-                    Text(quotaEstimateFootnote)
+                    Text(accountQuotaFootnote)
                         .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -188,16 +194,24 @@ struct TokenUsageModuleView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(usageAndQuotaText(tokens: task.tokens))
+                Text(
+                    usageAndQuotaText(
+                        tokens: task.tokens,
+                        taskIDs: [task.rootTaskID]
+                    )
+                )
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
+                    .help(quotaEstimateHelp(taskIDs: [task.rootTaskID]))
             }
             ProgressView(value: Double(task.tokens), total: Double(max(1, todaySummary?.totalTokens ?? 0)))
                 .tint(.indigo)
                 .accessibilityLabel(task.title)
-                .accessibilityValue(usageAndQuotaText(tokens: task.tokens))
+                .accessibilityValue(
+                    usageAndQuotaText(tokens: task.tokens, taskIDs: [task.rootTaskID])
+                )
         }
     }
 
@@ -310,6 +324,11 @@ struct TokenUsageModuleView: View {
         todaySummary?.remainingTokens(afterTop: currentTaskLimit) ?? 0
     }
 
+    private var remainingTaskIDs: Set<String> {
+        guard let tasks = todaySummary?.tasks else { return [] }
+        return Set(tasks.dropFirst(currentTaskLimit).map(\.rootTaskID))
+    }
+
     private var taskCardHelp: String {
         if !hasAdditionalTasks { return "今日仅有 \(taskCount) 个根任务，没有更多可展开项" }
         return isTaskListExpanded
@@ -317,31 +336,66 @@ struct TokenUsageModuleView: View {
             : "点击展开为 \(appModel.settings.usageExpandedTaskLimit.displayName)"
     }
 
-    private func usageAndQuotaText(tokens: Int64) -> String {
-        "\(format(tokens)) · \(quotaEstimateText(tokens: tokens))"
-    }
-
-    private func quotaEstimateText(tokens: Int64) -> String {
-        guard let history = appModel.usageHistory else { return "额度—" }
+    private var accountQuotaFootnote: String {
         let windows = appModel.resetCreditsSnapshot?.quotaWindows ?? []
-        let estimates = windows.compactMap { window -> String? in
-            guard let percent = QuotaUsageEstimator.estimatedPercent(
-                taskTokens: tokens,
-                history: history,
-                window: window,
-                now: Date(),
-                calendar: .current
-            ) else { return nil }
-            return "\(window.displayName)≈\(formatPercent(percent))"
+        let activeWindows = windows.filter { Date() < $0.resetsAt }
+        if !activeWindows.isEmpty {
+            let usage = activeWindows.map {
+                "\($0.displayName)已用 \(formatPercent($0.usedPercent))"
+            }.joined(separator: " / ")
+            let estimateStatus = appModel.taskQuotaEstimatesByDuration.values.contains { !$0.isEmpty }
+                ? "任务额度按本机逐轮快照估算"
+                : "任务额度快照不足"
+            return "\(estimateStatus)；账户总用量（含所有设备）：\(usage)。"
         }
-        return estimates.isEmpty ? "额度—" : estimates.joined(separator: " / ")
+        if !windows.isEmpty {
+            return "账户额度窗口已过期，刷新后重新估算任务额度。"
+        }
+        return "账户未返回 5 小时/周窗口，暂不能估算任务额度。"
     }
 
-    private var quotaEstimateFootnote: String {
-        if appModel.resetCreditsSnapshot?.quotaWindows.isEmpty == false {
-            return "额度占比按账户窗口已用比例与本机同期 Token 推算，仅供参考。"
+    private func usageAndQuotaText(tokens: Int64, taskIDs: Set<String>) -> String {
+        let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
+        guard !estimates.isEmpty else { return format(tokens) }
+        let quota = estimates.map {
+            "\($0.window.displayName)≈\(formatPercent($0.percent))"
+        }.joined(separator: " / ")
+        return "\(format(tokens)) · \(quota)"
+    }
+
+    private func quotaEstimateHelp(taskIDs: Set<String>) -> String {
+        let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
+        guard !estimates.isEmpty else { return "暂无足够的逐轮额度快照" }
+        return estimates.map {
+            "\($0.window.displayName)估算置信度：\($0.confidence.displayName)"
+        }.joined(separator: "；")
+    }
+
+    private func quotaEstimateSummaries(taskIDs: Set<String>) -> [TaskQuotaEstimate] {
+        guard !taskIDs.isEmpty else { return [] }
+        let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
+            Date() < $0.resetsAt
         }
-        return "账户未返回 5 小时/周窗口，额度占比暂不可估算。"
+        return windows.compactMap { window in
+            let estimates = taskIDs.compactMap {
+                appModel.taskQuotaEstimatesByDuration[window.durationMinutes]?[$0]
+            }
+            guard estimates.count == taskIDs.count else { return nil }
+            return TaskQuotaEstimate(
+                window: window,
+                percent: estimates.reduce(0) { $0 + $1.percent },
+                confidence: combinedConfidence(estimates.map(\.confidence)),
+                observedStepCount: estimates.reduce(0) { $0 + $1.observedStepCount },
+                observedTokenCoverage: estimates.map(\.observedTokenCoverage).min() ?? 0
+            )
+        }
+    }
+
+    private func combinedConfidence(
+        _ confidences: [QuotaEstimateConfidence]
+    ) -> QuotaEstimateConfidence {
+        if confidences.contains(.low) { return .low }
+        return .medium
     }
 
     private func formatPercent(_ value: Double) -> String {

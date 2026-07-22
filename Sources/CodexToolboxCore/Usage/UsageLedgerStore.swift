@@ -7,17 +7,71 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
     var seenCumulativeTotals: [Int64]
 }
 
+struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
+    var timestamp: Date
+    var tokenIncrement: Int64
+    var windows: [AccountQuotaWindow]
+}
+
 struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
     var threadID: String
     var rootTaskID: String
     var title: String
     var dailyTokens: [String: Int64]
+    var quotaObservations: [ThreadQuotaUsageObservation]
     var checkpoint: UsageRolloutCheckpoint?
     var isComplete: Bool
+
+    init(
+        threadID: String,
+        rootTaskID: String,
+        title: String,
+        dailyTokens: [String: Int64],
+        quotaObservations: [ThreadQuotaUsageObservation] = [],
+        checkpoint: UsageRolloutCheckpoint?,
+        isComplete: Bool
+    ) {
+        self.threadID = threadID
+        self.rootTaskID = rootTaskID
+        self.title = title
+        self.dailyTokens = dailyTokens
+        self.quotaObservations = quotaObservations
+        self.checkpoint = checkpoint
+        self.isComplete = isComplete
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case threadID
+        case rootTaskID
+        case title
+        case dailyTokens
+        case quotaObservations
+        case checkpoint
+        case isComplete
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            threadID: try container.decode(String.self, forKey: .threadID),
+            rootTaskID: try container.decode(String.self, forKey: .rootTaskID),
+            title: try container.decode(String.self, forKey: .title),
+            dailyTokens: try container.decode([String: Int64].self, forKey: .dailyTokens),
+            quotaObservations: try container.decodeIfPresent(
+                [ThreadQuotaUsageObservation].self,
+                forKey: .quotaObservations
+            ) ?? [],
+            checkpoint: try container.decodeIfPresent(
+                UsageRolloutCheckpoint.self,
+                forKey: .checkpoint
+            ),
+            isComplete: try container.decode(Bool.self, forKey: .isComplete)
+        )
+    }
 }
 
 struct VersionedUsageLedger: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
 
     var schemaVersion: Int
     var generatedAt: Date
@@ -56,14 +110,35 @@ struct UsageLedgerStore {
             return .empty(timezoneIdentifier: timezoneIdentifier)
         }
         let data = try Data(contentsOf: fileURL)
-        let ledger = try decoder.decode(VersionedUsageLedger.self, from: data)
-        guard ledger.schemaVersion == VersionedUsageLedger.currentSchemaVersion else {
+        var ledger = try decoder.decode(VersionedUsageLedger.self, from: data)
+        guard (1...VersionedUsageLedger.currentSchemaVersion).contains(ledger.schemaVersion) else {
             throw LocalCodexUsageError.unsupportedLedgerSchema(ledger.schemaVersion)
         }
         guard ledger.timezoneIdentifier == timezoneIdentifier else {
             // Day boundaries depend on the system time zone, so a change requires a
             // deterministic rebuild from still-readable rollout files.
             return .empty(timezoneIdentifier: timezoneIdentifier)
+        }
+        if ledger.schemaVersion == 1 {
+            ledger.schemaVersion = VersionedUsageLedger.currentSchemaVersion
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
+            let components = calendar.dateComponents([.year, .month, .day], from: Date())
+            let todayKey = String(
+                format: "%04d-%02d-%02d",
+                components.year ?? 0,
+                components.month ?? 0,
+                components.day ?? 0
+            )
+            for threadID in ledger.threads.keys {
+                ledger.threads[threadID]?.quotaObservations = []
+                // The dashboard estimates today's tasks. Reparse only threads that
+                // already contributed today; older threads retain their offsets and
+                // begin collecting observations if they receive a future event.
+                if ledger.threads[threadID]?.dailyTokens[todayKey] != nil {
+                    ledger.threads[threadID]?.checkpoint = nil
+                }
+            }
         }
         return ledger
     }

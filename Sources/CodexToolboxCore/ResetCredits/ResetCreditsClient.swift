@@ -150,7 +150,7 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
             "id": 1,
             "method": "initialize",
             "params": [
-                "clientInfo": ["name": "Codex Toolbox", "version": "1.0.0"],
+                "clientInfo": ["name": "Codex Toolbox", "version": AppMetadata.version],
                 "capabilities": ["experimentalApi": true]
             ]
         ], to: input.fileHandleForWriting)

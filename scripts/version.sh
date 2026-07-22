@@ -24,6 +24,7 @@ read_setting() {
 RELEASE_VERSION="$(read_setting CODEX_TOOLBOX_RELEASE_VERSION)"
 MARKETING_VERSION="$(read_setting MARKETING_VERSION)"
 BUILD_NUMBER="$(read_setting CURRENT_PROJECT_VERSION)"
+SPARKLE_PUBLIC_ED_KEY="$(read_setting SPARKLE_PUBLIC_ED_KEY)"
 
 semver_pattern='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 if [[ ! "$RELEASE_VERSION" =~ $semver_pattern ]]; then
@@ -42,7 +43,12 @@ if [[ ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
     exit 1
 fi
 
-export RELEASE_VERSION MARKETING_VERSION BUILD_NUMBER
+if [[ ! "$SPARKLE_PUBLIC_ED_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+    echo "SPARKLE_PUBLIC_ED_KEY must be a base64-encoded Ed25519 public key" >&2
+    exit 1
+fi
+
+export RELEASE_VERSION MARKETING_VERSION BUILD_NUMBER SPARKLE_PUBLIC_ED_KEY
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     printf 'Release version: %s\nMarketing version: %s\nBuild number: %s\n' \

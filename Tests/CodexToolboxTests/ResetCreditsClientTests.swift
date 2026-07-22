@@ -126,35 +126,6 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(restored?.quotaWindows.isEmpty == true)
     }
 
-    func testQuotaEstimateAllocatesAccountUsageAcrossLocalWindowTokens() {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let now = Date(timeIntervalSince1970: 1_768_608_000)
-        let history = UsageHistory(
-            generatedAt: now,
-            timezoneIdentifier: calendar.timeZone.identifier,
-            days: [
-                DailyUsageSummary(dateKey: "2026-01-16", totalTokens: 400, tasks: [], isComplete: true),
-                DailyUsageSummary(dateKey: "2026-01-17", totalTokens: 600, tasks: [], isComplete: true)
-            ]
-        )
-        let window = AccountQuotaWindow(
-            durationMinutes: 10_080,
-            usedPercent: 20,
-            resetsAt: now.addingTimeInterval(86_400)
-        )
-
-        let estimate = QuotaUsageEstimator.estimatedPercent(
-            taskTokens: 100,
-            history: history,
-            window: window,
-            now: now,
-            calendar: calendar
-        )
-
-        XCTAssertEqual(estimate ?? -1, 2, accuracy: 0.0001)
-    }
-
     func testTransportRejectsConsumeWithoutLaunchingAProcess() async throws {
         let transport = ProcessCodexAppServerTransport(
             executableURL: URL(fileURLWithPath: "/usr/bin/false")

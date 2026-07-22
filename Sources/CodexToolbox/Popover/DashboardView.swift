@@ -340,21 +340,22 @@ struct DashboardView: View {
 
             Spacer()
 
-            if case let .available(release) = appModel.updateCheckState {
-                Link(destination: release.pageURL) {
-                    Image(systemName: "arrow.down.circle.fill")
-                }
-                .foregroundStyle(.blue)
-                .help("发现 Codex Toolbox \(release.version)")
-                .accessibilityLabel("发现新版本 \(release.version)")
-            }
-
             SettingsLink {
                 Image(systemName: "gearshape")
+                    .overlay(alignment: .topTrailing) {
+                        if appModel.updateManager.showsUpdateBadge {
+                            Circle()
+                                .fill(.red)
+                                .frame(width: 7, height: 7)
+                                .offset(x: 4, y: -4)
+                                .accessibilityHidden(true)
+                        }
+                    }
             }
             .adaptiveGlassIconStyle()
             .controlSize(.small)
-            .help("设置")
+            .help(appModel.updateManager.showsUpdateBadge ? "设置（更新已下载）" : "设置")
+            .accessibilityLabel(appModel.updateManager.showsUpdateBadge ? "设置，有更新可安装" : "设置")
 
             Button {
                 NSApplication.shared.terminate(nil)

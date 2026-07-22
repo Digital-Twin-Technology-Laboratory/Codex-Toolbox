@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-22
+
+### Added
+
+- 使用 Sparkle 2 实现完整应用内更新：每小时/每天自动检查 GitHub、后台静默下载、设置入口红点提示，以及“立即更新”触发的安全替换、退出和自动重启。
+- 发布流程自动生成并上传 Ed25519 签名的 `appcast.xml`，同时验证 Sparkle 内嵌 helper、更新公钥与自动检查配置。
+
+### Fixed
+
+- 任务额度改为读取 rollout 内的逐轮额度快照，按连续本机活动区段归因，并使用稳健 Token/百分点样本补足百分比取整误差；超过 15 分钟无本机活动后的账户跳变不再归给下一个任务，修复单个本机任务被错误显示为消耗大部分账户额度的问题。
+- 账户 5 小时/周实际已用比例继续作为“含所有设备”的总用量单独展示，任务估算通过 `≈` 与中/低置信度提示和账户总量明确区分。
+
 ## [1.0.0] - 2026-07-22
 
 ### Added
@@ -177,7 +189,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.2...v1.0.0
 [0.1.0-beta.6.2]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.1...v0.1.0-beta.6.2
 [0.1.0-beta.6.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6...v0.1.0-beta.6.1

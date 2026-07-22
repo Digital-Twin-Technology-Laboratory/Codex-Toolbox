@@ -35,6 +35,11 @@ test "$(plutil -extract CodexToolboxReleaseVersion raw "$PLIST")" = "$RELEASE_VE
 test "$(plutil -extract CFBundleShortVersionString raw "$PLIST")" = "$MARKETING_VERSION"
 test "$(plutil -extract CFBundleVersion raw "$PLIST")" = "$BUILD_NUMBER"
 test "$(plutil -extract LSUIElement raw "$PLIST")" = true
+test "$(plutil -extract SUEnableAutomaticChecks raw "$PLIST")" = true
+test "$(plutil -extract SUAutomaticallyUpdate raw "$PLIST")" = true
+test "$(plutil -extract SUScheduledCheckInterval raw "$PLIST")" = 86400
+test "$(plutil -extract SUPublicEDKey raw "$PLIST")" = "$SPARKLE_PUBLIC_ED_KEY"
+test -d "$APP_PATH/Contents/Frameworks/Sparkle.framework"
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 CODESIGN_DETAILS="$(codesign -dvv "$APP_PATH" 2>&1)"
@@ -51,6 +56,10 @@ fi
 
 if otool -L "$EXECUTABLE" | grep -qE 'CodexToolboxCore(\.framework|\.dylib)'; then
     echo "CodexToolboxCore must be statically linked into the app executable" >&2
+    exit 1
+fi
+if ! otool -L "$EXECUTABLE" | grep -q 'Sparkle.framework'; then
+    echo "Sparkle.framework must be linked for in-app updates" >&2
     exit 1
 fi
 

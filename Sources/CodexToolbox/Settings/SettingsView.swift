@@ -23,7 +23,14 @@ struct SettingsView: View {
         TabView {
             GeneralDashboardSettingsView(appModel: appModel)
                 .tabItem {
-                    Label("通用&看板", systemImage: "slider.horizontal.3")
+                    Label {
+                        Text("通用&看板")
+                    } icon: {
+                        UpdateBadgedIcon(
+                            systemName: "slider.horizontal.3",
+                            showsBadge: appModel.updateManager.showsUpdateBadge
+                        )
+                    }
                 }
 
             ModelRadarSettingsView(
@@ -49,6 +56,24 @@ struct SettingsView: View {
                     Label("关于", systemImage: "info.circle")
                 }
         }
+    }
+}
+
+private struct UpdateBadgedIcon: View {
+    let systemName: String
+    let showsBadge: Bool
+
+    var body: some View {
+        Image(systemName: systemName)
+            .overlay(alignment: .topTrailing) {
+                if showsBadge {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 7, height: 7)
+                        .offset(x: 4, y: -3)
+                        .accessibilityHidden(true)
+                }
+            }
     }
 }
 

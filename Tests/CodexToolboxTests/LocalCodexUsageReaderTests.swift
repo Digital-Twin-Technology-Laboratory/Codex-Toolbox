@@ -129,8 +129,256 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 1"))
+        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 2"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
+    }
+
+    func testExtractsSanitizedQuotaObservationsAndAggregatesThemToTheRoot() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("quota.jsonl")
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let lines = [
+            tokenLine(
+                timestamp: "2026-07-22T08:00:00Z",
+                cumulative: 100,
+                increment: 100,
+                quotaPercent: 12,
+                quotaReset: reset
+            ),
+            tokenLine(
+                timestamp: "2026-07-22T08:01:00Z",
+                cumulative: 300,
+                increment: 200,
+                quotaPercent: 13,
+                quotaReset: reset
+            )
+        ].joined(separator: "\n") + "\n"
+        try Data(lines.utf8).write(to: rollout)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let ledger = workspace.appendingPathComponent("usage-ledger.json")
+        try createDatabase(
+            at: database,
+            threads: [("child", "Child", rollout.path, 300, 1), ("root", "Root", "", 0, 2)],
+            edges: [("root", "child")]
+        )
+        let reader = LocalCodexUsageReader(
+            codexHome: workspace,
+            stateDatabaseURL: database,
+            ledgerURL: ledger
+        )
+
+        let history = try await reader.readUsage()
+
+        XCTAssertEqual(history.quotaObservations.count, 2)
+        XCTAssertEqual(history.quotaObservations.map(\.rootTaskID), ["root", "root"])
+        XCTAssertEqual(history.quotaObservations.map(\.tokenIncrement), [100, 200])
+        XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
+        XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.usedPercent), [12, 13])
+        let ledgerText = try String(contentsOf: ledger, encoding: .utf8)
+        XCTAssertFalse(ledgerText.contains("opaque-limit-id"))
+        XCTAssertFalse(ledgerText.contains("must-not-persist"))
+        XCTAssertFalse(ledgerText.contains("prolite"))
+    }
+
+    func testMigratesVersionOneLedgerByPreservingTokensAndForcingQuotaBackfill() throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let ledgerURL = workspace.appendingPathComponent("usage-ledger.json")
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let components = calendar.dateComponents([.year, .month, .day], from: Date())
+        let todayKey = String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+        let legacy = """
+        {
+          "schemaVersion": 1,
+          "generatedAt": "2026-07-22T00:00:00Z",
+          "timezoneIdentifier": "GMT",
+          "warnings": [],
+          "threads": {
+            "thread": {
+              "threadID": "thread",
+              "rootTaskID": "thread",
+              "title": "Legacy",
+              "dailyTokens": {"\(todayKey)": 123},
+              "checkpoint": {
+                "path": "/tmp/legacy.jsonl",
+                "fileSize": 20,
+                "parsedOffset": 20,
+                "seenCumulativeTotals": [123]
+              },
+              "isComplete": true
+            },
+            "old-thread": {
+              "threadID": "old-thread",
+              "rootTaskID": "old-thread",
+              "title": "Old",
+              "dailyTokens": {"2000-01-01": 456},
+              "checkpoint": {
+                "path": "/tmp/old.jsonl",
+                "fileSize": 30,
+                "parsedOffset": 30,
+                "seenCumulativeTotals": [456]
+              },
+              "isComplete": true
+            }
+          }
+        }
+        """
+        try Data(legacy.utf8).write(to: ledgerURL)
+
+        let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
+
+        XCTAssertEqual(migrated.schemaVersion, 2)
+        XCTAssertEqual(migrated.threads["thread"]?.dailyTokens[todayKey], 123)
+        XCTAssertNil(migrated.threads["thread"]?.checkpoint)
+        XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
+        XCTAssertEqual(migrated.threads["old-thread"]?.checkpoint?.parsedOffset, 30)
+    }
+
+    func testQuotaEstimatorUsesLocalStepsAndRejectsRemoteJumpAfterGap() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 31,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-5_000)
+        let observations = [
+            quotaObservation(at: start, task: "a", tokens: 100, percent: 12, reset: reset),
+            quotaObservation(at: start.addingTimeInterval(10), task: "a", tokens: 400, percent: 12, reset: reset),
+            quotaObservation(at: start.addingTimeInterval(20), task: "small", tokens: 100, percent: 12, reset: reset),
+            quotaObservation(at: start.addingTimeInterval(30), task: "a", tokens: 500, percent: 13, reset: reset),
+            // The 13% -> 30% jump happened while this Mac was inactive and must be ignored.
+            quotaObservation(at: start.addingTimeInterval(2_000), task: "b", tokens: 100, percent: 30, reset: reset),
+            quotaObservation(at: start.addingTimeInterval(2_010), task: "b", tokens: 400, percent: 30, reset: reset),
+            quotaObservation(at: start.addingTimeInterval(2_020), task: "b", tokens: 600, percent: 31, reset: reset)
+        ]
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(2_030),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: observations
+        )
+
+        let estimates = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: start.addingTimeInterval(2_030)
+        )
+
+        XCTAssertEqual(try XCTUnwrap(estimates["a"]).percent, 1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(estimates["small"]).percent, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(estimates["b"]).percent, 1.1, accuracy: 0.0001)
+        XCTAssertLessThan(estimates.values.reduce(0) { $0 + $1.percent }, 3)
+        XCTAssertTrue(estimates.values.allSatisfy { $0.confidence == .low })
+    }
+
+    func testQuotaEstimatorReportsMediumConfidenceAfterTenPointCalibrationSpan() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 22,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-1_000)
+        var observations = [
+            quotaObservation(at: start, task: "task", tokens: 0, percent: 12, reset: reset)
+        ]
+        for step in 0..<10 {
+            observations.append(
+                quotaObservation(
+                    at: start.addingTimeInterval(Double(step * 20 + 10)),
+                    task: "task",
+                    tokens: 500,
+                    percent: Double(12 + step),
+                    reset: reset
+                )
+            )
+            observations.append(
+                quotaObservation(
+                    at: start.addingTimeInterval(Double(step * 20 + 20)),
+                    task: "task",
+                    tokens: 500,
+                    percent: Double(13 + step),
+                    reset: reset
+                )
+            )
+        }
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(220),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: observations
+        )
+
+        let estimate = try XCTUnwrap(
+            TaskQuotaEstimator.estimates(
+                history: history,
+                window: window,
+                now: start.addingTimeInterval(220)
+            )["task"]
+        )
+
+        XCTAssertEqual(estimate.percent, 10, accuracy: 0.0001)
+        XCTAssertEqual(estimate.confidence, .medium)
+        XCTAssertEqual(estimate.observedStepCount, 10)
+    }
+
+    func testQuotaEstimatorCapsLocalTotalAndRejectsExpiredWindow() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 300,
+            usedPercent: 0.5,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-600)
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(30),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: [
+                LocalQuotaUsageObservation(
+                    timestamp: start,
+                    rootTaskID: "task",
+                    tokenIncrement: 0,
+                    windows: [windowAt(percent: 0, reset: reset, duration: 300)]
+                ),
+                LocalQuotaUsageObservation(
+                    timestamp: start.addingTimeInterval(10),
+                    rootTaskID: "task",
+                    tokenIncrement: 1_000,
+                    windows: [windowAt(percent: 0, reset: reset, duration: 300)]
+                ),
+                LocalQuotaUsageObservation(
+                    timestamp: start.addingTimeInterval(20),
+                    rootTaskID: "task",
+                    tokenIncrement: 1_000,
+                    windows: [windowAt(percent: 1, reset: reset, duration: 300)]
+                )
+            ]
+        )
+
+        let active = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: start.addingTimeInterval(30)
+        )
+        let expired = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: reset
+        )
+
+        XCTAssertEqual(try XCTUnwrap(active["task"]).percent, 0.5, accuracy: 0.0001)
+        XCTAssertTrue(expired.isEmpty)
     }
 
     func testClearHistoryRemovesLedger() async throws {
@@ -182,32 +430,84 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             .appendingPathComponent("LocalCodexUsageReaderTests-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private func tokenLine(timestamp: String, cumulative: Int64, increment: Int64) -> String {
-        let event: [String: Any] = [
-            "timestamp": timestamp,
-            "type": "event_msg",
-            "payload": [
-                "type": "token_count",
-                "info": [
-                    "total_token_usage": [
-                        "input_tokens": cumulative,
-                        "cached_input_tokens": cumulative / 2,
-                        "output_tokens": cumulative / 3,
-                        "reasoning_output_tokens": cumulative / 4,
-                        "total_tokens": cumulative
-                    ],
-                    "last_token_usage": [
-                        "input_tokens": increment,
-                        "cached_input_tokens": increment / 2,
-                        "output_tokens": increment / 3,
-                        "reasoning_output_tokens": increment / 4,
-                        "total_tokens": increment
-                    ]
+    private func tokenLine(
+        timestamp: String,
+        cumulative: Int64,
+        increment: Int64,
+        quotaPercent: Double? = nil,
+        quotaReset: Date? = nil
+    ) -> String {
+        var payload: [String: Any] = [
+            "type": "token_count",
+            "info": [
+                "total_token_usage": [
+                    "input_tokens": cumulative,
+                    "cached_input_tokens": cumulative / 2,
+                    "output_tokens": cumulative / 3,
+                    "reasoning_output_tokens": cumulative / 4,
+                    "total_tokens": cumulative
+                ],
+                "last_token_usage": [
+                    "input_tokens": increment,
+                    "cached_input_tokens": increment / 2,
+                    "output_tokens": increment / 3,
+                    "reasoning_output_tokens": increment / 4,
+                    "total_tokens": increment
                 ]
             ]
         ]
+        if let quotaPercent, let quotaReset {
+            payload["rate_limits"] = [
+                "limit_id": "opaque-limit-id",
+                "plan_type": "prolite",
+                "credits": ["balance": "must-not-persist"],
+                "primary": [
+                    "used_percent": quotaPercent,
+                    "window_minutes": 10_080,
+                    "resets_at": quotaReset.timeIntervalSince1970
+                ]
+            ]
+        }
+        let event: [String: Any] = [
+            "timestamp": timestamp,
+            "type": "event_msg",
+            "payload": payload
+        ]
         let data = try! JSONSerialization.data(withJSONObject: event, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
+    }
+
+    private func quotaObservation(
+        at timestamp: Date,
+        task: String,
+        tokens: Int64,
+        percent: Double,
+        reset: Date
+    ) -> LocalQuotaUsageObservation {
+        LocalQuotaUsageObservation(
+            timestamp: timestamp,
+            rootTaskID: task,
+            tokenIncrement: tokens,
+            windows: [
+                AccountQuotaWindow(
+                    durationMinutes: 10_080,
+                    usedPercent: percent,
+                    resetsAt: reset
+                )
+            ]
+        )
+    }
+
+    private func windowAt(
+        percent: Double,
+        reset: Date,
+        duration: Int
+    ) -> AccountQuotaWindow {
+        AccountQuotaWindow(
+            durationMinutes: duration,
+            usedPercent: percent,
+            resetsAt: reset
+        )
     }
 
     private func append(_ string: String, to url: URL) throws {

@@ -190,6 +190,7 @@ private final class ReadOnlySQLiteDatabase {
 
 struct ParsedRollout: Sendable {
     let dailyTokens: [String: Int64]
+    let quotaObservations: [ThreadQuotaUsageObservation]
     let checkpoint: UsageRolloutCheckpoint
     let damagedLineCount: Int
     let resumedFromCheckpoint: Bool
@@ -209,6 +210,7 @@ enum RolloutTokenParser {
         } ?? false
         let startOffset = canResume ? previousCheckpoint?.parsedOffset ?? 0 : 0
         var dailyTokens = canResume ? previous?.dailyTokens ?? [:] : [:]
+        var quotaObservations = canResume ? previous?.quotaObservations ?? [] : []
         var seenTotals = Set(canResume ? previousCheckpoint?.seenCumulativeTotals ?? [] : [])
         var damagedLineCount = 0
 
@@ -246,11 +248,22 @@ enum RolloutTokenParser {
                       let timestamp = date(event["timestamp"]) else { continue }
                 let day = dayKey(timestamp, calendar: calendar)
                 dailyTokens[day, default: 0] += increment
+                let windows = quotaWindows(from: payload["rate_limits"])
+                if !windows.isEmpty {
+                    quotaObservations.append(
+                        ThreadQuotaUsageObservation(
+                            timestamp: timestamp,
+                            tokenIncrement: increment,
+                            windows: windows
+                        )
+                    )
+                }
             }
         }
 
         return ParsedRollout(
             dailyTokens: dailyTokens,
+            quotaObservations: quotaObservations,
             checkpoint: UsageRolloutCheckpoint(
                 path: fileURL.path,
                 fileSize: currentSize,
@@ -266,6 +279,33 @@ enum RolloutTokenParser {
         if let number = value as? NSNumber { return number.int64Value }
         if let string = value as? String { return Int64(string) }
         return nil
+    }
+
+    private static func number(_ value: Any?) -> Double? {
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let string = value as? String { return Double(string) }
+        return nil
+    }
+
+    private static func quotaWindows(from value: Any?) -> [AccountQuotaWindow] {
+        guard let rateLimits = value as? [String: Any] else { return [] }
+        var seen = Set<String>()
+        return ["primary", "secondary"].compactMap { key in
+            guard let row = rateLimits[key] as? [String: Any],
+                  let duration = integer(row["window_minutes"]),
+                  duration > 0,
+                  duration <= Int64(Int.max),
+                  let usedPercent = number(row["used_percent"]),
+                  usedPercent.isFinite,
+                  let resetsAt = date(row["resets_at"]) else { return nil }
+            let identity = "\(duration)|\(Int64(resetsAt.timeIntervalSince1970))"
+            guard seen.insert(identity).inserted else { return nil }
+            return AccountQuotaWindow(
+                durationMinutes: Int(duration),
+                usedPercent: usedPercent,
+                resetsAt: resetsAt
+            )
+        }
     }
 
     private static func date(_ value: Any?) -> Date? {
@@ -377,6 +417,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
                     rootTaskID: rootID,
                     title: thread.title,
                     dailyTokens: parsed.dailyTokens,
+                    quotaObservations: parsed.quotaObservations,
                     checkpoint: parsed.checkpoint,
                     isComplete: parsed.damagedLineCount == 0
                         && (!parsed.resumedFromCheckpoint || previous?.isComplete != false)
@@ -422,8 +463,19 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
         }
         var byDayAndRoot: [String: [String: Aggregate]] = [:]
         var memberCountByRoot: [String: Int] = [:]
+        var quotaObservations: [LocalQuotaUsageObservation] = []
         for entry in ledger.threads.values {
             memberCountByRoot[entry.rootTaskID, default: 0] += 1
+            quotaObservations.append(
+                contentsOf: entry.quotaObservations.map {
+                    LocalQuotaUsageObservation(
+                        timestamp: $0.timestamp,
+                        rootTaskID: entry.rootTaskID,
+                        tokenIncrement: $0.tokenIncrement,
+                        windows: $0.windows
+                    )
+                }
+            )
             for (day, tokens) in entry.dailyTokens {
                 var aggregate = byDayAndRoot[day, default: [:]][entry.rootTaskID, default: Aggregate()]
                 aggregate.tokens += tokens
@@ -455,7 +507,8 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
             generatedAt: now,
             timezoneIdentifier: ledger.timezoneIdentifier,
             days: days,
-            warnings: ledger.warnings
+            warnings: ledger.warnings,
+            quotaObservations: quotaObservations
         )
     }
 

@@ -19,7 +19,18 @@ struct GeneralDashboardSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Toggle("自动检查更新", isOn: automaticUpdateBinding)
+            }
+
+            Section("软件更新") {
+                Toggle("自动检查并在后台下载", isOn: automaticUpdateBinding)
+
+                Picker("检查频率", selection: updateFrequencyBinding) {
+                    ForEach(UpdateCheckFrequency.allCases) { frequency in
+                        Text(frequency.displayName).tag(frequency)
+                    }
+                }
+                .disabled(!appModel.updateManager.automaticallyChecksForUpdates)
+
                 updateStatus
             }
 
@@ -50,7 +61,7 @@ struct GeneralDashboardSettingsView: View {
             Section("隐私边界") {
                 Label("本机 Token 审计不调用模型、不上传任务内容", systemImage: "externaldrive.badge.checkmark")
                 Label("重置卡仅保存发放时间、过期时间与可用状态", systemImage: "person.badge.shield.checkmark")
-                Label("更新检查只读取 GitHub 最新正式 Release", systemImage: "arrow.triangle.2.circlepath")
+                Label("更新只从 GitHub 下载，并使用 Ed25519 与代码签名双重校验", systemImage: "arrow.triangle.2.circlepath")
             }
         }
         .formStyle(.grouped)
@@ -60,21 +71,32 @@ struct GeneralDashboardSettingsView: View {
     @ViewBuilder
     private var updateStatus: some View {
         HStack(spacing: 8) {
-            switch appModel.updateCheckState {
+            switch appModel.updateManager.state {
             case .idle:
-                Text("尚未检查")
+                Text("将在后台自动检查更新")
                     .foregroundStyle(.secondary)
             case .checking:
                 ProgressView().controlSize(.small)
-                Text("正在检查 GitHub Release…")
+                Text("正在检查更新…")
                     .foregroundStyle(.secondary)
             case .upToDate:
                 Label("已是最新正式版", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-            case let .available(release):
-                Link(destination: release.pageURL) {
-                    Label("发现新版本 \(release.version)", systemImage: "arrow.down.circle.fill")
-                }
+            case let .downloading(version):
+                ProgressView().controlSize(.small)
+                Text("正在后台下载 \(version)…")
+                    .foregroundStyle(.secondary)
+            case let .preparing(version):
+                ProgressView().controlSize(.small)
+                Text("正在准备 \(version)…")
+                    .foregroundStyle(.secondary)
+            case let .readyToInstall(version):
+                Label("\(version) 已下载，可立即更新", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
+            case let .installing(version):
+                ProgressView().controlSize(.small)
+                Text("正在安装 \(version)，应用将自动重启…")
+                    .foregroundStyle(.secondary)
             case let .failed(message):
                 Label(message, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
@@ -83,12 +105,28 @@ struct GeneralDashboardSettingsView: View {
 
             Spacer()
 
-            Button("立即检查") {
-                Task { await appModel.checkForUpdates() }
+            if case .readyToInstall = appModel.updateManager.state {
+                Button("立即更新") {
+                    appModel.updateManager.installReadyUpdate()
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button("立即检查") {
+                    appModel.updateManager.checkForUpdates()
+                }
+                .disabled(isUpdateActionDisabled)
             }
-            .disabled(appModel.updateCheckState == .checking)
         }
         .font(.caption)
+    }
+
+    private var isUpdateActionDisabled: Bool {
+        switch appModel.updateManager.state {
+        case .checking, .downloading, .preparing, .installing:
+            true
+        case .idle, .upToDate, .readyToInstall, .failed:
+            false
+        }
     }
 
     private func moduleRow(_ module: ToolboxModule) -> some View {
@@ -139,8 +177,15 @@ struct GeneralDashboardSettingsView: View {
 
     private var automaticUpdateBinding: Binding<Bool> {
         Binding(
-            get: { appModel.settings.automaticUpdateChecksEnabled },
-            set: { appModel.setAutomaticUpdateChecksEnabled($0) }
+            get: { appModel.updateManager.automaticallyChecksForUpdates },
+            set: { appModel.updateManager.setAutomaticallyChecksForUpdates($0) }
+        )
+    }
+
+    private var updateFrequencyBinding: Binding<UpdateCheckFrequency> {
+        Binding(
+            get: { appModel.updateManager.checkFrequency },
+            set: { appModel.updateManager.setCheckFrequency($0) }
         )
     }
 }

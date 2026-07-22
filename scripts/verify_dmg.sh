@@ -46,6 +46,11 @@ test "$(plutil -extract LSUIElement raw "$APP_PATH/Contents/Info.plist")" = true
 test "$(plutil -extract CodexToolboxReleaseVersion raw "$APP_PATH/Contents/Info.plist")" = "$RELEASE_VERSION"
 test "$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")" = "$MARKETING_VERSION"
 test "$(plutil -extract CFBundleVersion raw "$APP_PATH/Contents/Info.plist")" = "$BUILD_NUMBER"
+test "$(plutil -extract SUEnableAutomaticChecks raw "$APP_PATH/Contents/Info.plist")" = true
+test "$(plutil -extract SUAutomaticallyUpdate raw "$APP_PATH/Contents/Info.plist")" = true
+test "$(plutil -extract SUScheduledCheckInterval raw "$APP_PATH/Contents/Info.plist")" = 86400
+test "$(plutil -extract SUPublicEDKey raw "$APP_PATH/Contents/Info.plist")" = "$SPARKLE_PUBLIC_ED_KEY"
+test -d "$APP_PATH/Contents/Frameworks/Sparkle.framework"
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 codesign --verify --verbose=2 "$DMG_PATH"
@@ -65,6 +70,10 @@ fi
 
 if otool -L "$EXECUTABLE" | grep -qE 'CodexToolboxCore(\.framework|\.dylib)'; then
     echo "CodexToolboxCore must be statically linked into the app executable" >&2
+    exit 1
+fi
+if ! otool -L "$EXECUTABLE" | grep -q 'Sparkle.framework'; then
+    echo "Sparkle.framework must be linked for in-app updates" >&2
     exit 1
 fi
 

@@ -97,7 +97,8 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
         return UsageHistory(
             generatedAt: now,
             timezoneIdentifier: calendar.timeZone.identifier,
-            days: days
+            days: days,
+            quotaObservations: quotaObservations(now: now)
         )
     }
 
@@ -111,6 +112,53 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
             components.month ?? 0,
             components.day ?? 0
         )
+    }
+
+    private func quotaObservations(now: Date) -> [LocalQuotaUsageObservation] {
+        let fiveHourReset = now.addingTimeInterval(3 * 3_600)
+        let weeklyReset = now.addingTimeInterval(4 * 86_400)
+        func observation(
+            offset: TimeInterval,
+            task: String,
+            tokens: Int64,
+            fiveHourPercent: Double,
+            weeklyPercent: Double
+        ) -> LocalQuotaUsageObservation {
+            LocalQuotaUsageObservation(
+                timestamp: now.addingTimeInterval(offset),
+                rootTaskID: task,
+                tokenIncrement: tokens,
+                windows: [
+                    AccountQuotaWindow(
+                        durationMinutes: 300,
+                        usedPercent: fiveHourPercent,
+                        resetsAt: fiveHourReset
+                    ),
+                    AccountQuotaWindow(
+                        durationMinutes: 10_080,
+                        usedPercent: weeklyPercent,
+                        resetsAt: weeklyReset
+                    )
+                ]
+            )
+        }
+        return [
+            observation(offset: -600, task: "dashboard", tokens: 0, fiveHourPercent: 16.4, weeklyPercent: 40.7),
+            observation(offset: -550, task: "dashboard", tokens: 71_600, fiveHourPercent: 16.4, weeklyPercent: 40.7),
+            observation(offset: -500, task: "dashboard", tokens: 71_600, fiveHourPercent: 16.9, weeklyPercent: 41.2),
+            observation(offset: -450, task: "dashboard", tokens: 71_600, fiveHourPercent: 16.9, weeklyPercent: 41.2),
+            observation(offset: -400, task: "dashboard", tokens: 71_600, fiveHourPercent: 17.4, weeklyPercent: 41.7),
+            observation(offset: -350, task: "usage", tokens: 95_850, fiveHourPercent: 17.4, weeklyPercent: 41.7),
+            observation(offset: -300, task: "usage", tokens: 95_850, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -250, task: "release", tokens: 132_800, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -200, task: "docs", tokens: 18_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -180, task: "quota", tokens: 15_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -160, task: "charts", tokens: 12_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -140, task: "tests", tokens: 10_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -120, task: "accessibility", tokens: 8_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -100, task: "migration", tokens: 6_000, fiveHourPercent: 18.4, weeklyPercent: 42.7),
+            observation(offset: -80, task: "release-notes", tokens: 4_300, fiveHourPercent: 18.4, weeklyPercent: 42.7)
+        ]
     }
 }
 

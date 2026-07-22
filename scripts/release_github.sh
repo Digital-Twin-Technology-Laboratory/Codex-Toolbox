@@ -9,6 +9,7 @@ PKG_PATH="$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.pkg"
 PKG_CHECKSUM_PATH="$PKG_PATH.sha256"
 DMG_PATH="$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.dmg"
 DMG_CHECKSUM_PATH="$DMG_PATH.sha256"
+APPCAST_PATH="$ROOT_DIR/dist/appcast.xml"
 
 : "${ALLOW_GITHUB_RELEASE:?Set ALLOW_GITHUB_RELEASE=YES only after signing and notarization are complete}"
 if [[ "$ALLOW_GITHUB_RELEASE" != "YES" ]]; then
@@ -22,6 +23,7 @@ xcrun stapler validate "$PKG_PATH"
 xcrun stapler validate "$DMG_PATH"
 spctl --assess --type install --verbose=4 "$PKG_PATH"
 spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG_PATH"
+"$ROOT_DIR/scripts/generate_appcast.sh" "$DMG_PATH"
 
 if [[ -n "$(git -C "$ROOT_DIR" status --porcelain)" ]]; then
     echo "The repository must be clean before creating the release tag." >&2
@@ -48,6 +50,7 @@ gh release create "v$RELEASE_VERSION" \
     "$PKG_CHECKSUM_PATH" \
     "$DMG_PATH" \
     "$DMG_CHECKSUM_PATH" \
+    "$APPCAST_PATH" \
     --repo Digital-Twin-Technology-Laboratory/Codex-Toolbox \
     --title "Codex Toolbox v$RELEASE_VERSION" \
     --notes-file "$ROOT_DIR/docs/releases/v$RELEASE_VERSION.md" \

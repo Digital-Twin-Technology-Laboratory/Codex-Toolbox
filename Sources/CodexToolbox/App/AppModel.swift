@@ -1,20 +1,13 @@
+import CodexToolboxCore
 import Foundation
 import Observation
-import CodexToolboxCore
-
-enum UpdateCheckState: Equatable {
-    case idle
-    case checking
-    case upToDate(checkedAt: Date)
-    case available(AppRelease)
-    case failed(String)
-}
 
 @MainActor
 @Observable
 final class AppModel {
     let settings: AppSettings
     let isDemoMode: Bool
+    let updateManager: AppUpdateManager
 
     private let repository: RadarRepository
     private let radarScheduler: RefreshScheduler
@@ -23,19 +16,18 @@ final class AppModel {
     private let usageReader: any CodexUsageReading & UsageHistoryClearing
     private let resetCreditsReader: any AccountRateLimitsReading
     private let resetCreditsCache: ResetCreditsCacheStore
-    private let releaseChecker: any ReleaseChecking
     private var didStart = false
 
     var repositoryState: RadarRepositoryState = .empty
     var isRefreshing = false
     var hasLoadedCache = false
     var usageHistory: UsageHistory?
+    var taskQuotaEstimatesByDuration: [Int: [String: TaskQuotaEstimate]] = [:]
     var usageErrorMessage: String?
     var isRefreshingUsage = false
     var resetCreditsSnapshot: ResetCreditsSnapshot?
     var resetCreditsErrorMessage: String?
     var isRefreshingResetCredits = false
-    var updateCheckState: UpdateCheckState = .idle
 
     init(
         settings: AppSettings = AppSettings(),
@@ -49,7 +41,7 @@ final class AppModel {
         usageReader: any CodexUsageReading & UsageHistoryClearing = LocalCodexUsageReader(),
         resetCreditsReader: any AccountRateLimitsReading = ResetCreditsClient(),
         resetCreditsCache: ResetCreditsCacheStore = ResetCreditsCacheStore(),
-        releaseChecker: any ReleaseChecking = GitHubReleaseClient(),
+        updateManager: AppUpdateManager = AppUpdateManager(),
         isDemoMode: Bool = false
     ) {
         self.settings = settings
@@ -61,7 +53,7 @@ final class AppModel {
         self.usageReader = usageReader
         self.resetCreditsReader = resetCreditsReader
         self.resetCreditsCache = resetCreditsCache
-        self.releaseChecker = releaseChecker
+        self.updateManager = updateManager
     }
 
     var snapshot: RadarSnapshot? { repositoryState.snapshot }
@@ -110,9 +102,7 @@ final class AppModel {
         Task { [weak self] in await self?.refreshIfNeeded() }
         Task { [weak self] in await self?.refreshUsageIfNeeded() }
         Task { [weak self] in await self?.refreshResetCreditsIfNeeded() }
-        if settings.automaticUpdateChecksEnabled {
-            Task { [weak self] in await self?.checkForUpdates() }
-        }
+        updateManager.start()
     }
 
     func refresh() async {
@@ -139,6 +129,7 @@ final class AppModel {
         defer { isRefreshingUsage = false }
         do {
             usageHistory = try await usageReader.readUsage(now: Date(), calendar: .current)
+            recalculateTaskQuotaEstimates()
             usageErrorMessage = nil
         } catch {
             usageErrorMessage = error.localizedDescription
@@ -156,6 +147,7 @@ final class AppModel {
         do {
             try await usageReader.clearHistory()
             usageHistory = nil
+            taskQuotaEstimatesByDuration = [:]
             usageErrorMessage = nil
             await refreshUsage()
         } catch {
@@ -170,6 +162,7 @@ final class AppModel {
         do {
             let snapshot = try await resetCreditsReader.readResetCredits()
             resetCreditsSnapshot = snapshot
+            recalculateTaskQuotaEstimates()
             resetCreditsErrorMessage = nil
             try? await resetCreditsCache.save(snapshot)
         } catch {
@@ -196,29 +189,6 @@ final class AppModel {
         Task { await reconfigureSchedulers() }
     }
 
-    func setAutomaticUpdateChecksEnabled(_ enabled: Bool) {
-        settings.automaticUpdateChecksEnabled = enabled
-        if enabled {
-            Task { [weak self] in await self?.checkForUpdates() }
-        } else if case .checking = updateCheckState {
-            // Let the in-flight request finish, but avoid showing a stale progress state.
-            updateCheckState = .idle
-        }
-    }
-
-    func checkForUpdates() async {
-        guard updateCheckState != .checking else { return }
-        updateCheckState = .checking
-        do {
-            let release = try await releaseChecker.latestRelease()
-            updateCheckState = release.isNewer(than: AppMetadata.version)
-                ? .available(release)
-                : .upToDate(checkedAt: Date())
-        } catch {
-            updateCheckState = .failed(error.localizedDescription)
-        }
-    }
-
     private func reconfigureSchedulers() async {
         let enabled = settings.automaticRefreshEnabled
         let interval = settings.refreshInterval
@@ -236,6 +206,23 @@ final class AppModel {
             everyMinutes: settings.resetCreditsRefreshInterval.rawValue
         ) { [weak self] in
             await self?.refreshResetCredits()
+        }
+    }
+
+    private func recalculateTaskQuotaEstimates(now: Date = Date()) {
+        guard let history = usageHistory else {
+            taskQuotaEstimatesByDuration = [:]
+            return
+        }
+        taskQuotaEstimatesByDuration = (resetCreditsSnapshot?.quotaWindows ?? []).reduce(
+            into: [:]
+        ) { result, window in
+            guard now < window.resetsAt else { return }
+            result[window.durationMinutes] = TaskQuotaEstimator.estimates(
+                history: history,
+                window: window,
+                now: now
+            )
         }
     }
 }

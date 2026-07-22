@@ -50,12 +50,11 @@ fi
 
 xattr -cr "$APP_PATH"
 if [[ -n "${APP_SIGN_IDENTITY:-}" ]]; then
-    codesign --force --options runtime --timestamp --sign "$APP_SIGN_IDENTITY" "$APP_PATH"
+    "$ROOT_DIR/scripts/sign_app.sh" "$APP_PATH" "$APP_SIGN_IDENTITY"
 else
-    codesign --force --options runtime --sign - --timestamp=none "$APP_PATH"
+    "$ROOT_DIR/scripts/sign_app.sh" "$APP_PATH" -
     echo "Applied an ad-hoc development signature; Developer ID Application signing is still required." >&2
 fi
-codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 "$ROOT_DIR/scripts/package_dmg.sh" \
     "$APP_PATH" \
