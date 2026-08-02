@@ -27,6 +27,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(settings.menuBarModelAliases.isEmpty)
         XCTAssertFalse(settings.showsTrendChart)
         XCTAssertEqual(settings.modelTrendRange, .sevenDays)
+        XCTAssertTrue(settings.modelTrendSelections.isEmpty)
         XCTAssertTrue(settings.showsDetailedBenchmarkTime)
         XCTAssertTrue(settings.automaticRefreshEnabled)
         XCTAssertEqual(settings.refreshInterval, .thirtyMinutes)
@@ -113,6 +114,40 @@ final class AppSettingsTests: XCTestCase {
             ),
             "5.6 Sol xh"
         )
+    }
+
+    func testModelTrendSelectionsPersistDeduplicateLimitAndReset() {
+        let suite = "AppSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let settings = AppSettings(defaults: defaults)
+        settings.setModelTrendSelection(
+            ["sol-ultra", "  sol-ultra  ", "terra-ultra", "luna-max", "5.5-xhigh"],
+            for: .iq
+        )
+        settings.setModelTrendSelection(["luna-low"], for: .cost)
+        settings.setModelTrendSelection(["luna-low", "terra-low"], for: .duration)
+        settings.setModelTrendSelection(["ignored"], for: .overall)
+
+        XCTAssertEqual(
+            settings.modelTrendSelection(for: .iq),
+            ["sol-ultra", "terra-ultra", "luna-max"]
+        )
+        XCTAssertEqual(settings.modelTrendSelection(for: .cost), ["luna-low"])
+        XCTAssertEqual(settings.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
+        XCTAssertEqual(settings.modelTrendSelection(for: .overall), [])
+
+        let restored = AppSettings(defaults: defaults)
+        XCTAssertEqual(restored.modelTrendSelection(for: .iq), ["sol-ultra", "terra-ultra", "luna-max"])
+        XCTAssertEqual(restored.modelTrendSelection(for: .cost), ["luna-low"])
+        XCTAssertEqual(restored.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
+
+        restored.resetModelTrendSelection(for: .iq)
+        restored.setModelTrendSelection([], for: .cost)
+        XCTAssertEqual(restored.modelTrendSelection(for: .iq), [])
+        XCTAssertEqual(restored.modelTrendSelection(for: .cost), [])
+        XCTAssertEqual(restored.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
     }
 
     func testInvalidStoredValuesMigrateToDefaults() {

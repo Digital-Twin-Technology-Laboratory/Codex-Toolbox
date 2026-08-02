@@ -9,6 +9,7 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT_DIR/scripts/version.sh"
+PACKAGE_VERSION="${PACKAGE_VERSION:-$RELEASE_VERSION}"
 
 APP_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 OUTPUT_PKG="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
@@ -46,7 +47,7 @@ codesign --verify --deep --strict --verbose=2 \
     --root "$PAYLOAD_ROOT" \
     --scripts "$PKG_SCRIPTS" \
     --identifier io.github.zzzzzzjw.CodexToolbox.pkg \
-    --version "$RELEASE_VERSION" \
+    --version "$PACKAGE_VERSION" \
     --ownership recommended \
     "$COMPONENT_PKG"
 

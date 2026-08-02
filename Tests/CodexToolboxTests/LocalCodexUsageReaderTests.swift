@@ -133,6 +133,48 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
     }
 
+    func testRolloutParserHandlesChunkBoundariesAndReusesEndCheckpoint() throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("large.jsonl")
+        let data = Data(
+            ((1...700).map {
+                tokenLine(
+                    timestamp: "2026-07-18T00:00:00Z",
+                    cumulative: Int64($0),
+                    increment: 1
+                )
+            }.joined(separator: "\n") + "\n").utf8
+        )
+        XCTAssertGreaterThan(data.count, 64 * 1_024)
+        try data.write(to: rollout)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "GMT"))
+        let first = try RolloutTokenParser.parse(fileURL: rollout, previous: nil, calendar: calendar)
+
+        XCTAssertEqual(first.dailyTokens["2026-07-18"], 700)
+        XCTAssertEqual(first.checkpoint.parsedOffset, UInt64(data.count))
+        let previous = ThreadUsageLedgerEntry(
+            threadID: "thread",
+            rootTaskID: "thread",
+            title: "Large rollout",
+            dailyTokens: first.dailyTokens,
+            quotaObservations: first.quotaObservations,
+            checkpoint: first.checkpoint,
+            isComplete: false
+        )
+
+        let reused = try RolloutTokenParser.parse(fileURL: rollout, previous: previous, calendar: calendar)
+
+        XCTAssertTrue(reused.resumedFromCheckpoint)
+        XCTAssertEqual(reused.damagedLineCount, 0)
+        XCTAssertEqual(reused.dailyTokens, first.dailyTokens)
+        XCTAssertEqual(reused.quotaObservations, first.quotaObservations)
+        XCTAssertEqual(reused.checkpoint, first.checkpoint)
+    }
+
     func testExtractsSanitizedQuotaObservationsAndAggregatesThemToTheRoot() async throws {
         let workspace = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: workspace) }
@@ -305,7 +347,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(migrated.threads["old-thread"]?.checkpoint?.parsedOffset, 30)
     }
 
-    func testMigratesVersionTwoAndThreeActiveWindowsByRebuildingWeightedObservations() throws {
+    func testMigratesVersionTwoAndThreeWithoutDiscardingCheckpoints() throws {
         let workspace = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: workspace) }
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
@@ -353,7 +395,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             XCTAssertEqual(migrated.schemaVersion, 4, "source schema \(sourceVersion)")
             XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-31"], 123)
             XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
-            XCTAssertNil(migrated.threads["thread"]?.checkpoint)
+            XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
         }
     }
 

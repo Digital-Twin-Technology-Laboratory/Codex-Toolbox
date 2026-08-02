@@ -185,6 +185,12 @@ public final class AppSettings {
         didSet { defaults.set(modelTrendRange.rawValue, forKey: Keys.modelTrendRange) }
     }
 
+    /// Explicit per-metric trend selections. An absent/empty selection means the
+    /// dashboard should derive the current metric's automatic Top 3.
+    public private(set) var modelTrendSelections: [String: [String]] {
+        didSet { defaults.set(modelTrendSelections, forKey: Keys.modelTrendSelections) }
+    }
+
     public var showsDetailedBenchmarkTime: Bool {
         didSet {
             defaults.set(showsDetailedBenchmarkTime, forKey: Keys.showsDetailedBenchmarkTime)
@@ -266,6 +272,9 @@ public final class AppSettings {
         modelTrendRange = ModelTrendRange(
             rawValue: defaults.integer(forKey: Keys.modelTrendRange)
         ) ?? .sevenDays
+        modelTrendSelections = Self.sanitizedModelTrendSelections(
+            defaults.dictionary(forKey: Keys.modelTrendSelections) ?? [:]
+        )
 
         if defaults.object(forKey: Keys.showsDetailedBenchmarkTime) == nil {
             showsDetailedBenchmarkTime = true
@@ -307,6 +316,35 @@ public final class AppSettings {
 
     public func resetWeights() {
         _ = apply(weights: .default)
+    }
+
+    /// Returns the user's explicit model IDs for a metric. An empty result asks
+    /// the caller to use the dynamic automatic Top 3 for that metric.
+    public func modelTrendSelection(for metric: RankingMetric) -> [String] {
+        guard Self.supportsModelTrendSelection(metric) else { return [] }
+        return modelTrendSelections[metric.rawValue] ?? []
+    }
+
+    /// Saves up to three distinct model IDs for one trend metric. Empty input
+    /// intentionally clears the explicit selection and restores automatic mode.
+    public func setModelTrendSelection(_ modelIDs: [String], for metric: RankingMetric) {
+        guard Self.supportsModelTrendSelection(metric) else { return }
+
+        var updated = modelTrendSelections
+        let sanitized = Self.sanitizedModelIDs(modelIDs)
+        if sanitized.isEmpty {
+            updated.removeValue(forKey: metric.rawValue)
+        } else {
+            updated[metric.rawValue] = sanitized
+        }
+        modelTrendSelections = updated
+    }
+
+    public func resetModelTrendSelection(for metric: RankingMetric) {
+        guard Self.supportsModelTrendSelection(metric) else { return }
+        var updated = modelTrendSelections
+        updated.removeValue(forKey: metric.rawValue)
+        modelTrendSelections = updated
     }
 
     public var dashboardConfiguration: DashboardConfiguration {
@@ -386,6 +424,42 @@ public final class AppSettings {
         }
     }
 
+    private static func supportsModelTrendSelection(_ metric: RankingMetric) -> Bool {
+        switch metric {
+        case .iq, .cost, .duration:
+            true
+        case .overall:
+            false
+        }
+    }
+
+    private static func sanitizedModelTrendSelections(_ rawSelections: [String: Any]) -> [String: [String]] {
+        let metrics: [RankingMetric] = [.iq, .cost, .duration]
+        return metrics.reduce(into: [:]) { result, metric in
+            guard let rawValue = rawSelections[metric.rawValue] else { return }
+            let rawIDs = (rawValue as? [String])
+                ?? (rawValue as? [Any])?.compactMap { $0 as? String }
+                ?? []
+            let sanitized = sanitizedModelIDs(rawIDs)
+            if !sanitized.isEmpty {
+                result[metric.rawValue] = sanitized
+            }
+        }
+    }
+
+    private static func sanitizedModelIDs(_ modelIDs: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for modelID in modelIDs {
+            let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            result.append(trimmed)
+            if result.count == 3 { break }
+        }
+        return result
+    }
+
     private static func normalizedModuleOrder(_ rawValues: [String]) -> [ToolboxModule] {
         DashboardConfiguration(
             orderedModules: rawValues.compactMap(ToolboxModule.init(rawValue:)),
@@ -415,6 +489,7 @@ public final class AppSettings {
         static let menuBarModelAliases = "menuBarModelAliases"
         static let showsTrendChart = "showsTrendChart"
         static let modelTrendRange = "modelTrendRangeDays"
+        static let modelTrendSelections = "modelTrendSelectionsByMetric"
         static let showsDetailedBenchmarkTime = "showsDetailedBenchmarkTime"
         static let automaticRefreshEnabled = "automaticRefreshEnabled"
         static let refreshInterval = "refreshIntervalMinutes"

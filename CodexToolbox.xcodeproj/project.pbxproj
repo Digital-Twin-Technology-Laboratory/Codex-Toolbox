@@ -53,6 +53,7 @@
 		A1B9E780B880C120E463D255 /* libCodexToolboxCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 667B732144948E89B9D4F62F /* libCodexToolboxCore.a */; };
 		A2769C18638A21BA92F36A63 /* ApplicationSupportLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */; };
 		A3A4CFC00534491BF10A8C1D /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10018E85736ECBFD621036BD /* AboutView.swift */; };
+		A90DF021E432AEADD3A89981 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66923E26C70902341D912CF9 /* ModelCatalog.swift */; };
 		A9BCE646677BCAAC1FB6728E /* current-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = F72A142B26EF7BFD9E6FCE47 /* current-v2.json */; };
 		AAE127A5ED9B0DE0FFF1FF36 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F4ADCE477B9F83955279115 /* UsageModels.swift */; };
 		AEC9A8B9B56DEFC48B34D923 /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4478996E62316B4427B4EC9E /* MenuBarLabel.swift */; };
@@ -78,6 +79,7 @@
 		ED6620A695EB97CCD5712AE3 /* DashboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9635D86E92D16A7A338F698 /* DashboardLayout.swift */; };
 		F3151CE8CE14562126927CAD /* DemoDashboardData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4673DF703E6893B5280FA6BA /* DemoDashboardData.swift */; };
 		FC50893FDABEEA4E1AFF9601 /* RadarRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A1884B2AFF7073E74C3A1B /* RadarRepositoryTests.swift */; };
+		FC6D30030ABC9D7E1F6FFF86 /* ModelCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FFA0CD9B77F733909463932 /* ModelCatalogTests.swift */; };
 		FCE6BF0CC76BD8902B0C9300 /* MetricFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */; };
 		FDCF48E410CE0C37CCE45F85 /* RankingMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B54B2B2831C335A9D8C085 /* RankingMetric.swift */; };
 		FEF21C43BEF422DDA7C4C1AD /* AppMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7CCDB7546E7F02992918C /* AppMetadata.swift */; };
@@ -133,11 +135,13 @@
 		4764E357F2ABD8BAD8D2BF4E /* ResetCreditsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsClient.swift; sourceTree = "<group>"; };
 		4CE6CEB2A8BE1A0638D07F8B /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
 		4F405F9CA1CF7D7A00BF96ED /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		4FFA0CD9B77F733909463932 /* ModelCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalogTests.swift; sourceTree = "<group>"; };
 		5359EDB1706D855FE9E9E59F /* TokenUsageModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageModuleView.swift; sourceTree = "<group>"; };
 		58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatterTests.swift; sourceTree = "<group>"; };
 		58FAFAA5A5425AA046088F30 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		65872EFA2F09D0FC3D79D8C9 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
 		667B732144948E89B9D4F62F /* libCodexToolboxCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCodexToolboxCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		66923E26C70902341D912CF9 /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
 		675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSupportLayout.swift; sourceTree = "<group>"; };
 		6DC6D8B1436081BAD28B6798 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
 		774108B48713EA34CEA3816D /* RadarDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarDecodingTests.swift; sourceTree = "<group>"; };
@@ -346,6 +350,7 @@
 			isa = PBXGroup;
 			children = (
 				8D0916F97C8C1593FAF3585D /* ModelBenchmark.swift */,
+				66923E26C70902341D912CF9 /* ModelCatalog.swift */,
 				EA07FF9D7BE329F469617AFA /* RadarResponse.swift */,
 				446BF33A5C31169BC5B8F6AA /* RankingEngine.swift */,
 				E2B54B2B2831C335A9D8C085 /* RankingMetric.swift */,
@@ -422,6 +427,7 @@
 				266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */,
 				0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */,
 				58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */,
+				4FFA0CD9B77F733909463932 /* ModelCatalogTests.swift */,
 				D374F969F64DE3F917BBE293 /* RadarClientTests.swift */,
 				774108B48713EA34CEA3816D /* RadarDecodingTests.swift */,
 				A3A1884B2AFF7073E74C3A1B /* RadarRepositoryTests.swift */,
@@ -651,6 +657,7 @@
 				9334398A3C124A7D92848BF9 /* GitHubReleaseClientTests.swift in Sources */,
 				BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */,
 				FCE6BF0CC76BD8902B0C9300 /* MetricFormatterTests.swift in Sources */,
+				FC6D30030ABC9D7E1F6FFF86 /* ModelCatalogTests.swift in Sources */,
 				932C994BA5888C84D0AC4116 /* RadarClientTests.swift in Sources */,
 				DB0EA6347F51F9D4682B6961 /* RadarDecodingTests.swift in Sources */,
 				FC50893FDABEEA4E1AFF9601 /* RadarRepositoryTests.swift in Sources */,
@@ -675,6 +682,7 @@
 				D19D824A91248A611C52C7C1 /* LocalCodexUsageReader.swift in Sources */,
 				8FC846ACD5A8539504C82CE6 /* MetricFormatter.swift in Sources */,
 				DCEC5B056D398F9B427788BD /* ModelBenchmark.swift in Sources */,
+				A90DF021E432AEADD3A89981 /* ModelCatalog.swift in Sources */,
 				9ADC39D62A171E52ED0C91D6 /* RadarClient.swift in Sources */,
 				E346708A70B9482FEF3BF82D /* RadarRepository.swift in Sources */,
 				11EC903049EB4B5280121B01 /* RadarResponse.swift in Sources */,

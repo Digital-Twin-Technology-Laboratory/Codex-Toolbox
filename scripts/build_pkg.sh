@@ -10,7 +10,7 @@ BUILD_DIR="$(mktemp -d "${TMPDIR%/}/CodexToolbox-archive.XXXXXX")"
 ARCHIVE_PATH="$BUILD_DIR/CodexToolbox.xcarchive"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/Codex Toolbox.app"
 EXECUTABLE="$APP_PATH/Contents/MacOS/Codex Toolbox"
-OUTPUT_PKG="$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.pkg"
+OUTPUT_PKG="${OUTPUT_PKG:-$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.pkg}"
 
 cleanup() {
     rm -rf "$BUILD_DIR"

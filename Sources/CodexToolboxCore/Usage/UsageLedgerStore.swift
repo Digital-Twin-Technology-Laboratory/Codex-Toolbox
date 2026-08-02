@@ -145,21 +145,14 @@ struct UsageLedgerStore {
                 }
             }
         } else if sourceSchemaVersion == 2 || sourceSchemaVersion == 3 {
-            let now = Date()
             for threadID in ledger.threads.keys {
-                let hasActiveQuotaWindow = ledger.threads[threadID]?.quotaObservations.contains {
-                    $0.windows.contains { now < $0.resetsAt }
-                } ?? false
                 // Schema 2/3 observations were calibrated in raw-token units.
                 // They cannot be retained as historical samples after schema 4
                 // switches to model-aware credit weights.
                 ledger.threads[threadID]?.quotaObservations = []
-                if hasActiveQuotaWindow {
-                    // Only active windows need an immediate full reparse. Older
-                    // threads keep their offsets and start collecting weighted
-                    // observations when they receive future rollout events.
-                    ledger.threads[threadID]?.checkpoint = nil
-                }
+                // The checkpoint remains valid for token totals. Replaying every
+                // active historical rollout here can block the first dashboard
+                // open for minutes; subsequent events supply weighted samples.
             }
         }
         return ledger

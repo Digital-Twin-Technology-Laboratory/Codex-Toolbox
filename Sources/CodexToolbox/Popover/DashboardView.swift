@@ -100,6 +100,15 @@ struct DashboardView: View {
         .onDisappear {
             scrollIndicatorDebounceTask?.cancel()
             scrollIndicatorDebounceTask = nil
+            interaction.collapseTrend()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
+            interaction.collapseTrend()
+        }
+        .onChange(of: appModel.settings.showsTrendChart) { _, isVisible in
+            if !isVisible {
+                interaction.collapseTrend()
+            }
         }
         .onPreferenceChange(DashboardContentHeightPreferenceKey.self) { height in
             measuredContentHeight = height
@@ -229,10 +238,7 @@ struct DashboardView: View {
                         color: .orange
                     )
                 }
-                rankingCards
-                if appModel.settings.showsTrendChart {
-                    TrendChartView(appModel: appModel)
-                }
+                modelRadarCards
             }
         }
     }
@@ -278,13 +284,26 @@ struct DashboardView: View {
     }
 
     @ViewBuilder
-    private var rankingCards: some View {
+    private var modelRadarCards: some View {
         if #available(macOS 26.0, *) {
             GlassEffectContainer(spacing: 10) {
-                rankingLayout
+                modelRadarCardStack
             }
         } else {
+            modelRadarCardStack
+        }
+    }
+
+    private var modelRadarCardStack: some View {
+        VStack(spacing: 10) {
             rankingLayout
+            if appModel.settings.showsTrendChart {
+                TrendChartView(
+                    appModel: appModel,
+                    isExpanded: $interaction.isTrendExpanded,
+                    namespace: rankingNamespace
+                )
+            }
         }
     }
 
@@ -458,8 +477,13 @@ private struct DashboardScrollViewportHeightPreferenceKey: PreferenceKey {
 @MainActor
 private final class DashboardInteractionState: ObservableObject {
     @Published var expandedMetric: RankingMetric?
+    @Published var isTrendExpanded = false
 
     init(expandedMetric: RankingMetric? = nil) {
         self.expandedMetric = expandedMetric
+    }
+
+    func collapseTrend() {
+        isTrendExpanded = false
     }
 }

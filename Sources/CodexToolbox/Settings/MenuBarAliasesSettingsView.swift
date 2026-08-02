@@ -25,14 +25,18 @@ struct MenuBarAliasesSettingsView: View {
                 }
             } else {
                 Form {
-                    Section {
-                        ForEach(appModel.availableModels) { model in
-                            aliasRow(for: model)
+                    ForEach(ModelCatalog.grouped(appModel.availableModels)) { family in
+                        Section(family.title) {
+                            ForEach(family.models) { model in
+                                aliasRow(for: model)
+                            }
                         }
-                    } header: {
-                        Text("模型简称")
-                    } footer: {
+                    }
+
+                    Section {
                         Text("简称仅在菜单栏中生效；留空时使用自动精简名称，展开面板仍显示原名称。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .formStyle(.grouped)
@@ -62,14 +66,18 @@ struct MenuBarAliasesSettingsView: View {
 
     private func aliasRow(for model: ModelBenchmark) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(model.label)
+            Text(model.catalogEntry.rowTitle)
                 .font(.body.weight(.medium))
+
+            Text(model.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
                 Text("简称")
                     .foregroundStyle(.secondary)
                 TextField(
-                    "留空时显示 \(MetricFormatter.compactModelName(model.label))",
+                    "留空时显示 \(MetricFormatter.compactModelName(model.catalogEntry.displayLabel))",
                     text: aliasBinding(for: model.id)
                 )
                 .textFieldStyle(.roundedBorder)

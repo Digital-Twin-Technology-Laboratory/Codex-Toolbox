@@ -277,6 +277,17 @@ enum RolloutTokenParser {
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
         let currentSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let previousCheckpoint = previous?.checkpoint
+        if let previousCheckpoint,
+           previousCheckpoint.path == fileURL.path,
+           currentSize == Int64(previousCheckpoint.parsedOffset) {
+            return ParsedRollout(
+                dailyTokens: previous?.dailyTokens ?? [:],
+                quotaObservations: previous?.quotaObservations ?? [],
+                checkpoint: previousCheckpoint,
+                damagedLineCount: 0,
+                resumedFromCheckpoint: true
+            )
+        }
         let canResume = previousCheckpoint.map {
             $0.path == fileURL.path && currentSize >= Int64($0.parsedOffset)
         } ?? false
@@ -297,10 +308,11 @@ enum RolloutTokenParser {
             let chunk = try handle.read(upToCount: 64 * 1024) ?? Data()
             if chunk.isEmpty { break }
             buffer.append(chunk)
-            while let newline = buffer.firstIndex(of: 0x0A) {
-                let line = Data(buffer[..<newline])
-                let consumed = buffer.distance(from: buffer.startIndex, to: newline) + 1
-                buffer.removeSubrange(buffer.startIndex...newline)
+            var lineStart = buffer.startIndex
+            while let newline = buffer[lineStart...].firstIndex(of: 0x0A) {
+                let line = Data(buffer[lineStart..<newline])
+                let consumed = buffer.distance(from: lineStart, to: newline) + 1
+                lineStart = buffer.index(after: newline)
                 parsedOffset += UInt64(consumed)
                 guard !line.isEmpty else { continue }
                 guard let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else {
@@ -343,6 +355,9 @@ enum RolloutTokenParser {
                         )
                     )
                 }
+            }
+            if lineStart != buffer.startIndex {
+                buffer.removeSubrange(buffer.startIndex..<lineStart)
             }
         }
 
