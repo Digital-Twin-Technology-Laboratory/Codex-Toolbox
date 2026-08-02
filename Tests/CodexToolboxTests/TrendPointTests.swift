@@ -28,7 +28,39 @@ final class TrendPointTests: XCTestCase {
         XCTAssertEqual(points.last?.value, 120)
     }
 
-    func testCostTrendUsesOnlyLocallyRecordedPoints() {
+    func testCostTrendPrefersPublishedAverageHistory() {
+        let model = ModelBenchmark(
+            id: "model",
+            label: "Model",
+            model: "model",
+            reasoningEffort: "high",
+            latest: nil,
+            recentDays: [
+                record("2026-08-02T09:23:26+08:00", score: 100, duration: 200, cost: 1.25),
+                record("2026-08-02T13:23:26+08:00", score: 110, duration: 180, cost: 1.50)
+            ]
+        )
+        let history = [
+            CostHistoryPoint(modelID: "model", dateKey: "local", costUSD: 999, recordedAt: Date())
+        ]
+
+        let points = TrendPointBuilder.points(
+            benchmarks: [model],
+            costHistory: history,
+            metric: .cost,
+            modelIDs: ["model"]
+        )
+
+        XCTAssertEqual(points.map(\.value), [1.25, 1.50])
+        XCTAssertEqual(points.map(\.dateKey), [
+            "2026-08-02T09:23:26+08:00",
+            "2026-08-02T13:23:26+08:00"
+        ])
+        XCTAssertNotNil(points.first?.recordedAt)
+        XCTAssertTrue(TrendPointBuilder.hasDrawableSeries(points))
+    }
+
+    func testCostTrendFallsBackToNewNamespaceLocalHistoryWhenPublishedCostIsMissing() {
         let model = ModelBenchmark(
             id: "model",
             label: "Model",
@@ -50,7 +82,6 @@ final class TrendPointTests: XCTestCase {
         )
 
         XCTAssertEqual(points.map(\.value), [2, 3])
-        XCTAssertTrue(TrendPointBuilder.hasDrawableSeries(points))
     }
 
     func testSinglePointIsNotDrawable() {
@@ -92,7 +123,19 @@ final class TrendPointTests: XCTestCase {
         XCTAssertEqual(recent.map(\.dateKey), ["2026-07-12-am"])
     }
 
-    private func record(_ date: String, score: Double, duration: Double) -> BenchmarkRecord {
+    func testShortDateLabelFormatsPublishedISOTimestamp() {
+        XCTAssertEqual(
+            TrendPointBuilder.shortDateLabel("2026-08-02T13:23:26+08:00"),
+            "08/02 13:23"
+        )
+    }
+
+    private func record(
+        _ date: String,
+        score: Double,
+        duration: Double,
+        cost: Double? = nil
+    ) -> BenchmarkRecord {
         BenchmarkRecord(
             date: date,
             score: score,
@@ -100,7 +143,7 @@ final class TrendPointTests: XCTestCase {
             passed: nil,
             tasks: nil,
             wallSeconds: duration,
-            costUSD: nil
+            costUSD: cost
         )
     }
 }

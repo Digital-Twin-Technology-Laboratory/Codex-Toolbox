@@ -196,6 +196,78 @@ struct ParsedRollout: Sendable {
     let resumedFromCheckpoint: Bool
 }
 
+enum QuotaUsageWeighting {
+    // Normalized against GPT-5.6 Terra's input-token rate from OpenAI's
+    // Codex rate card, verified on 2026-08-02:
+    // https://help.openai.com/en/articles/20001106-codex-rate-card
+    // Unknown models deliberately fall back to raw tokens until a future
+    // release adds a verified rate.
+    private struct Multipliers {
+        let input: Double
+        let cachedInput: Double
+        let output: Double
+    }
+
+    static func weight(
+        lastUsage: [String: Any],
+        modelID: String?,
+        fallbackTokens: Int64
+    ) -> Double {
+        guard let multipliers = multipliers(for: modelID),
+              let input = number(lastUsage["input_tokens"]),
+              let cached = number(lastUsage["cached_input_tokens"]),
+              let output = number(lastUsage["output_tokens"]),
+              input >= 0,
+              cached >= 0,
+              output >= 0 else {
+            return Double(max(0, fallbackTokens))
+        }
+        let boundedCached = min(input, cached)
+        let weighted = (input - boundedCached) * multipliers.input
+            + boundedCached * multipliers.cachedInput
+            + output * multipliers.output
+        return weighted.isFinite ? max(0, weighted) : Double(max(0, fallbackTokens))
+    }
+
+    private static func multipliers(for modelID: String?) -> Multipliers? {
+        guard let modelID = modelID?.lowercased() else { return nil }
+        if modelID.contains("gpt-5.6-terra") {
+            return Multipliers(input: 1, cachedInput: 0.1, output: 6)
+        }
+        if modelID.contains("gpt-5.6-luna") {
+            return Multipliers(input: 0.4, cachedInput: 0.04, output: 2.4)
+        }
+        if modelID.contains("gpt-5.6-sol") || modelID.contains("gpt-5.6") {
+            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+        }
+        if modelID.contains("gpt-5.5-cyber") {
+            return Multipliers(input: 8, cachedInput: 0.8, output: 48)
+        }
+        if modelID.contains("gpt-5.5") {
+            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+        }
+        if modelID.contains("gpt-5.4-mini") {
+            return Multipliers(input: 0.3, cachedInput: 0.03, output: 1.808)
+        }
+        if modelID.contains("gpt-5.4") {
+            return Multipliers(input: 1, cachedInput: 0.1, output: 6)
+        }
+        if modelID.contains("gpt-5.3-codex-spark") {
+            return nil
+        }
+        if modelID.contains("gpt-5.3-codex") || modelID.contains("gpt-5.2") {
+            return Multipliers(input: 0.7, cachedInput: 0.07, output: 5.6)
+        }
+        return nil
+    }
+
+    private static func number(_ value: Any?) -> Double? {
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let string = value as? String { return Double(string) }
+        return nil
+    }
+}
+
 enum RolloutTokenParser {
     static func parse(
         fileURL: URL,
@@ -212,6 +284,7 @@ enum RolloutTokenParser {
         var dailyTokens = canResume ? previous?.dailyTokens ?? [:] : [:]
         var quotaObservations = canResume ? previous?.quotaObservations ?? [] : []
         var seenTotals = Set(canResume ? previousCheckpoint?.seenCumulativeTotals ?? [] : [])
+        var currentModelID = canResume ? previousCheckpoint?.lastModelID : nil
         var damagedLineCount = 0
 
         let handle = try FileHandle(forReadingFrom: fileURL)
@@ -234,6 +307,13 @@ enum RolloutTokenParser {
                     damagedLineCount += 1
                     continue
                 }
+                if event["type"] as? String == "turn_context",
+                   let payload = event["payload"] as? [String: Any],
+                   let modelID = payload["model"] as? String,
+                   !modelID.isEmpty {
+                    currentModelID = modelID
+                    continue
+                }
                 guard event["type"] as? String == "event_msg",
                       let payload = event["payload"] as? [String: Any],
                       payload["type"] as? String == "token_count",
@@ -254,6 +334,11 @@ enum RolloutTokenParser {
                         ThreadQuotaUsageObservation(
                             timestamp: timestamp,
                             tokenIncrement: increment,
+                            quotaUsageWeight: QuotaUsageWeighting.weight(
+                                lastUsage: lastUsage,
+                                modelID: currentModelID,
+                                fallbackTokens: increment
+                            ),
                             windows: windows
                         )
                     )
@@ -268,7 +353,8 @@ enum RolloutTokenParser {
                 path: fileURL.path,
                 fileSize: currentSize,
                 parsedOffset: parsedOffset,
-                seenCumulativeTotals: seenTotals.sorted()
+                seenCumulativeTotals: seenTotals.sorted(),
+                lastModelID: currentModelID
             ),
             damagedLineCount: damagedLineCount,
             resumedFromCheckpoint: canResume
@@ -384,13 +470,20 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
         var ledger = try ledgerStore.load(timezoneIdentifier: timezoneIdentifier)
         let databaseURL = try selectedStateDatabase()
         let inventory = try ReadOnlySQLiteDatabase(url: databaseURL).inventory()
-        let fallbackRollouts = buildRolloutIndex()
+        var fallbackRollouts: [String: URL]?
         var warnings: [String] = []
 
         for thread in inventory.threads.values {
             let rootID = rootID(for: thread.id, parents: inventory.parentByChild)
             let previous = ledger.threads[thread.id]
-            guard let rolloutURL = rolloutURL(for: thread, fallbackIndex: fallbackRollouts) else {
+            let directRolloutURL = rolloutURL(for: thread, fallbackIndex: [:])
+            if directRolloutURL == nil, fallbackRollouts == nil {
+                fallbackRollouts = buildRolloutIndex()
+            }
+            guard let rolloutURL = directRolloutURL ?? rolloutURL(
+                for: thread,
+                fallbackIndex: fallbackRollouts ?? [:]
+            ) else {
                 var preserved = previous ?? ThreadUsageLedgerEntry(
                     threadID: thread.id,
                     rootTaskID: rootID,
@@ -472,6 +565,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
                         timestamp: $0.timestamp,
                         rootTaskID: entry.rootTaskID,
                         tokenIncrement: $0.tokenIncrement,
+                        quotaUsageWeight: $0.quotaUsageWeight,
                         windows: $0.windows
                     )
                 }
@@ -526,6 +620,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
             let direct = URL(fileURLWithPath: thread.rolloutPath)
             if fileManager.fileExists(atPath: direct.path) { return direct }
         }
+        if let exact = fallbackIndex[thread.id] { return exact }
         return fallbackIndex.first { $0.key.contains(thread.id) }?.value
     }
 
@@ -542,7 +637,15 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
                 options: [.skipsHiddenFiles]
             ) else { continue }
             for case let url as URL in enumerator where url.pathExtension == "jsonl" {
-                result[url.lastPathComponent] = url
+                let filename = url.lastPathComponent
+                result[filename] = url
+                let stem = url.deletingPathExtension().lastPathComponent
+                if stem.count >= 36 {
+                    let possibleID = String(stem.suffix(36))
+                    if UUID(uuidString: possibleID) != nil {
+                        result[possibleID] = url
+                    }
+                }
             }
         }
         return result

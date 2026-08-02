@@ -155,12 +155,12 @@ struct TrendChartView: View {
     }
 
     private var emptyTitle: String {
-        state.metric == .cost ? "正在积累费用历史" : "趋势数据不足"
+        "趋势数据不足"
     }
 
     private var emptyDescription: String {
         if state.metric == .cost {
-            return "CodexRadar 未提供历史费用；应用从安装后在本地记录，至少两个测试日期后显示。"
+            return "聚合快照至少需要同一模型的两个有效费用点；缺少远端历史时会从本机新口径快照继续积累。"
         }
         return "至少需要同一模型的两个有效数据点。"
     }

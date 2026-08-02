@@ -87,10 +87,35 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
                     isComplete: true
                 )
             }
+            let researchTokens = total * 52 / 100
+            let implementationTokens = total * 31 / 100
+            let verificationTokens = total - researchTokens - implementationTokens
             return DailyUsageSummary(
                 dateKey: key,
                 totalTokens: total,
-                tasks: [],
+                tasks: [
+                    DailyTaskUsage(
+                        dateKey: key,
+                        rootTaskID: "history-research-\(index)",
+                        title: "调研第 \(index + 1) 日需求与数据来源",
+                        tokens: researchTokens,
+                        descendantCount: 1
+                    ),
+                    DailyTaskUsage(
+                        dateKey: key,
+                        rootTaskID: "history-implementation-\(index)",
+                        title: "实现第 \(index + 1) 日看板改进",
+                        tokens: implementationTokens,
+                        descendantCount: 0
+                    ),
+                    DailyTaskUsage(
+                        dateKey: key,
+                        rootTaskID: "history-verification-\(index)",
+                        title: "验证第 \(index + 1) 日构建与交互",
+                        tokens: verificationTokens,
+                        descendantCount: 0
+                    )
+                ],
                 isComplete: true
             )
         }

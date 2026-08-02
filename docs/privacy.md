@@ -5,7 +5,7 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 ## Token 用量
 
 - 只读访问当前用户的 `~/.codex/state_*.sqlite` 和 rollout JSONL。
-- 本机 Usage Ledger 包含逐线程、逐日 Token 总量、文件路径检查点、文件偏移与累计 Token；为估算任务额度，还保存 rollout 已包含的事件时间、单轮 Token、窗口时长、已用百分比和重置时间，不保存对话正文。
+- 本机 Usage Ledger 包含逐线程、逐日 Token 总量、文件路径检查点、文件偏移与累计 Token；为估算任务额度，还保存 rollout 已包含的事件时间、单轮 Token、按模型费率计算的单轮相对额度权重、窗口时长、已用百分比和重置时间。增量检查点会保留最近的模型标识以便续读，但不保存对话正文。
 - rollout 中的额度快照会在写入账本前脱敏；不保存额度 limit ID、套餐字段、积分余额或其他账户字段。
 - 看板使用 Codex SQLite 中的具体对话/任务标题；通用标题会回退到本机首条用户消息或预览摘要，数据不会上传。
 - 用户可清除历史账本；不会因 rollout 被删除而自动删除已记录历史。
@@ -19,7 +19,7 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 
 ## 模型排名
 
-该模块只请求 `https://codexradar.com/current.json`，使用 ETag 和 Last-Modified 缓存验证，不抓取 HTML。
+该模块只请求 `https://codexradar.com/data/intelligence-efficiency.json`，读取 Codex 雷达已经聚合的智商、每题平均费用、每题平均耗时和历史观察点。客户端使用 ETag 和 Last-Modified 缓存验证，不抓取 HTML，也不请求网页使用的原始任务表接口。
 
 ## 更新检查
 
@@ -29,4 +29,4 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 
 ## 应用支持文件
 
-Codex Toolbox 的快照、用量账本和重置卡脱敏缓存存放在 `~/Library/Application Support/CodexToolbox/`。v1.0.0 首次升级会保留 `~/Library/Application Support/ShowCodexIQ/` 中的旧快照，作为回滚保障。
+Codex Toolbox 的快照、用量账本和重置卡脱敏缓存存放在 `~/Library/Application Support/CodexToolbox/`。旧模型快照继续保留作为回滚保障；聚合口径使用独立缓存文件，不会读取或覆盖旧累计费用、累计耗时历史。

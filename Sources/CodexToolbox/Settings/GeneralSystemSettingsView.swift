@@ -22,7 +22,7 @@ struct GeneralSystemSettingsView: View {
             Section("隐私") {
                 Label("本机 Token 审计不调用模型、不上传任务内容", systemImage: "externaldrive.badge.checkmark")
                 Label("重置卡通过本机 Codex app-server 只读查询", systemImage: "person.badge.shield.checkmark")
-                Label("模型榜单只访问 Codex Radar 的公开 JSON", systemImage: "network")
+                Label("模型榜单只访问 Codex Radar 的公开聚合 JSON", systemImage: "network")
             }
         }
         .formStyle(.grouped)

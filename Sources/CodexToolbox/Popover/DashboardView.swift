@@ -8,6 +8,10 @@ struct DashboardView: View {
     @StateObject private var interaction = DashboardInteractionState()
     @State private var measuredContentHeight: CGFloat = 0
     @State private var measuredFooterHeight: CGFloat = 0
+    @State private var scrollViewportHeight: CGFloat = 0
+    @State private var isViewportShrinking = false
+    @State private var showsScrollIndicators = false
+    @State private var scrollIndicatorDebounceTask: Task<Void, Never>?
     @Namespace private var rankingNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -45,7 +49,20 @@ struct DashboardView: View {
                         }
                     }
             }
-            .scrollIndicators(isContentClipped ? .automatic : .hidden)
+            // Keep scrollability discoverable while filtering the temporary
+            // content/viewport mismatch produced by collapse animations.
+            .scrollIndicators(
+                showsScrollIndicators ? .visible : .never,
+                axes: .vertical
+            )
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: DashboardScrollViewportHeightPreferenceKey.self,
+                        value: geometry.size.height
+                    )
+                }
+            }
 
             Divider()
             footer
@@ -77,13 +94,33 @@ struct DashboardView: View {
         }
         .task { await appModel.start() }
         .onAppear {
+            scheduleScrollIndicatorUpdate()
             Task { await appModel.refreshIfNeeded() }
+        }
+        .onDisappear {
+            scrollIndicatorDebounceTask?.cancel()
+            scrollIndicatorDebounceTask = nil
         }
         .onPreferenceChange(DashboardContentHeightPreferenceKey.self) { height in
             measuredContentHeight = height
         }
         .onPreferenceChange(DashboardFooterHeightPreferenceKey.self) { height in
             measuredFooterHeight = height
+        }
+        .onPreferenceChange(DashboardScrollViewportHeightPreferenceKey.self) { height in
+            guard height > 0 else { return }
+            if scrollViewportHeight > 0,
+               height < scrollViewportHeight - DashboardLayout.scrollViewportChangeThreshold {
+                isViewportShrinking = true
+            }
+            scrollViewportHeight = height
+            scheduleScrollIndicatorUpdate()
+        }
+        .onChange(of: measuredContentHeight) { _, _ in
+            scheduleScrollIndicatorUpdate()
+        }
+        .onChange(of: measuredFooterHeight) { _, _ in
+            scheduleScrollIndicatorUpdate()
         }
         .onChange(of: resolvedHeight, initial: true) { _, height in
             onPreferredHeightChange(height)
@@ -211,8 +248,33 @@ struct DashboardView: View {
         )
     }
 
-    private var isContentClipped: Bool {
-        idealHeight > layoutState.maximumHeight + 0.5
+    private func scheduleScrollIndicatorUpdate() {
+        scrollIndicatorDebounceTask?.cancel()
+        scrollIndicatorDebounceTask = Task { @MainActor in
+            try? await Task.sleep(
+                nanoseconds: DashboardLayout.scrollIndicatorRefreshNanoseconds
+            )
+            guard !Task.isCancelled else { return }
+            guard measuredContentHeight > 0, scrollViewportHeight > 0 else { return }
+            let overflow = measuredContentHeight - scrollViewportHeight
+            let threshold = showsScrollIndicators
+                ? DashboardLayout.scrollIndicatorHideThreshold
+                : DashboardLayout.scrollIndicatorShowThreshold
+            let shouldShowIndicators = overflow > threshold
+            if shouldShowIndicators, !showsScrollIndicators, isViewportShrinking {
+                // The popover can resize one frame before its animated content.
+                // Clear the one-shot suppression and re-check once the layout
+                // has had another settling interval, so genuine overflow still
+                // becomes visible after a screen or window size reduction.
+                isViewportShrinking = false
+                scheduleScrollIndicatorUpdate()
+                return
+            }
+            isViewportShrinking = false
+            if showsScrollIndicators != shouldShowIndicators {
+                showsScrollIndicators = shouldShowIndicators
+            }
+        }
     }
 
     @ViewBuilder
@@ -378,6 +440,14 @@ private struct DashboardContentHeightPreferenceKey: PreferenceKey {
 }
 
 private struct DashboardFooterHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct DashboardScrollViewportHeightPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {

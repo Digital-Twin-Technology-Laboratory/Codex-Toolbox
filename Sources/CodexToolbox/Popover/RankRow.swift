@@ -89,7 +89,7 @@ struct RankRow: View {
 
     private var statusText: String {
         if ranked.metric == .overall {
-            return "加权百分位"
+            return "本地加权百分位"
         }
         guard let latest = ranked.benchmark.latest else { return "暂无详细数据" }
         if let passed = latest.passed, let tasks = latest.tasks {

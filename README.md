@@ -12,7 +12,7 @@
 Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时新增完全本机的 Token 审计与账户重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
 
 > [!NOTE]
-> **v1.1.0 已于 2026 年 7 月 22 日正式发布。** 本版新增 Sparkle 应用内更新并修正跨设备任务额度估算；PKG 与 DMG 均使用 Developer ID 签名，通过 Apple 公证并已 staple ticket。
+> **v1.2.0 已于 2026 年 8 月 2 日正式发布。** 本版修正 21 档模型榜单的聚合口径，新增每日 Token 任务下钻，并改进按模型信用费率校准的任务额度估算。
 
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
@@ -30,15 +30,16 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 
 ### 模型智商
 
-- 完整保留四类榜单、前三/前五展开、趋势图、离线快照和权重综合排名。模型趋势图默认不显示，可开启并选择 7/14/30/90 天范围。
+- 从 Codex 雷达公开聚合快照读取当前 21 个模型档位；智商、每题平均费用与每题平均耗时采用同一数据口径，并保留公开历史趋势。
+- 完整保留四类榜单、前三/前五展开、趋势图、离线快照和权重综合排名。综合分是应用按用户权重计算的本地加权百分位，不是网站直接发布的分数。模型趋势图默认不显示，可开启并选择 7/14/30/90 天范围。
 - 菜单栏可切换智商、综合、费用或耗时，并支持序号、图标、详细数值和模型别名。
 - 失败时继续展示最后一次成功数据，不会用空榜单覆盖有用状态。
 
 ### Token 用量
 
 - 只读解析 `~/.codex/state_*.sqlite` 和本机 rollout JSONL，不调用模型，不上传任务内容。
-- Token 内容分为上下两张独立卡片：今日总量与根任务 Top 3、每日用量趋势。点击榜单卡可按设置展开为 Top 5 或 Top 10，悬停柱子可查看当日精确 Token；根任务不足时会明确显示实际项数。
-- 任务行在本机原始 Token 后显示 5 小时/周额度估算：优先使用 rollout 每轮记录的额度快照，自动忽略本机长时间无活动期间的账户跳变，并以本机观测到的稳健 Token/百分点换算率补足取整误差。账户实际已用比例仍单独显示并明确包含所有设备；任务值以 `≈` 和置信度提示标识，不等同于官方精确拆分。
+- Token 内容分为上下两张独立卡片：当日总量与根任务 Top 3、每日用量趋势。点击趋势柱可切换到该日任务明细，并可“返回今日”；每次关闭弹窗都会清除日期选择。任务榜单可按设置展开为 Top 5 或 Top 10，悬停柱子仍可查看精确 Token。
+- 任务行在本机原始 Token 后显示同一天、同一根任务的 5 小时/周额度估算：解析 rollout 的模型与输入、缓存输入、输出 Token，按 OpenAI 当前公开的 [Codex 信用费率](https://help.openai.com/en/articles/20001106-codex-rate-card)生成相对权重，再用本机额度快照的稳健全局换算率校准；异常并发台阶不会继续放大为单任务换算率。账户实际已用比例仍单独显示并明确包含所有设备；任务值以 `≈` 和置信度提示标识，不等同于官方精确拆分。少量仍使用 legacy rate card 的企业账户不适用该 token-based 权重。
 - 任务按根任务及全部子任务聚合，标题使用 Codex 在本机保存的具体对话或任务名称；趋势支持 7/14/30/90 天。
 - 以累计 `total_token_usage.total_tokens` 去重，把 `last_token_usage.total_tokens` 按系统时区记账。`cached_input_tokens` 已属于 input，`reasoning_output_tokens` 已属于 output，不另行重复相加。
 - 历史账本默认永久保留；源文件缺失或损坏时保留已记录数据并标记为“不完整”。
@@ -65,15 +66,15 @@ macOS 26+ 使用原生 Liquid Glass，macOS 14–15 回退为系统 Material。�
 2. 校验文件：
 
    ```bash
-   shasum -a 256 -c Codex-Toolbox-1.1.0-universal.pkg.sha256
+   shasum -a 256 -c Codex-Toolbox-1.2.0-universal.pkg.sha256
    # 或
-   shasum -a 256 -c Codex-Toolbox-1.1.0-universal.dmg.sha256
+   shasum -a 256 -c Codex-Toolbox-1.2.0-universal.dmg.sha256
    ```
 
 3. **PKG（升级推荐）：**双击安装。它会在新应用验证成功后精确删除 `/Applications/Show Codex IQ.app`。
 4. **DMG（手动拖拽）：**升级前先退出并删除“应用程序”中的 `Show Codex IQ.app`，再把 `Codex Toolbox.app` 拖入 Applications，避免新旧两个应用并存。DMG 内附中文升级说明。
 
-Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置、榜单缓存与登录启动偏好可直接继承。PKG 会请求已运行的旧应用退出；新应用的目标路径、Bundle ID、签名与 Universal 2 架构全部验证成功后，才会删除精确路径 `/Applications/Show Codex IQ.app`。详见[升级与回滚说明](docs/upgrade-from-show-codex-iq.md)。
+Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录启动偏好可直接继承。旧版累计口径榜单缓存会保留用于回滚，但新版本使用独立的聚合快照缓存，不会混入旧费用和耗时历史。PKG 会请求已运行的旧应用退出；新应用的目标路径、Bundle ID、签名与 Universal 2 架构全部验证成功后，才会删除精确路径 `/Applications/Show Codex IQ.app`。详见[升级与回滚说明](docs/upgrade-from-show-codex-iq.md)。
 
 > [!NOTE]
 > v1.0.0 尚未内置 Sparkle，因此从 v1.0.0 升级到 v1.1.0 仍需手动安装一次。从 v1.1.0 开始，后续正式版本会通过 Ed25519 与 Apple 代码签名校验，并可在应用内完成更新。
@@ -85,7 +86,7 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置、榜单�
 
 - macOS 14.0 或更高版本
 - Apple Silicon 或 Intel Mac（Universal 2）
-- 模型排名需要访问 `https://codexradar.com/current.json`
+- 模型排名需要访问 `https://codexradar.com/data/intelligence-efficiency.json`
 - Token 模块需要当前 Mac 上可读取的 Codex 本地数据
 - 重置卡模块需要已安装并登录的 Codex 或 ChatGPT；其他模块不受影响
 
@@ -99,7 +100,7 @@ Token 数字仅代表当前 Mac 仍可读取的“本机原始 Token”，不等
 ~/Library/Application Support/CodexToolbox/
 ```
 
-首次启动会验证后把 `Application Support/ShowCodexIQ/latest.json` 复制到新目录，v1.0.0 不删除旧文件，便于回滚。更完整的边界见[隐私说明](docs/privacy.md)。
+旧版 `radar-latest.json` 和 `Application Support/ShowCodexIQ/latest.json` 不会被删除，便于回滚；新聚合口径使用独立的 `radar-intelligence-efficiency-v2.json`，不会迁移旧累计费用和耗时。更完整的边界见[隐私说明](docs/privacy.md)。
 
 ## 本地开发
 

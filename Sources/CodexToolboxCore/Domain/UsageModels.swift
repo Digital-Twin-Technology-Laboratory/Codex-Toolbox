@@ -60,17 +60,22 @@ public struct LocalQuotaUsageObservation: Codable, Hashable, Sendable {
     public let timestamp: Date
     public let rootTaskID: String
     public let tokenIncrement: Int64
+    public let quotaUsageWeight: Double?
     public let windows: [AccountQuotaWindow]
 
     public init(
         timestamp: Date,
         rootTaskID: String,
         tokenIncrement: Int64,
+        quotaUsageWeight: Double? = nil,
         windows: [AccountQuotaWindow]
     ) {
         self.timestamp = timestamp
         self.rootTaskID = rootTaskID
         self.tokenIncrement = max(0, tokenIncrement)
+        self.quotaUsageWeight = quotaUsageWeight.flatMap {
+            $0.isFinite ? max(0, $0) : nil
+        }
         self.windows = windows.sorted { $0.durationMinutes < $1.durationMinutes }
     }
 }
@@ -173,23 +178,37 @@ public enum TaskQuotaEstimator {
     private static let inactivityThreshold: TimeInterval = 15 * 60
     private static let resetTolerance: TimeInterval = 5 * 60
     private static let maximumCleanStep = 3.0
+    private static let minimumBucketsForOutlierFiltering = 5
+    private static let maximumRateDeviationFactor = 4.0
     private static let percentEpsilon = 0.000_001
 
     private struct Sample: Sendable {
         let timestamp: Date
-        let rootTaskID: String
-        let tokens: Int64
+        let dailyTaskID: String
+        let usageWeight: Double
         let percent: Double
     }
 
     private struct Attribution {
-        var totalTokensByTask: [String: Int64] = [:]
-        var coveredTokensByTask: [String: Int64] = [:]
+        var totalUsageByTask: [String: Double] = [:]
+        var coveredUsageByTask: [String: Double] = [:]
         var observedPercentByTask: [String: Double] = [:]
         var observedStepsByTask: [String: Int] = [:]
-        var ratesByTask: [String: [Double]] = [:]
         var globalRates: [Double] = []
         var observedPercentagePoints = 0.0
+    }
+
+    private struct Bucket: Sendable {
+        let percentDelta: Double
+        let usageByTask: [String: Double]
+
+        var totalUsage: Double {
+            usageByTask.values.reduce(0, +)
+        }
+
+        var rate: Double {
+            totalUsage / percentDelta
+        }
     }
 
     private struct WindowKey: Hashable {
@@ -203,10 +222,13 @@ public enum TaskQuotaEstimator {
         now: Date
     ) -> [String: TaskQuotaEstimate] {
         guard now < window.resetsAt else { return [:] }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: history.timezoneIdentifier) ?? .current
         let currentSamples = samples(
             observations: history.quotaObservations,
             matching: window,
-            now: now
+            now: now,
+            calendar: calendar
         )
         guard !currentSamples.isEmpty else { return [:] }
 
@@ -214,26 +236,26 @@ public enum TaskQuotaEstimator {
         let historicalRates = calibrationRates(
             observations: history.quotaObservations,
             durationMinutes: window.durationMinutes,
-            now: now
+            now: now,
+            calendar: calendar
         )
         let currentGlobalRate = median(current.globalRates)
         let historicalRate = median(historicalRates)
 
         var raw: [String: TaskQuotaEstimate] = [:]
-        for (taskID, totalTokens) in current.totalTokensByTask where totalTokens > 0 {
-            let coveredTokens = min(totalTokens, current.coveredTokensByTask[taskID] ?? 0)
-            let uncoveredTokens = max(0, totalTokens - coveredTokens)
-            let taskRate = median(current.ratesByTask[taskID] ?? [])
-            guard let rate = taskRate ?? currentGlobalRate ?? historicalRate,
+        for (taskID, totalUsage) in current.totalUsageByTask where totalUsage > 0 {
+            let coveredUsage = min(totalUsage, current.coveredUsageByTask[taskID] ?? 0)
+            let uncoveredUsage = max(0, totalUsage - coveredUsage)
+            guard let rate = currentGlobalRate ?? historicalRate,
                   rate > 0,
                   rate.isFinite else { continue }
 
             let observedPercent = current.observedPercentByTask[taskID] ?? 0
-            let inferredPercent = Double(uncoveredTokens) / rate
+            let inferredPercent = uncoveredUsage / rate
             let estimate = observedPercent + inferredPercent
             guard estimate.isFinite else { continue }
 
-            let coverage = Double(coveredTokens) / Double(totalTokens)
+            let coverage = coveredUsage / totalUsage
             let stepCount = current.observedStepsByTask[taskID] ?? 0
             let confidence: QuotaEstimateConfidence
             if current.observedPercentagePoints >= 10,
@@ -272,7 +294,8 @@ public enum TaskQuotaEstimator {
     private static func samples(
         observations: [LocalQuotaUsageObservation],
         matching window: AccountQuotaWindow,
-        now: Date
+        now: Date,
+        calendar: Calendar
     ) -> [Sample] {
         let windowStart = window.resetsAt.addingTimeInterval(
             -TimeInterval(window.durationMinutes * 60)
@@ -285,25 +308,28 @@ public enum TaskQuotaEstimator {
                       $0.durationMinutes == window.durationMinutes
                           && abs($0.resetsAt.timeIntervalSince(window.resetsAt)) <= resetTolerance
                   }) else { return nil }
+            let dateKey = dayKey(observation.timestamp, calendar: calendar)
             return Sample(
                 timestamp: observation.timestamp,
-                rootTaskID: observation.rootTaskID,
-                tokens: observation.tokenIncrement,
+                dailyTaskID: "\(dateKey)|\(observation.rootTaskID)",
+                usageWeight: observation.quotaUsageWeight
+                    ?? Double(observation.tokenIncrement),
                 percent: observedWindow.usedPercent
             )
         }.sorted {
             if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
-            return $0.rootTaskID < $1.rootTaskID
+            return $0.dailyTaskID < $1.dailyTaskID
         }
     }
 
     private static func attribute(_ samples: [Sample]) -> Attribution {
         var result = Attribution()
         var previous: Sample?
-        var bucketTokensByTask: [String: Int64] = [:]
+        var bucketUsageByTask: [String: Double] = [:]
+        var buckets: [Bucket] = []
 
         for sample in samples {
-            result.totalTokensByTask[sample.rootTaskID, default: 0] += sample.tokens
+            result.totalUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
             guard let last = previous else {
                 previous = sample
                 continue
@@ -314,39 +340,60 @@ public enum TaskQuotaEstimator {
             guard gap >= 0,
                   gap <= inactivityThreshold,
                   percentDelta >= -percentEpsilon else {
-                bucketTokensByTask.removeAll(keepingCapacity: true)
+                bucketUsageByTask.removeAll(keepingCapacity: true)
                 previous = sample
                 continue
             }
 
-            bucketTokensByTask[sample.rootTaskID, default: 0] += sample.tokens
+            bucketUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
             if percentDelta > percentEpsilon {
-                let bucketTotal = bucketTokensByTask.values.reduce(Int64(0), +)
-                if percentDelta <= maximumCleanStep, bucketTotal > 0 {
-                    let rate = Double(bucketTotal) / percentDelta
-                    if rate.isFinite, rate > 0 {
-                        result.globalRates.append(rate)
-                        result.observedPercentagePoints += percentDelta
-                        for (taskID, tokens) in bucketTokensByTask where tokens > 0 {
-                            let share = Double(tokens) / Double(bucketTotal)
-                            result.coveredTokensByTask[taskID, default: 0] += tokens
-                            result.observedPercentByTask[taskID, default: 0] += percentDelta * share
-                            result.observedStepsByTask[taskID, default: 0] += 1
-                            result.ratesByTask[taskID, default: []].append(rate)
-                        }
-                    }
+                let bucket = Bucket(
+                    percentDelta: percentDelta,
+                    usageByTask: bucketUsageByTask
+                )
+                if percentDelta <= maximumCleanStep,
+                   bucket.totalUsage > 0,
+                   bucket.rate.isFinite,
+                   bucket.rate > 0 {
+                    buckets.append(bucket)
                 }
-                bucketTokensByTask.removeAll(keepingCapacity: true)
+                bucketUsageByTask.removeAll(keepingCapacity: true)
             }
             previous = sample
         }
+
+        let candidateMedian = median(buckets.map(\.rate))
+        for bucket in buckets where isReliable(bucket, medianRate: candidateMedian, count: buckets.count) {
+            result.globalRates.append(bucket.rate)
+            result.observedPercentagePoints += bucket.percentDelta
+            for (taskID, usage) in bucket.usageByTask where usage > 0 {
+                let share = usage / bucket.totalUsage
+                result.coveredUsageByTask[taskID, default: 0] += usage
+                result.observedPercentByTask[taskID, default: 0] += bucket.percentDelta * share
+                result.observedStepsByTask[taskID, default: 0] += 1
+            }
+        }
         return result
+    }
+
+    private static func isReliable(
+        _ bucket: Bucket,
+        medianRate: Double?,
+        count: Int
+    ) -> Bool {
+        guard count >= minimumBucketsForOutlierFiltering,
+              let medianRate,
+              medianRate > 0 else { return true }
+        let lowerBound = medianRate / maximumRateDeviationFactor
+        let upperBound = medianRate * maximumRateDeviationFactor
+        return bucket.rate >= lowerBound && bucket.rate <= upperBound
     }
 
     private static func calibrationRates(
         observations: [LocalQuotaUsageObservation],
         durationMinutes: Int,
-        now: Date
+        now: Date,
+        calendar: Calendar
     ) -> [Double] {
         var grouped: [WindowKey: [Sample]] = [:]
         for observation in observations where observation.timestamp <= now {
@@ -358,8 +405,9 @@ public enum TaskQuotaEstimator {
                 grouped[key, default: []].append(
                     Sample(
                         timestamp: observation.timestamp,
-                        rootTaskID: observation.rootTaskID,
-                        tokens: observation.tokenIncrement,
+                        dailyTaskID: "\(dayKey(observation.timestamp, calendar: calendar))|\(observation.rootTaskID)",
+                        usageWeight: observation.quotaUsageWeight
+                            ?? Double(observation.tokenIncrement),
                         percent: window.usedPercent
                     )
                 )
@@ -376,6 +424,16 @@ public enum TaskQuotaEstimator {
             return (sorted[middle - 1] + sorted[middle]) / 2
         }
         return sorted[middle]
+    }
+
+    private static func dayKey(_ date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
     }
 }
 

@@ -87,8 +87,11 @@ public actor SnapshotStore: SnapshotStoring {
             self.legacyFileURL = legacyFileURL
         } else {
             let layout = ApplicationSupportLayout(fileManager: fileManager)
-            self.fileURL = layout.radarStateURL
-            self.legacyFileURL = legacyFileURL ?? layout.legacyRadarStateURL
+            self.fileURL = layout.radarEfficiencyStateURL
+            // The legacy snapshots use cumulative cost and duration semantics.
+            // Keep them on disk for rollback, but never migrate them into the
+            // intelligence-efficiency cache namespace.
+            self.legacyFileURL = legacyFileURL
         }
     }
 

@@ -9,7 +9,7 @@ final class RadarClientTests: XCTestCase {
     }
 
     func testSendsCacheValidatorsAndDecodesPayload() async throws {
-        let payload = try Data(contentsOf: try fixtureURL("current-v2.json"))
+        let payload = try Data(contentsOf: try fixtureURL("intelligence-efficiency-v2.json"))
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "If-None-Match"), "old-etag")
             XCTAssertEqual(request.value(forHTTPHeaderField: "If-Modified-Since"), "old-date")
@@ -31,8 +31,64 @@ final class RadarClientTests: XCTestCase {
         guard case let .modified(snapshot) = result else {
             return XCTFail("Expected a modified response")
         }
-        XCTAssertEqual(snapshot.benchmarks.count, 3)
+        XCTAssertEqual(snapshot.schemaVersion, "intelligence-efficiency/2")
+        XCTAssertEqual(snapshot.sourceMonitoredAt, "2026-08-02T13:23:26+08:00")
+        XCTAssertEqual(snapshot.benchmarks.count, 21)
         XCTAssertEqual(snapshot.validators.etag, "new-etag")
+    }
+
+    func testRejectsUnsupportedEfficiencySchema() async {
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: [:]
+            )!
+            return (
+                response,
+                Data(#"{"schema":3,"source_updated_at":"2026-08-02T13:23:26+08:00","points":[]}"#.utf8)
+            )
+        }
+
+        do {
+            _ = try await makeClient().fetch(cacheValidators: nil)
+            XCTFail("Expected the request to fail")
+        } catch let error as RadarClientError {
+            guard case let .invalidPayload(message) = error else {
+                return XCTFail("Expected invalid payload, got \(error)")
+            }
+            XCTAssertTrue(message.contains("3"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testRejectsSnapshotWithoutUsablePoints() async {
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: [:]
+            )!
+            return (
+                response,
+                Data(#"{"schema":2,"source_updated_at":"2026-08-02T13:23:26+08:00","points":[{"model":"","effort":"low","iq":10}]}"#.utf8)
+            )
+        }
+
+        do {
+            _ = try await makeClient().fetch(cacheValidators: nil)
+            XCTFail("Expected the request to fail")
+        } catch let error as RadarClientError {
+            guard case let .invalidPayload(message) = error else {
+                return XCTFail("Expected invalid payload, got \(error)")
+            }
+            XCTAssertTrue(message.contains("没有可用"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
 
     func testHandlesNotModified() async throws {

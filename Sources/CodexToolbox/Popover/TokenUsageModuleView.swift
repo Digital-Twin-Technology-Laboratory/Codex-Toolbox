@@ -1,4 +1,6 @@
+import AppKit
 import Charts
+import Combine
 import CodexToolboxCore
 import SwiftUI
 
@@ -8,6 +10,7 @@ struct TokenUsageModuleView: View {
     @State private var isTaskListExpanded = false
     @State private var isTaskCardHovered = false
     @State private var hoveredDateKey: String?
+    @State private var selectedDateKey: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -40,6 +43,12 @@ struct TokenUsageModuleView: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
+            resetDateSelection()
+        }
+        .onDisappear {
+            resetDateSelection()
+        }
     }
 
     @ViewBuilder
@@ -73,96 +82,112 @@ struct TokenUsageModuleView: View {
     }
 
     private var taskBreakdown: some View {
-        Button {
-            guard hasAdditionalTasks else { return }
-            withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
-                isTaskListExpanded.toggle()
+        ZStack(alignment: .topTrailing) {
+            Button(action: toggleTaskList) {
+                taskBreakdownCard
             }
-        } label: {
-            VStack(alignment: .leading, spacing: 9) {
-                taskCardHeader
+            .buttonStyle(ToolboxPressButtonStyle())
+            .accessibilityLabel("\(selectedPeriodName) Token Top \(currentTaskLimit) 任务榜单")
+            .accessibilityHint(taskCardHelp)
 
-                if visibleTasks.isEmpty {
-                    Text("今天还没有可读取的本机 Token 记录")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-                } else {
-                    ForEach(visibleTasks) { task in
-                        taskRow(task)
-                    }
-
-                    if remainingTokens > 0 {
-                        HStack {
-                            Text("其余任务")
-                            Spacer()
-                            Text(
-                                usageAndQuotaText(
-                                    tokens: remainingTokens,
-                                    taskIDs: remainingTaskIDs
-                                )
-                            )
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.78)
-                                .help(quotaEstimateHelp(taskIDs: remainingTaskIDs))
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-
-                    Text(accountQuotaFootnote)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            if !isViewingToday {
+                Button(action: returnToToday) {
+                    Label("返回今日", systemImage: "arrow.uturn.backward")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 78, height: 26)
+                        .background(.indigo.opacity(0.10), in: Capsule())
                 }
+                .buttonStyle(.plain)
+                .padding(.top, 11)
+                .padding(.trailing, 11)
+                .help("恢复今日任务明细")
+                .accessibilityLabel("返回今日 Token 用量")
             }
-            .padding(11)
-            .adaptiveGlassCard(tint: .indigo, id: "token-tasks", namespace: glassNamespace)
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(
-                        Color.indigo.opacity(isTaskCardHovered && hasAdditionalTasks ? 0.44 : 0.12),
-                        lineWidth: isTaskCardHovered && hasAdditionalTasks ? 1.25 : 0.75
-                    )
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .buttonStyle(ToolboxPressButtonStyle())
         .onHover { hovering in
             withAnimation(reduceMotion ? .easeOut(duration: 0.20) : .easeOut(duration: 0.16)) {
                 isTaskCardHovered = hovering
             }
         }
         .help(taskCardHelp)
-        .accessibilityLabel("今日 Token Top \(currentTaskLimit) 任务榜单")
-        .accessibilityHint(hasAdditionalTasks ? taskCardHelp : "当前没有更多任务")
+    }
+
+    private var taskBreakdownCard: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            taskCardHeader
+
+            if visibleTasks.isEmpty {
+                Text(emptyTaskMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+            } else {
+                ForEach(visibleTasks) { task in
+                    taskRow(task)
+                }
+
+                if remainingTokens > 0 {
+                    HStack {
+                        Text("其余任务")
+                        Spacer()
+                        Text(
+                            usageAndQuotaText(
+                                tokens: remainingTokens,
+                                taskIDs: remainingTaskIDs
+                            )
+                        )
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
+                            .help(quotaEstimateHelp(taskIDs: remainingTaskIDs))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(accountQuotaFootnote)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(11)
+        .adaptiveGlassCard(tint: .indigo, id: "token-tasks", namespace: glassNamespace)
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    Color.indigo.opacity(isTaskCardHovered && hasAdditionalTasks ? 0.44 : 0.12),
+                    lineWidth: isTaskCardHovered && hasAdditionalTasks ? 1.25 : 0.75
+                )
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var taskCardHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Label("今日 Top \(currentTaskLimit) 任务", systemImage: "list.number")
+                Label("\(selectedPeriodName) Top \(currentTaskLimit) 任务", systemImage: "list.number")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.indigo)
-                Text(format(todaySummary?.totalTokens ?? 0))
+                Text(format(selectedSummary?.totalTokens ?? 0))
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                Text("今日本机原始 Token")
+                Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            if todaySummary?.isComplete == false {
+            if selectedSummary?.isComplete == false {
                 Label("不完整", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.orange)
             }
 
             if taskCount > 0 {
-                Text(hasAdditionalTasks ? "共 \(taskCount) 项" : "今日仅 \(taskCount) 项")
+                Text(hasAdditionalTasks ? "共 \(taskCount) 项" : "当日仅 \(taskCount) 项")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -176,6 +201,13 @@ struct TokenUsageModuleView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
+                    .accessibilityHidden(true)
+            }
+
+            if !isViewingToday {
+                Color.clear
+                    .frame(width: 78, height: 26)
+                    .accessibilityHidden(true)
             }
         }
     }
@@ -197,20 +229,20 @@ struct TokenUsageModuleView: View {
                 Text(
                     usageAndQuotaText(
                         tokens: task.tokens,
-                        taskIDs: [task.rootTaskID]
+                        taskIDs: [task.id]
                     )
                 )
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
-                    .help(quotaEstimateHelp(taskIDs: [task.rootTaskID]))
+                    .help(quotaEstimateHelp(taskIDs: [task.id]))
             }
-            ProgressView(value: Double(task.tokens), total: Double(max(1, todaySummary?.totalTokens ?? 0)))
+            ProgressView(value: Double(task.tokens), total: Double(max(1, selectedSummary?.totalTokens ?? 0)))
                 .tint(.indigo)
                 .accessibilityLabel(task.title)
                 .accessibilityValue(
-                    usageAndQuotaText(tokens: task.tokens, taskIDs: [task.rootTaskID])
+                    usageAndQuotaText(tokens: task.tokens, taskIDs: [task.id])
                 )
         }
     }
@@ -224,9 +256,9 @@ struct TokenUsageModuleView: View {
 
                 Spacer()
 
-                Text(hoverSummary)
-                    .font(.caption2.weight(hoveredPoint == nil ? .regular : .semibold))
-                    .foregroundStyle(hoveredPoint == nil ? Color.gray : Color.indigo)
+                Text(trendSummary)
+                    .font(.caption2.weight(hasTrendEmphasis ? .semibold : .regular))
+                    .foregroundStyle(hasTrendEmphasis ? Color.indigo : Color.gray)
                     .monospacedDigit()
                     .lineLimit(1)
             }
@@ -239,11 +271,19 @@ struct TokenUsageModuleView: View {
                         y: .value("Token", point.tokens)
                     )
                     .foregroundStyle(
-                        point.dateKey == hoveredDateKey
+                        point.dateKey == selectedDateKey
                             ? Color.indigo
-                            : Color.indigo.opacity(0.66)
+                            : point.dateKey == hoveredDateKey
+                                ? Color.indigo.opacity(0.86)
+                                : Color.indigo.opacity(0.66)
                     )
                     .cornerRadius(3)
+                }
+
+                if let selectedPoint {
+                    RuleMark(x: .value("已选日期", selectedPoint.date, unit: .day))
+                        .foregroundStyle(.indigo.opacity(0.60))
+                        .lineStyle(StrokeStyle(lineWidth: 1.25))
                 }
 
                 if let hoveredPoint {
@@ -282,26 +322,65 @@ struct TokenUsageModuleView: View {
                                 guard let plotFrame = proxy.plotFrame else { return }
                                 let frame = geometry[plotFrame]
                                 guard frame.contains(location) else {
-                                    hoveredDateKey = nil
+                                    if hoveredDateKey != nil { hoveredDateKey = nil }
                                     return
                                 }
                                 let x = location.x - frame.origin.x
-                                hoveredDateKey = proxy.value(atX: x, as: Date.self).map(dayKey)
+                                let nextDateKey = proxy.value(atX: x, as: Date.self).map(dayKey)
+                                if hoveredDateKey != nextDateKey {
+                                    hoveredDateKey = nextDateKey
+                                }
                             case .ended:
-                                hoveredDateKey = nil
+                                if hoveredDateKey != nil { hoveredDateKey = nil }
                             }
                         }
+                        .gesture(
+                            SpatialTapGesture()
+                                .onEnded { value in
+                                    guard let plotFrame = proxy.plotFrame else { return }
+                                    let frame = geometry[plotFrame]
+                                    guard frame.contains(value.location) else { return }
+                                    let x = value.location.x - frame.origin.x
+                                    guard let date = proxy.value(atX: x, as: Date.self) else {
+                                        return
+                                    }
+                                    selectDate(dayKey(date))
+                                }
+                        )
                 }
             }
             .frame(height: 124)
             .accessibilityLabel("每日本机原始 Token 趋势")
+            .accessibilityHint("点击柱形查看该日任务明细")
         }
         .padding(11)
         .adaptiveGlassCard(tint: .indigo, id: "token-trend", namespace: glassNamespace)
     }
 
-    private var todaySummary: DailyUsageSummary? {
-        appModel.usageHistory?.summary(for: dayKey(Date()))
+    private var todayDateKey: String {
+        dayKey(Date())
+    }
+
+    private var selectedSummaryDateKey: String {
+        selectedDateKey ?? todayDateKey
+    }
+
+    private var selectedSummary: DailyUsageSummary? {
+        appModel.usageHistory?.summary(for: selectedSummaryDateKey)
+    }
+
+    private var isViewingToday: Bool {
+        selectedSummaryDateKey == todayDateKey
+    }
+
+    private var selectedPeriodName: String {
+        isViewingToday ? "今日" : localizedDate(selectedSummaryDateKey)
+    }
+
+    private var emptyTaskMessage: String {
+        isViewingToday
+            ? "今天还没有可读取的本机 Token 记录"
+            : "\(localizedDate(selectedSummaryDateKey))没有可读取的本机 Token 记录"
     }
 
     private var currentTaskLimit: Int {
@@ -309,7 +388,7 @@ struct TokenUsageModuleView: View {
     }
 
     private var visibleTasks: [DailyTaskUsage] {
-        todaySummary?.topTasks(limit: currentTaskLimit) ?? []
+        selectedSummary?.topTasks(limit: currentTaskLimit) ?? []
     }
 
     private var hasAdditionalTasks: Bool {
@@ -317,20 +396,22 @@ struct TokenUsageModuleView: View {
     }
 
     private var taskCount: Int {
-        todaySummary?.tasks.count ?? 0
+        selectedSummary?.tasks.count ?? 0
     }
 
     private var remainingTokens: Int64 {
-        todaySummary?.remainingTokens(afterTop: currentTaskLimit) ?? 0
+        selectedSummary?.remainingTokens(afterTop: currentTaskLimit) ?? 0
     }
 
     private var remainingTaskIDs: Set<String> {
-        guard let tasks = todaySummary?.tasks else { return [] }
-        return Set(tasks.dropFirst(currentTaskLimit).map(\.rootTaskID))
+        guard let tasks = selectedSummary?.tasks else { return [] }
+        return Set(tasks.dropFirst(currentTaskLimit).map(\.id))
     }
 
     private var taskCardHelp: String {
-        if !hasAdditionalTasks { return "今日仅有 \(taskCount) 个根任务，没有更多可展开项" }
+        if !hasAdditionalTasks {
+            return "\(selectedPeriodName)仅有 \(taskCount) 个根任务，没有更多可展开项"
+        }
         return isTaskListExpanded
             ? "点击收起为 Top 3"
             : "点击展开为 \(appModel.settings.usageExpandedTaskLimit.displayName)"
@@ -369,6 +450,7 @@ struct TokenUsageModuleView: View {
         return estimates.map {
             "\($0.window.displayName)估算置信度：\($0.confidence.displayName)"
         }.joined(separator: "；")
+            + "；已按模型输入、缓存输入与输出权重校准"
     }
 
     private func quotaEstimateSummaries(taskIDs: Set<String>) -> [TaskQuotaEstimate] {
@@ -422,11 +504,53 @@ struct TokenUsageModuleView: View {
         return trendPoints.first { $0.dateKey == hoveredDateKey }
     }
 
-    private var hoverSummary: String {
-        guard let point = hoveredPoint else {
-            return "最近 \(appModel.settings.usageTrendRange.rawValue) 天 · 悬停查看"
+    private var selectedPoint: TokenTrendPoint? {
+        guard let selectedDateKey else { return nil }
+        return trendPoints.first { $0.dateKey == selectedDateKey }
+    }
+
+    private var hasTrendEmphasis: Bool {
+        hoveredPoint != nil || selectedPoint != nil
+    }
+
+    private var trendSummary: String {
+        if let point = hoveredPoint {
+            return "\(localizedDate(point.dateKey)) · \(format(point.tokens)) Token"
         }
-        return "\(localizedDate(point.dateKey)) · \(format(point.tokens)) Token"
+        if let point = selectedPoint {
+            return "\(localizedDate(point.dateKey)) · \(format(point.tokens)) Token · 已选"
+        }
+        return "最近 \(appModel.settings.usageTrendRange.rawValue) 天 · 点击柱形查看"
+    }
+
+    private func selectDate(_ dateKey: String) {
+        // Empty trend slots do not render a usable bar and should not replace
+        // today's task list when the user taps the chart background.
+        guard appModel.usageHistory?.summary(for: dateKey) != nil else { return }
+        withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
+            selectedDateKey = dateKey == todayDateKey ? nil : dateKey
+            isTaskListExpanded = false
+        }
+    }
+
+    private func returnToToday() {
+        withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
+            selectedDateKey = nil
+            isTaskListExpanded = false
+        }
+    }
+
+    private func resetDateSelection() {
+        selectedDateKey = nil
+        hoveredDateKey = nil
+        isTaskListExpanded = false
+    }
+
+    private func toggleTaskList() {
+        guard hasAdditionalTasks else { return }
+        withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
+            isTaskListExpanded.toggle()
+        }
     }
 
     private func localizedDate(_ dateKey: String) -> String {
