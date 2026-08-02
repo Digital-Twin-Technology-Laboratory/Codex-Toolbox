@@ -5,11 +5,13 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
     var fileSize: Int64
     var parsedOffset: UInt64
     var seenCumulativeTotals: [Int64]
+    var lastModelID: String?
 }
 
 struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
     var timestamp: Date
     var tokenIncrement: Int64
+    var quotaUsageWeight: Double?
     var windows: [AccountQuotaWindow]
 }
 
@@ -71,7 +73,7 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
 }
 
 struct VersionedUsageLedger: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 4
 
     var schemaVersion: Int
     var generatedAt: Date
@@ -119,8 +121,11 @@ struct UsageLedgerStore {
             // deterministic rebuild from still-readable rollout files.
             return .empty(timezoneIdentifier: timezoneIdentifier)
         }
-        if ledger.schemaVersion == 1 {
+        let sourceSchemaVersion = ledger.schemaVersion
+        if sourceSchemaVersion < VersionedUsageLedger.currentSchemaVersion {
             ledger.schemaVersion = VersionedUsageLedger.currentSchemaVersion
+        }
+        if sourceSchemaVersion == 1 {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
             let components = calendar.dateComponents([.year, .month, .day], from: Date())
@@ -136,6 +141,23 @@ struct UsageLedgerStore {
                 // already contributed today; older threads retain their offsets and
                 // begin collecting observations if they receive a future event.
                 if ledger.threads[threadID]?.dailyTokens[todayKey] != nil {
+                    ledger.threads[threadID]?.checkpoint = nil
+                }
+            }
+        } else if sourceSchemaVersion == 2 || sourceSchemaVersion == 3 {
+            let now = Date()
+            for threadID in ledger.threads.keys {
+                let hasActiveQuotaWindow = ledger.threads[threadID]?.quotaObservations.contains {
+                    $0.windows.contains { now < $0.resetsAt }
+                } ?? false
+                // Schema 2/3 observations were calibrated in raw-token units.
+                // They cannot be retained as historical samples after schema 4
+                // switches to model-aware credit weights.
+                ledger.threads[threadID]?.quotaObservations = []
+                if hasActiveQuotaWindow {
+                    // Only active windows need an immediate full reparse. Older
+                    // threads keep their offsets and start collecting weighted
+                    // observations when they receive future rollout events.
                     ledger.threads[threadID]?.checkpoint = nil
                 }
             }

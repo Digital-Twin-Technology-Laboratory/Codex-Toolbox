@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-02
+
+### Added
+
+- 每日用量趋势支持点击柱形查看该日根任务明细，并提供“返回今日”；关闭菜单栏弹窗后，下次打开默认恢复今日。
+
+### Fixed
+
+- 模型榜单改用 Codex 雷达 21 档聚合快照，补齐 Sol ultra/max、Terra ultra 与 DeepSeek V4 Flash，并把费用和耗时从旧累计口径修正为每题平均值。
+- 新聚合口径使用独立缓存与远端历史趋势，不再混入旧版累计费用、累计耗时记录；综合分明确标注为本地加权百分位。
+- 任务额度估算改为按“本地日期 + 根任务”对齐，修复把额度窗口内整周任务百分比与今日 Token 并列显示的问题。
+- 额度权重按模型的输入、缓存输入与输出信用费率归一化，并以全局稳健样本校准；异常并发或延迟台阶不再成为单任务长期换算率。
+- Usage Ledger 升级时丢弃旧原始 Token 口径的校准观察，避免结束窗口继续污染新模型权重估算。
+- 恢复任务卡整卡点击展开/收起，移除任务列表底部冗长的额度说明。
+- 任务卡恢复原生 `Button` 键盘焦点与按压反馈；趋势图只在悬停柱变化时刷新，减少无效重绘。
+- 弹窗滚动条按实时内容与可视区高度显示，并通过防抖、滞回与可视区收缩判断过滤展开/折叠动画中的瞬时假溢出。
+- 安装器在旧应用 15 秒内未正常退出时，会自动结束残留进程后继续安装，避免升级安装失败。
+
 ## [1.1.0] - 2026-07-22
 
 ### Added
@@ -189,7 +207,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.2...v1.0.0
 [0.1.0-beta.6.2]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.1...v0.1.0-beta.6.2

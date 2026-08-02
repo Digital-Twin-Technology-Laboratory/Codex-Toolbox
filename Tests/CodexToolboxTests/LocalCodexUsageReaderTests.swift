@@ -129,7 +129,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 2"))
+        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 4"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
     }
 
@@ -140,6 +140,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         let rollout = workspace.appendingPathComponent("quota.jsonl")
         let reset = Date(timeIntervalSince1970: 1_800_000_000)
         let lines = [
+            turnContextLine(model: "gpt-5.6-sol"),
             tokenLine(
                 timestamp: "2026-07-22T08:00:00Z",
                 cumulative: 100,
@@ -174,12 +175,73 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(history.quotaObservations.count, 2)
         XCTAssertEqual(history.quotaObservations.map(\.rootTaskID), ["root", "root"])
         XCTAssertEqual(history.quotaObservations.map(\.tokenIncrement), [100, 200])
+        XCTAssertEqual(
+            try XCTUnwrap(history.quotaObservations[0].quotaUsageWeight),
+            506,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(history.quotaObservations[1].quotaUsageWeight),
+            1_012,
+            accuracy: 0.0001
+        )
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.usedPercent), [12, 13])
         let ledgerText = try String(contentsOf: ledger, encoding: .utf8)
+        XCTAssertTrue(ledgerText.contains("\"quotaUsageWeight\""))
         XCTAssertFalse(ledgerText.contains("opaque-limit-id"))
         XCTAssertFalse(ledgerText.contains("must-not-persist"))
         XCTAssertFalse(ledgerText.contains("prolite"))
+    }
+
+    func testQuotaUsageWeightingMatchesPublishedCodexRateCard() throws {
+        let usage: [String: Any] = [
+            "input_tokens": 1_000,
+            "cached_input_tokens": 400,
+            "output_tokens": 200
+        ]
+        let cases: [(model: String, expected: Double)] = [
+            ("gpt-5.6-sol", 3_680),
+            ("gpt-5.6-terra", 1_840),
+            ("gpt-5.6-luna", 736),
+            ("gpt-5.5", 3_680),
+            ("gpt-5.5-cyber", 14_720),
+            ("gpt-5.4", 1_840),
+            ("gpt-5.4-mini", 553.6),
+            ("gpt-5.3-codex", 1_568),
+            ("gpt-5.2", 1_568)
+        ]
+
+        for item in cases {
+            XCTAssertEqual(
+                QuotaUsageWeighting.weight(
+                    lastUsage: usage,
+                    modelID: item.model,
+                    fallbackTokens: 9_999
+                ),
+                item.expected,
+                accuracy: 0.0001,
+                item.model
+            )
+        }
+
+        XCTAssertEqual(
+            QuotaUsageWeighting.weight(
+                lastUsage: usage,
+                modelID: "future-unknown-model",
+                fallbackTokens: 9_999
+            ),
+            9_999
+        )
+        XCTAssertEqual(
+            QuotaUsageWeighting.weight(
+                lastUsage: usage,
+                modelID: "gpt-5.3-codex-spark",
+                fallbackTokens: 9_999
+            ),
+            9_999,
+            "Research-preview pricing must not inherit the finalized GPT-5.3-Codex rate"
+        )
     }
 
     func testMigratesVersionOneLedgerByPreservingTokensAndForcingQuotaBackfill() throws {
@@ -236,11 +298,113 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 2)
+        XCTAssertEqual(migrated.schemaVersion, 4)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens[todayKey], 123)
         XCTAssertNil(migrated.threads["thread"]?.checkpoint)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
         XCTAssertEqual(migrated.threads["old-thread"]?.checkpoint?.parsedOffset, 30)
+    }
+
+    func testMigratesVersionTwoAndThreeActiveWindowsByRebuildingWeightedObservations() throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let formatter = ISO8601DateFormatter()
+        let now = Date()
+        let activeReset = now.addingTimeInterval(3_600)
+        for sourceVersion in [2, 3] {
+            let ledgerURL = workspace.appendingPathComponent("usage-ledger-\(sourceVersion).json")
+            let legacy = """
+            {
+              "schemaVersion": \(sourceVersion),
+              "generatedAt": "\(formatter.string(from: now))",
+              "timezoneIdentifier": "GMT",
+              "warnings": [],
+              "threads": {
+                "thread": {
+                  "threadID": "thread",
+                  "rootTaskID": "thread",
+                  "title": "Legacy active window",
+                  "dailyTokens": {"2026-07-31": 123},
+                  "quotaObservations": [{
+                    "timestamp": "\(formatter.string(from: now))",
+                    "tokenIncrement": 123,
+                    "windows": [{
+                      "durationMinutes": 10080,
+                      "usedPercent": 12,
+                      "resetsAt": "\(formatter.string(from: activeReset))"
+                    }]
+                  }],
+                  "checkpoint": {
+                    "path": "/tmp/legacy-active.jsonl",
+                    "fileSize": 20,
+                    "parsedOffset": 20,
+                    "seenCumulativeTotals": [123]
+                  },
+                  "isComplete": true
+                }
+              }
+            }
+            """
+            try Data(legacy.utf8).write(to: ledgerURL)
+
+            let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
+
+            XCTAssertEqual(migrated.schemaVersion, 4, "source schema \(sourceVersion)")
+            XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-31"], 123)
+            XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
+            XCTAssertNil(migrated.threads["thread"]?.checkpoint)
+        }
+    }
+
+    func testMigratesExpiredRawTokenObservationsWithoutReparsingOldThreads() throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let ledgerURL = workspace.appendingPathComponent("usage-ledger.json")
+        let formatter = ISO8601DateFormatter()
+        let now = Date()
+        let expiredReset = now.addingTimeInterval(-3_600)
+        let legacy = """
+        {
+          "schemaVersion": 3,
+          "generatedAt": "\(formatter.string(from: now))",
+          "timezoneIdentifier": "GMT",
+          "warnings": [],
+          "threads": {
+            "thread": {
+              "threadID": "thread",
+              "rootTaskID": "thread",
+              "title": "Expired raw-token calibration",
+              "dailyTokens": {"2026-07-01": 123},
+              "quotaObservations": [{
+                "timestamp": "\(formatter.string(from: expiredReset.addingTimeInterval(-60)))",
+                "tokenIncrement": 123,
+                "windows": [{
+                  "durationMinutes": 10080,
+                  "usedPercent": 12,
+                  "resetsAt": "\(formatter.string(from: expiredReset))"
+                }]
+              }],
+              "checkpoint": {
+                "path": "/tmp/legacy-expired.jsonl",
+                "fileSize": 20,
+                "parsedOffset": 20,
+                "seenCumulativeTotals": [123]
+              },
+              "isComplete": true
+            }
+          }
+        }
+        """
+        try Data(legacy.utf8).write(to: ledgerURL)
+
+        let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
+
+        XCTAssertEqual(migrated.schemaVersion, 4)
+        XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
+        XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
+        XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-01"], 123)
     }
 
     func testQuotaEstimatorUsesLocalStepsAndRejectsRemoteJumpAfterGap() throws {
@@ -273,10 +437,11 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             window: window,
             now: start.addingTimeInterval(2_030)
         )
+        let firstDay = dayKey(start)
 
-        XCTAssertEqual(try XCTUnwrap(estimates["a"]).percent, 1, accuracy: 0.0001)
-        XCTAssertEqual(try XCTUnwrap(estimates["small"]).percent, 0.1, accuracy: 0.0001)
-        XCTAssertEqual(try XCTUnwrap(estimates["b"]).percent, 1.1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(estimates["\(firstDay)|a"]).percent, 1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(estimates["\(firstDay)|small"]).percent, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(estimates["\(firstDay)|b"]).percent, 1.1, accuracy: 0.0001)
         XCTAssertLessThan(estimates.values.reduce(0) { $0 + $1.percent }, 3)
         XCTAssertTrue(estimates.values.allSatisfy { $0.confidence == .low })
     }
@@ -324,7 +489,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
                 history: history,
                 window: window,
                 now: start.addingTimeInterval(220)
-            )["task"]
+            )["\(dayKey(start))|task"]
         )
 
         XCTAssertEqual(estimate.percent, 10, accuracy: 0.0001)
@@ -377,8 +542,160 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             now: reset
         )
 
-        XCTAssertEqual(try XCTUnwrap(active["task"]).percent, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(
+            try XCTUnwrap(active["\(dayKey(start))|task"]).percent,
+            0.5,
+            accuracy: 0.0001
+        )
         XCTAssertTrue(expired.isEmpty)
+    }
+
+    func testQuotaEstimatorSeparatesTheSameRootTaskByLocalDay() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 4,
+            resetsAt: reset
+        )
+        let dayOne = Date(timeIntervalSince1970: 1_799_900_000)
+        let dayTwo = dayOne.addingTimeInterval(86_400)
+        let history = UsageHistory(
+            generatedAt: dayTwo.addingTimeInterval(30),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: [
+                quotaObservation(at: dayOne, task: "shared", tokens: 0, percent: 0, reset: reset),
+                quotaObservation(
+                    at: dayOne.addingTimeInterval(10),
+                    task: "shared",
+                    tokens: 1_000,
+                    percent: 1,
+                    reset: reset
+                ),
+                quotaObservation(at: dayTwo, task: "shared", tokens: 100, percent: 2, reset: reset),
+                quotaObservation(
+                    at: dayTwo.addingTimeInterval(10),
+                    task: "shared",
+                    tokens: 1_000,
+                    percent: 3,
+                    reset: reset
+                )
+            ]
+        )
+
+        let estimates = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: dayTwo.addingTimeInterval(30)
+        )
+
+        XCTAssertEqual(estimates.count, 2)
+        XCTAssertEqual(
+            try XCTUnwrap(estimates["\(dayKey(dayOne))|shared"]).percent,
+            1,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(estimates["\(dayKey(dayTwo))|shared"]).percent,
+            1.1,
+            accuracy: 0.0001
+        )
+    }
+
+    func testQuotaEstimatorUsesCreditWeightInsteadOfTreatingRawTokensAsEquivalent() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 1,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-1_000)
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(30),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: [
+                quotaObservation(at: start, task: "raw-heavy", tokens: 0, percent: 0, reset: reset),
+                quotaObservation(
+                    at: start.addingTimeInterval(10),
+                    task: "raw-heavy",
+                    tokens: 1_000,
+                    quotaUsageWeight: 100,
+                    percent: 0,
+                    reset: reset
+                ),
+                quotaObservation(
+                    at: start.addingTimeInterval(20),
+                    task: "credit-heavy",
+                    tokens: 100,
+                    quotaUsageWeight: 1_000,
+                    percent: 1,
+                    reset: reset
+                )
+            ]
+        )
+
+        let estimates = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: start.addingTimeInterval(30)
+        )
+        let date = dayKey(start)
+        let rawHeavy = try XCTUnwrap(estimates["\(date)|raw-heavy"])
+        let creditHeavy = try XCTUnwrap(estimates["\(date)|credit-heavy"])
+
+        XCTAssertEqual(rawHeavy.percent, 1.0 / 11.0, accuracy: 0.0001)
+        XCTAssertEqual(creditHeavy.percent, 10.0 / 11.0, accuracy: 0.0001)
+        XCTAssertGreaterThan(creditHeavy.percent, rawHeavy.percent)
+    }
+
+    func testQuotaEstimatorRejectsConcurrentSnapshotOutlierWithinActiveSegment() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 8,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-1_000)
+        var observations = [
+            quotaObservation(at: start, task: "normal", tokens: 0, percent: 0, reset: reset)
+        ]
+        for step in 1...5 {
+            observations.append(
+                quotaObservation(
+                    at: start.addingTimeInterval(Double(step * 10)),
+                    task: "normal",
+                    tokens: 1_000,
+                    percent: Double(step),
+                    reset: reset
+                )
+            )
+        }
+        observations.append(
+            quotaObservation(
+                at: start.addingTimeInterval(60),
+                task: "concurrent",
+                tokens: 100,
+                percent: 8,
+                reset: reset
+            )
+        )
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(70),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: observations
+        )
+
+        let estimates = TaskQuotaEstimator.estimates(
+            history: history,
+            window: window,
+            now: start.addingTimeInterval(70)
+        )
+        let concurrent = try XCTUnwrap(estimates["\(dayKey(start))|concurrent"])
+
+        XCTAssertEqual(concurrent.percent, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(concurrent.observedStepCount, 0)
     }
 
     func testClearHistoryRemovesLedger() async throws {
@@ -477,10 +794,20 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 
+    private func turnContextLine(model: String) -> String {
+        let event: [String: Any] = [
+            "type": "turn_context",
+            "payload": ["model": model]
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: event, options: [.sortedKeys])
+        return String(decoding: data, as: UTF8.self)
+    }
+
     private func quotaObservation(
         at timestamp: Date,
         task: String,
         tokens: Int64,
+        quotaUsageWeight: Double? = nil,
         percent: Double,
         reset: Date
     ) -> LocalQuotaUsageObservation {
@@ -488,6 +815,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             timestamp: timestamp,
             rootTaskID: task,
             tokenIncrement: tokens,
+            quotaUsageWeight: quotaUsageWeight,
             windows: [
                 AccountQuotaWindow(
                     durationMinutes: 10_080,
@@ -495,6 +823,18 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
                     resetsAt: reset
                 )
             ]
+        )
+    }
+
+    private func dayKey(_ date: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
         )
     }
 

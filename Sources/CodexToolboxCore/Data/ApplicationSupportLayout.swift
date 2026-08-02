@@ -12,6 +12,9 @@ public struct ApplicationSupportLayout: Sendable {
         legacyDirectory = base.appendingPathComponent("ShowCodexIQ", isDirectory: true)
     }
 
+    public var radarEfficiencyStateURL: URL {
+        currentDirectory.appendingPathComponent("radar-intelligence-efficiency-v2.json")
+    }
     public var radarStateURL: URL { currentDirectory.appendingPathComponent("radar-latest.json") }
     public var legacyRadarStateURL: URL { legacyDirectory.appendingPathComponent("latest.json") }
     public var usageLedgerURL: URL { currentDirectory.appendingPathComponent("usage-ledger.json") }

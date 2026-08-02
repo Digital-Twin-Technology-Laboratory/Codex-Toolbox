@@ -71,7 +71,8 @@ final class AppModel {
     }
 
     var latestBenchmarkDate: String? {
-        snapshot?.benchmarks.compactMap(\.latest?.date).max()
+        snapshot?.sourceMonitoredAt
+            ?? snapshot?.benchmarks.compactMap(\.latest?.date).max()
     }
 
     var availableModels: [ModelBenchmark] {

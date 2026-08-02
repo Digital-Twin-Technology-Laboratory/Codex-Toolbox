@@ -20,5 +20,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(AppMetadata.version(in: nil), "0.0.0-dev")
         XCTAssertEqual(AppMetadata.build(in: ["CFBundleVersion": "7"]), "7")
         XCTAssertEqual(AppMetadata.build(in: nil), "0")
+        XCTAssertEqual(
+            AppMetadata.radarJSONURL.absoluteString,
+            "https://codexradar.com/data/intelligence-efficiency.json"
+        )
     }
 }

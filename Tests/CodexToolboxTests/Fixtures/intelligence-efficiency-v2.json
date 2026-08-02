@@ -1,0 +1,44 @@
+{
+  "schema": 2,
+  "source_updated_at": "2026-08-02T13:23:26+08:00",
+  "points": [
+    {"model":"gpt-5.6-sol","effort":"low","iq":72.3214,"passed":54,"valid_tasks":112,"average_price_usd":2.143660,"average_minutes":11.3268},
+    {"model":"gpt-5.6-sol","effort":"medium","iq":89.7321,"passed":67,"valid_tasks":112,"average_price_usd":3.964947,"average_minutes":18.0713},
+    {"model":"gpt-5.6-sol","effort":"high","iq":88.3929,"passed":66,"valid_tasks":112,"average_price_usd":5.222910,"average_minutes":22.1502},
+    {"model":"gpt-5.6-sol","effort":"xhigh","iq":99.1071,"passed":74,"valid_tasks":112,"average_price_usd":6.562565,"average_minutes":25.3137},
+    {"model":"gpt-5.6-sol","effort":"max","iq":100.4464,"passed":75,"valid_tasks":112,"average_price_usd":9.574828,"average_minutes":34.4046},
+    {"model":"gpt-5.6-sol","effort":"ultra","iq":107.1429,"passed":80,"valid_tasks":112,"average_price_usd":19.392999,"average_minutes":51.9899},
+    {"model":"gpt-5.6-terra","effort":"low","iq":37.5000,"passed":28,"valid_tasks":112,"average_price_usd":0.489603,"average_minutes":8.6352},
+    {"model":"gpt-5.6-terra","effort":"medium","iq":58.9286,"passed":44,"valid_tasks":112,"average_price_usd":0.641801,"average_minutes":9.1684},
+    {"model":"gpt-5.6-terra","effort":"high","iq":70.9821,"passed":53,"valid_tasks":112,"average_price_usd":1.200997,"average_minutes":13.9236},
+    {"model":"gpt-5.6-terra","effort":"xhigh","iq":73.6607,"passed":55,"valid_tasks":112,"average_price_usd":2.062266,"average_minutes":18.7640},
+    {"model":"gpt-5.6-terra","effort":"max","iq":88.3929,"passed":66,"valid_tasks":112,"average_price_usd":4.070373,"average_minutes":30.9802},
+    {"model":"gpt-5.6-terra","effort":"ultra","iq":100.4464,"passed":75,"valid_tasks":112,"average_price_usd":9.540712,"average_minutes":44.2261},
+    {"model":"gpt-5.6-luna","effort":"low","iq":5.3571,"passed":4,"valid_tasks":112,"average_price_usd":0.033288,"average_minutes":5.2178},
+    {"model":"gpt-5.6-luna","effort":"medium","iq":33.4821,"passed":25,"valid_tasks":112,"average_price_usd":0.081234,"average_minutes":8.8660},
+    {"model":"gpt-5.6-luna","effort":"high","iq":72.3214,"passed":54,"valid_tasks":112,"average_price_usd":0.203901,"average_minutes":17.3710},
+    {"model":"gpt-5.6-luna","effort":"xhigh","iq":80.3571,"passed":60,"valid_tasks":112,"average_price_usd":0.314446,"average_minutes":23.9472},
+    {"model":"gpt-5.6-luna","effort":"max","iq":85.7143,"passed":64,"valid_tasks":112,"average_price_usd":0.468092,"average_minutes":31.4928},
+    {"model":"gpt-5.5","effort":"high","iq":79.0179,"passed":59,"valid_tasks":112,"average_price_usd":3.708167,"average_minutes":17.2557},
+    {"model":"gpt-5.5","effort":"xhigh","iq":93.7500,"passed":70,"valid_tasks":112,"average_price_usd":5.827771,"average_minutes":23.6346},
+    {"model":"deepseek-v4-flash","effort":"max","iq":77.6786,"passed":58,"valid_tasks":112,"average_price_usd":0.100038,"average_minutes":21.7570},
+    {"model":"deepseek-v4-flash","effort":"high","iq":53.5714,"passed":40,"valid_tasks":112,"average_price_usd":0.098251,"average_minutes":23.9311},
+    "invalid point ignored by the lossy decoder"
+  ],
+  "history": [
+    {
+      "at": "2026-08-02T09:23:26+08:00",
+      "points": [
+        {"model":"gpt-5.6-sol","effort":"ultra","iq":105.0,"passed":78,"valid_tasks":112,"average_price_usd":18.5,"average_minutes":49.0},
+        {"model":"gpt-5.6-luna","effort":"low","iq":4.0,"passed":3,"valid_tasks":112,"average_price_usd":0.030,"average_minutes":5.1}
+      ]
+    },
+    {
+      "at": "2026-08-02T13:23:26+08:00",
+      "points": [
+        {"model":"gpt-5.6-sol","effort":"ultra","iq":107.1429,"passed":80,"valid_tasks":112,"average_price_usd":19.392999,"average_minutes":51.9899},
+        {"model":"gpt-5.6-luna","effort":"low","iq":5.3571,"passed":4,"valid_tasks":112,"average_price_usd":0.033288,"average_minutes":5.2178}
+      ]
+    }
+  ]
+}

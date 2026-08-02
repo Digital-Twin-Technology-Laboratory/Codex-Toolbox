@@ -62,6 +62,27 @@ final class SnapshotStoreTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    func testEfficiencyCacheNamespaceDoesNotLoadOldCumulativeSnapshot() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let layout = ApplicationSupportLayout(baseDirectory: directory)
+        XCTAssertEqual(
+            layout.radarEfficiencyStateURL.lastPathComponent,
+            "radar-intelligence-efficiency-v2.json"
+        )
+
+        let oldStore = SnapshotStore(fileURL: layout.radarStateURL)
+        try await oldStore.save(StoredRadarState(snapshot: fixtureSnapshot(), costHistory: [
+            CostHistoryPoint(modelID: "old", dateKey: "old", costUSD: 773.88, recordedAt: Date())
+        ]))
+        let newStore = SnapshotStore(fileURL: layout.radarEfficiencyStateURL)
+        let loaded = try await newStore.load()
+
+        XCTAssertNil(loaded)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.radarStateURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layout.radarEfficiencyStateURL.path))
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     private func fixtureSnapshot() -> RadarSnapshot {
         RadarSnapshot(
             schemaVersion: "2.0",

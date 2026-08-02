@@ -56,16 +56,28 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
         }
 
         do {
-            let response = try JSONDecoder().decode(RadarResponse.self, from: data)
+            let response = try JSONDecoder().decode(IntelligenceEfficiencyResponse.self, from: data)
+            guard response.schema == 2 else {
+                throw RadarClientError.invalidPayload("不支持的数据版本：\(response.schema)")
+            }
+            guard let sourceUpdatedAt = response.normalizedSourceUpdatedAt else {
+                throw RadarClientError.invalidPayload("聚合快照缺少 source_updated_at。")
+            }
+            let benchmarks = response.benchmarks
+            guard !benchmarks.isEmpty else {
+                throw RadarClientError.invalidPayload("聚合快照没有可用的模型数据。")
+            }
             return .modified(
                 RadarSnapshot(
-                    schemaVersion: response.schemaVersion,
-                    sourceMonitoredAt: response.monitoredAt,
+                    schemaVersion: "intelligence-efficiency/\(response.schema)",
+                    sourceMonitoredAt: sourceUpdatedAt,
                     fetchedAt: now(),
-                    benchmarks: response.benchmarks,
+                    benchmarks: benchmarks,
                     validators: validators
                 )
             )
+        } catch let error as RadarClientError {
+            throw error
         } catch {
             throw RadarClientError.invalidPayload(error.localizedDescription)
         }

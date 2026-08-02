@@ -31,6 +31,20 @@ final class RadarRepositoryTests: XCTestCase {
         XCTAssertEqual(callCount, 1)
     }
 
+    func testInitialFailureDoesNotExposeAnIncompatibleSnapshot() async {
+        let repository = RadarRepository(
+            client: QueueRadarClient(results: [.failure(.httpStatus(503))]),
+            store: MemorySnapshotStore()
+        )
+
+        _ = await repository.loadCached()
+        let failed = await repository.refresh()
+
+        XCTAssertNil(failed.snapshot)
+        XCTAssertFalse(failed.isStale)
+        XCTAssertNotNil(failed.errorMessage)
+    }
+
     private func snapshot() -> RadarSnapshot {
         RadarSnapshot(
             schemaVersion: "2.0",

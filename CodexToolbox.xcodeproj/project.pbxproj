@@ -23,6 +23,7 @@
 		2CB605E7F0B3C4B86271642C /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2261FB337803F7F9BC3234ED /* EmptyStateView.swift */; };
 		2CEDEF05CD4B569CE2EFD785 /* RankingWeightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A27224C5DD557E1E01D892 /* RankingWeightsTests.swift */; };
 		3366326C3F7FBD1E01FB2841 /* GeneralDashboardSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD060F9540D6D4A7C34625D3 /* GeneralDashboardSettingsView.swift */; };
+		354FF8D1E3F2A822033C6BC3 /* intelligence-efficiency-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = 331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */; };
 		3CACFD08DF72E159FBE4AB5F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE638A90E31E549778A0026 /* SettingsView.swift */; };
 		532FF70B365B0195BF3BA59C /* GeneralSystemSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48FC71B7DB39ECD68CAF0B1 /* GeneralSystemSettingsView.swift */; };
 		53E2ED8A220BCC8C1C9E9B9E /* WeightDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FED7C35CEF9C10D23727C42 /* WeightDraft.swift */; };
@@ -119,6 +120,7 @@
 		2747616944418EB798D60AD5 /* ResetCreditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditModels.swift; sourceTree = "<group>"; };
 		2C2EC0DBB4ED3C5B6ECA46F5 /* DashboardModuleHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardModuleHeader.swift; sourceTree = "<group>"; };
 		2FEFD7E69074A8E8985A80EB /* MetricFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatter.swift; sourceTree = "<group>"; };
+		331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "intelligence-efficiency-v2.json"; sourceTree = "<group>"; };
 		3A68445038C1E8DA0C8B7C00 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		3DDB76A3B7BA7C292E387DE7 /* AdaptiveVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveVisualStyle.swift; sourceTree = "<group>"; };
 		4182D800CC8F4C1660836158 /* CodexToolboxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexToolboxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -384,6 +386,7 @@
 			isa = PBXGroup;
 			children = (
 				F72A142B26EF7BFD9E6FCE47 /* current-v2.json */,
+				331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */,
 			);
 			path = Fixtures;
 			sourceTree = "<group>";
@@ -576,6 +579,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A9BCE646677BCAAC1FB6728E /* current-v2.json in Resources */,
+				354FF8D1E3F2A822033C6BC3 /* intelligence-efficiency-v2.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

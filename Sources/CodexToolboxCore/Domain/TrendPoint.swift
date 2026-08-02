@@ -36,13 +36,19 @@ public enum TrendPointBuilder {
     ) -> [TrendPoint] {
         let selected = Set(modelIDs)
         switch metric {
-        case .iq, .duration:
+        case .iq, .cost, .duration:
             return benchmarks
                 .filter { selected.contains($0.id) }
                 .flatMap { benchmark -> [TrendPoint] in
                     var byDate: [String: TrendPoint] = [:]
                     for (index, record) in benchmark.recentDays.enumerated() {
-                        let value = metric == .iq ? record.score : record.wallSeconds
+                        let value: Double?
+                        switch metric {
+                        case .iq: value = record.score
+                        case .cost: value = record.costUSD
+                        case .duration: value = record.wallSeconds
+                        case .overall: value = nil
+                        }
                         guard let value, value.isFinite else { continue }
                         byDate[record.date] = TrendPoint(
                             modelID: benchmark.id,
@@ -53,31 +59,29 @@ public enum TrendPointBuilder {
                             recordedAt: sourceDate(record.date)
                         )
                     }
-                    return byDate.values.sorted {
+                    let remotePoints = byDate.values.sorted {
                         if $0.sequence != $1.sequence { return $0.sequence < $1.sequence }
                         return $0.dateKey < $1.dateKey
                     }
-                }
-                .sorted(by: pointOrdering)
-        case .cost:
-            let labels = Dictionary(uniqueKeysWithValues: benchmarks.map { ($0.id, $0.label) })
-            return Dictionary(grouping: costHistory.filter { selected.contains($0.modelID) }, by: \.modelID)
-                .flatMap { modelID, points in
-                    points.sorted {
-                        if $0.recordedAt != $1.recordedAt { return $0.recordedAt < $1.recordedAt }
-                        return $0.dateKey < $1.dateKey
-                    }
-                    .enumerated()
-                    .map { index, point in
-                        TrendPoint(
-                            modelID: modelID,
-                            modelLabel: labels[modelID] ?? modelID,
-                            dateKey: point.dateKey,
-                            sequence: index,
-                            value: point.costUSD,
-                            recordedAt: point.recordedAt
-                        )
-                    }
+                    guard metric == .cost, remotePoints.isEmpty else { return remotePoints }
+
+                    return costHistory
+                        .filter { $0.modelID == benchmark.id }
+                        .sorted {
+                            if $0.recordedAt != $1.recordedAt { return $0.recordedAt < $1.recordedAt }
+                            return $0.dateKey < $1.dateKey
+                        }
+                        .enumerated()
+                        .map { index, point in
+                            TrendPoint(
+                                modelID: benchmark.id,
+                                modelLabel: benchmark.label,
+                                dateKey: point.dateKey,
+                                sequence: index,
+                                value: point.costUSD,
+                                recordedAt: point.recordedAt
+                            )
+                        }
                 }
                 .sorted(by: pointOrdering)
         case .overall:
@@ -108,6 +112,19 @@ public enum TrendPointBuilder {
     }
 
     public static func shortDateLabel(_ dateKey: String) -> String {
+        let trimmed = dateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count >= 16 {
+            let dateEnd = trimmed.index(trimmed.startIndex, offsetBy: 10)
+            let separator = trimmed[dateEnd]
+            if separator == "T" || separator == "t" || separator == " " {
+                let date = trimmed[..<dateEnd].split(separator: "-")
+                let timeStart = trimmed.index(after: dateEnd)
+                let timeEnd = trimmed.index(timeStart, offsetBy: 5, limitedBy: trimmed.endIndex)
+                if date.count == 3, let timeEnd {
+                    return "\(date[1])/\(date[2]) \(trimmed[timeStart..<timeEnd])"
+                }
+            }
+        }
         let base = dateKey.split(separator: "_").first.map(String.init) ?? dateKey
         let components = base.split(separator: "-")
         guard components.count >= 4 else { return dateKey }
@@ -118,8 +135,10 @@ public enum TrendPointBuilder {
     }
 
     private static func sourceDate(_ dateKey: String) -> Date? {
-        let base = dateKey.split(separator: "_").first.map(String.init) ?? dateKey
-        let components = base.split(separator: "-")
+        let trimmed = dateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 10 else { return nil }
+        let dateEnd = trimmed.index(trimmed.startIndex, offsetBy: 10)
+        let components = trimmed[..<dateEnd].split(separator: "-")
         guard components.count >= 3,
               let year = Int(components[0]),
               let month = Int(components[1]),
