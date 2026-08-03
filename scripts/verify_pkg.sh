@@ -22,6 +22,13 @@ trap cleanup EXIT
 test -f "$PKG_PATH"
 /usr/sbin/pkgutil --expand-full "$PKG_PATH" "$EXPANDED"
 
+DISTRIBUTION_XML="$EXPANDED/Distribution"
+test -f "$DISTRIBUTION_XML"
+test "$(/usr/bin/xmllint --xpath 'string(/installer-gui-script/title)' "$DISTRIBUTION_XML")" = "Codex Toolbox"
+test "$(/usr/bin/xmllint --xpath 'string(/installer-gui-script/domains/@enable_anywhere)' "$DISTRIBUTION_XML")" = "false"
+test "$(/usr/bin/xmllint --xpath 'string(/installer-gui-script/domains/@enable_currentUserHome)' "$DISTRIBUTION_XML")" = "false"
+test "$(/usr/bin/xmllint --xpath 'string(/installer-gui-script/domains/@enable_localSystem)' "$DISTRIBUTION_XML")" = "true"
+
 APP_PATH="$(find "$EXPANDED" -type d -name 'Codex Toolbox.app' -print -quit)"
 if [[ -z "$APP_PATH" ]]; then
     echo "Expanded package did not contain Codex Toolbox.app" >&2
@@ -65,6 +72,8 @@ fi
 
 test -x "$EXPANDED"/*/Scripts/preinstall
 test -x "$EXPANDED"/*/Scripts/postinstall
+grep -q 'CodexToolbox.relaunch-after-install' "$EXPANDED"/*/Scripts/preinstall
+grep -q 'launchctl asuser' "$EXPANDED"/*/Scripts/postinstall
 
 SIGNATURE_OUTPUT="$(pkgutil --check-signature "$PKG_PATH" 2>&1 || true)"
 if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then

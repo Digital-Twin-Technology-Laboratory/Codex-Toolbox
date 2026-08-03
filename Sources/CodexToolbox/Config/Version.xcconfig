@@ -3,7 +3,7 @@ CODEX_TOOLBOX_RELEASE_VERSION = 1.2.0
 
 // Apple bundle versions: numeric marketing version and monotonic build number.
 MARKETING_VERSION = 1.2.0
-CURRENT_PROJECT_VERSION = 26
+CURRENT_PROJECT_VERSION = 34
 
 // Public half of the project-specific Sparkle signing key. The private key is
 // stored in the release maintainer's login Keychain, never in this repository.

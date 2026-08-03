@@ -9,6 +9,7 @@ public struct ModelCatalogEntry: Hashable, Sendable {
     public let familyID: String
     public let familyTitle: String
     public let displayLabel: String
+    public let compactLabel: String
     public let rowTitle: String
 
     fileprivate let familySortOrder: Int
@@ -20,6 +21,7 @@ public struct ModelCatalogEntry: Hashable, Sendable {
         familyID: String,
         familyTitle: String,
         displayLabel: String,
+        compactLabel: String,
         rowTitle: String,
         familySortOrder: Int,
         variantSortOrder: Int,
@@ -29,6 +31,7 @@ public struct ModelCatalogEntry: Hashable, Sendable {
         self.familyID = familyID
         self.familyTitle = familyTitle
         self.displayLabel = displayLabel
+        self.compactLabel = compactLabel
         self.rowTitle = rowTitle
         self.familySortOrder = familySortOrder
         self.variantSortOrder = variantSortOrder
@@ -65,6 +68,7 @@ public enum ModelCatalog {
                 familyID: openAI.id,
                 familyTitle: openAI.title,
                 displayLabel: "\(openAI.title) \(effort)",
+                compactLabel: "\(openAI.compactTitle) \(compactEffort(effort))",
                 rowTitle: effort,
                 familySortOrder: openAI.sortOrder,
                 variantSortOrder: 0,
@@ -76,10 +80,12 @@ public enum ModelCatalog {
         if let deepSeek = deepSeekModel(for: normalizedModel) {
             let versionLabel = deepSeek.isPreview ? "Preview" : "正式版"
             let displayVariant = deepSeek.isPreview ? " Preview" : ""
+            let compactVariant = deepSeek.isPreview ? " P" : ""
             return ModelCatalogEntry(
                 familyID: deepSeek.id,
                 familyTitle: deepSeek.title,
                 displayLabel: "\(deepSeek.title)\(displayVariant) \(effort)",
+                compactLabel: "\(deepSeek.compactTitle)\(compactVariant) \(compactEffort(effort))",
                 rowTitle: "\(versionLabel) · \(effort)",
                 familySortOrder: deepSeek.sortOrder,
                 variantSortOrder: deepSeek.isPreview ? 1 : 0,
@@ -92,6 +98,7 @@ public enum ModelCatalog {
             familyID: "other-models",
             familyTitle: "其他模型",
             displayLabel: "\(sourceModel) \(effort)",
+            compactLabel: MetricFormatter.compactModelName("\(sourceModel) \(effort)"),
             rowTitle: effort,
             familySortOrder: 100,
             variantSortOrder: 0,
@@ -164,28 +171,34 @@ public enum ModelCatalog {
         }
     }
 
-    private static func openAIModel(for model: String) -> (id: String, title: String, sortOrder: Int)? {
+    private static func compactEffort(_ effort: String) -> String {
+        effort == "medium" ? "med" : effort
+    }
+
+    private static func openAIModel(
+        for model: String
+    ) -> (id: String, title: String, compactTitle: String, sortOrder: Int)? {
         switch model {
-        case "gpt-5.5": ("openai-gpt-5.5", "5.5", 0)
-        case "gpt-5.6-sol": ("openai-gpt-5.6-sol", "GPT-5.6 Sol", 1)
-        case "gpt-5.6-terra": ("openai-gpt-5.6-terra", "GPT-5.6 Terra", 2)
-        case "gpt-5.6-luna": ("openai-gpt-5.6-luna", "GPT-5.6 Luna", 3)
+        case "gpt-5.5": ("openai-gpt-5.5", "5.5", "5.5", 0)
+        case "gpt-5.6-sol": ("openai-gpt-5.6-sol", "GPT-5.6 Sol", "Sol", 1)
+        case "gpt-5.6-terra": ("openai-gpt-5.6-terra", "GPT-5.6 Terra", "Terra", 2)
+        case "gpt-5.6-luna": ("openai-gpt-5.6-luna", "GPT-5.6 Luna", "Luna", 3)
         default: nil
         }
     }
 
     private static func deepSeekModel(
         for model: String
-    ) -> (id: String, title: String, sortOrder: Int, isPreview: Bool)? {
+    ) -> (id: String, title: String, compactTitle: String, sortOrder: Int, isPreview: Bool)? {
         switch model {
         case "deepseek-v4-flash":
-            ("deepseek-v4-flash", "DeepSeek V4 Flash", 4, false)
+            ("deepseek-v4-flash", "DeepSeek V4 Flash", "V4 Flash", 4, false)
         case "deepseek-v4-flash-preview":
-            ("deepseek-v4-flash", "DeepSeek V4 Flash", 4, true)
+            ("deepseek-v4-flash", "DeepSeek V4 Flash", "V4 Flash", 4, true)
         case "deepseek-v4-pro":
-            ("deepseek-v4-pro", "DeepSeek V4 Pro", 5, false)
+            ("deepseek-v4-pro", "DeepSeek V4 Pro", "V4 Pro", 5, false)
         case "deepseek-v4-pro-preview":
-            ("deepseek-v4-pro", "DeepSeek V4 Pro", 5, true)
+            ("deepseek-v4-pro", "DeepSeek V4 Pro", "V4 Pro", 5, true)
         default:
             nil
         }

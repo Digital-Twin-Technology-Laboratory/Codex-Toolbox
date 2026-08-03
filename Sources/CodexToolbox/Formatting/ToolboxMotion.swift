@@ -8,6 +8,12 @@ enum ToolboxMotion {
         reduceMotion ? reduced : spring
     }
 
+    static func dashboardContentTransition(reduceMotion: Bool) -> AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
+    }
+
     static func hoverTransition(reduceMotion: Bool) -> AnyTransition {
         if reduceMotion { return .opacity }
         return .scale(scale: 0.94).combined(with: .opacity)

@@ -181,6 +181,12 @@ public final class AppSettings {
         didSet { defaults.set(showsTrendChart, forKey: Keys.showsTrendChart) }
     }
 
+    public var expandsTrendChartByDefault: Bool {
+        didSet {
+            defaults.set(expandsTrendChartByDefault, forKey: Keys.expandsTrendChartByDefault)
+        }
+    }
+
     public var modelTrendRange: ModelTrendRange {
         didSet { defaults.set(modelTrendRange.rawValue, forKey: Keys.modelTrendRange) }
     }
@@ -194,6 +200,12 @@ public final class AppSettings {
     public var showsDetailedBenchmarkTime: Bool {
         didSet {
             defaults.set(showsDetailedBenchmarkTime, forKey: Keys.showsDetailedBenchmarkTime)
+        }
+    }
+
+    public var showsExpandedRankingMetrics: Bool {
+        didSet {
+            defaults.set(showsExpandedRankingMetrics, forKey: Keys.showsExpandedRankingMetrics)
         }
     }
 
@@ -269,6 +281,11 @@ public final class AppSettings {
         } else {
             showsTrendChart = defaults.bool(forKey: Keys.showsTrendChart)
         }
+        if defaults.object(forKey: Keys.expandsTrendChartByDefault) == nil {
+            expandsTrendChartByDefault = false
+        } else {
+            expandsTrendChartByDefault = defaults.bool(forKey: Keys.expandsTrendChartByDefault)
+        }
         modelTrendRange = ModelTrendRange(
             rawValue: defaults.integer(forKey: Keys.modelTrendRange)
         ) ?? .sevenDays
@@ -281,6 +298,7 @@ public final class AppSettings {
         } else {
             showsDetailedBenchmarkTime = defaults.bool(forKey: Keys.showsDetailedBenchmarkTime)
         }
+        showsExpandedRankingMetrics = defaults.bool(forKey: Keys.showsExpandedRankingMetrics)
 
         if defaults.object(forKey: Keys.automaticRefreshEnabled) == nil {
             automaticRefreshEnabled = true
@@ -325,7 +343,8 @@ public final class AppSettings {
         return modelTrendSelections[metric.rawValue] ?? []
     }
 
-    /// Saves up to three distinct model IDs for one trend metric. Empty input
+    /// Saves up to five ordered model IDs for one trend metric. Their order is
+    /// the stable mapping to the dashboard's five semantic curve colors. Empty input
     /// intentionally clears the explicit selection and restores automatic mode.
     public func setModelTrendSelection(_ modelIDs: [String], for metric: RankingMetric) {
         guard Self.supportsModelTrendSelection(metric) else { return }
@@ -455,7 +474,7 @@ public final class AppSettings {
             let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
             result.append(trimmed)
-            if result.count == 3 { break }
+            if result.count == ModelTrendSeriesConfiguration.maximumCount { break }
         }
         return result
     }
@@ -488,9 +507,11 @@ public final class AppSettings {
         static let showsMenuBarDetails = "showsMenuBarDetails"
         static let menuBarModelAliases = "menuBarModelAliases"
         static let showsTrendChart = "showsTrendChart"
+        static let expandsTrendChartByDefault = "expandsTrendChartByDefault"
         static let modelTrendRange = "modelTrendRangeDays"
         static let modelTrendSelections = "modelTrendSelectionsByMetric"
         static let showsDetailedBenchmarkTime = "showsDetailedBenchmarkTime"
+        static let showsExpandedRankingMetrics = "showsExpandedRankingMetrics"
         static let automaticRefreshEnabled = "automaticRefreshEnabled"
         static let refreshInterval = "refreshIntervalMinutes"
         static let iqWeight = "rankingWeightIQ"

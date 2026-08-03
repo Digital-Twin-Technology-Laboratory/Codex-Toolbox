@@ -22,6 +22,10 @@ final class ModelCatalogTests: XCTestCase {
             ["low", "medium", "high", "xhigh", "max", "ultra"]
         )
         XCTAssertEqual(
+            groups.first { $0.id == "openai-gpt-5.6-sol" }?.models.map(\.catalogEntry.compactLabel),
+            ["Sol low", "Sol med", "Sol high", "Sol xhigh", "Sol max", "Sol ultra"]
+        )
+        XCTAssertEqual(
             groups.first { $0.id == "deepseek-v4-flash" }?.models.map(\.reasoningEffort),
             ["high", "max"]
         )
@@ -47,6 +51,10 @@ final class ModelCatalogTests: XCTestCase {
             "Preview · high"
         ])
         XCTAssertEqual(groups[0].models.last?.catalogEntry.displayLabel, "DeepSeek V4 Flash Preview ultra")
+        XCTAssertEqual(groups[0].models.map(\.catalogEntry.compactLabel), [
+            "V4 Flash high",
+            "V4 Flash P ultra"
+        ])
     }
 
     func testUnknownModelsRemainReadableInOtherModelsWithoutInventingFamilies() throws {

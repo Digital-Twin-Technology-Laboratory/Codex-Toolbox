@@ -223,6 +223,26 @@ final class TrendPointTests: XCTestCase {
             ),
             date(2026, 7, 17)
         )
+
+        let sortedDays = (12...18).map { date(2026, 7, $0) }
+        XCTAssertEqual(
+            TrendPointBuilder.nearestDay(
+                to: date(2026, 7, 16, hour: 12),
+                inSortedDays: sortedDays
+            ),
+            date(2026, 7, 16)
+        )
+        XCTAssertEqual(
+            TrendPointBuilder.nearestDay(
+                to: date(2026, 7, 16, hour: 12),
+                inSortedDays: [date(2026, 7, 16), date(2026, 7, 17)]
+            ),
+            date(2026, 7, 16)
+        )
+        XCTAssertEqual(
+            TrendPointBuilder.axisDays(sortedDays, maximumCount: 4),
+            axis
+        )
     }
 
     func testSingleOrUndatedPointIsNotDrawable() {
@@ -250,6 +270,50 @@ final class TrendPointTests: XCTestCase {
                 calendar: utcCalendar
             ).isEmpty
         )
+    }
+
+    func testTrendSeriesBuilderPreparesAutomaticAndSavedSelectionsTogether() {
+        let models = [
+            trendModel(id: "a", effort: "low", values: [101, 102]),
+            trendModel(id: "b", effort: "medium", values: [111, 112]),
+            trendModel(id: "c", effort: "high", values: [121, 122]),
+            trendModel(id: "d", effort: "xhigh", values: [131, 132]),
+            trendModel(id: "e", effort: "max", values: [141, 142]),
+            trendModel(id: "f", effort: "ultra", values: [151, 152])
+        ]
+
+        let prepared = TrendSeriesBuilder.prepare(
+            benchmarks: models,
+            costHistory: [],
+            rankedModelIDs: ["c", "b", "a", "d", "e", "f"],
+            metric: .iq,
+            days: 7,
+            now: date(2026, 8, 2, hour: 12),
+            calendar: utcCalendar
+        )
+        let automatic = prepared.selecting(savedModelIDs: [])
+
+        XCTAssertEqual(automatic.automaticModelIDs, ["c", "b", "a"])
+        XCTAssertEqual(automatic.selectedModelIDs, ["c", "b", "a"])
+        XCTAssertEqual(Set(automatic.chartPoints.map(\.modelID)), ["a", "b", "c"])
+        XCTAssertEqual(automatic.chartPoints.count, 6)
+        XCTAssertEqual(automatic.chartDays, [date(2026, 8, 1), date(2026, 8, 2)])
+        XCTAssertEqual(automatic.axisDays, automatic.chartDays)
+        XCTAssertEqual(automatic.pointsByDay[date(2026, 8, 1)]?.map(\.modelID), ["c", "b", "a"])
+        XCTAssertEqual(automatic.selectableGroups.flatMap(\.models).count, 6)
+        XCTAssertFalse(automatic.hasCustomSelection)
+        XCTAssertTrue(automatic.hasDrawableSeries)
+
+        let saved = prepared.selecting(
+            savedModelIDs: ["f", "e", "d", "c", "b", "a", "missing"]
+        )
+
+        XCTAssertEqual(saved.automaticModelIDs, ["c", "b", "a"])
+        XCTAssertEqual(saved.selectedModelIDs, ["f", "e", "d", "c", "b"])
+        XCTAssertEqual(Set(saved.chartPoints.map(\.modelID)), ["b", "c", "d", "e", "f"])
+        XCTAssertEqual(saved.chartPoints.count, 10)
+        XCTAssertTrue(saved.hasCustomSelection)
+        XCTAssertTrue(saved.hasDrawableSeries)
     }
 
     func testShortDateLabelFormatsPublishedISOTimestamp() {
@@ -283,6 +347,23 @@ final class TrendPointTests: XCTestCase {
             tasks: nil,
             wallSeconds: duration,
             costUSD: cost
+        )
+    }
+
+    private func trendModel(id: String, effort: String, values: [Double]) -> ModelBenchmark {
+        ModelBenchmark(
+            id: id,
+            label: "Model \(id)",
+            model: "gpt-5.6-sol",
+            reasoningEffort: effort,
+            latest: nil,
+            recentDays: values.enumerated().map { index, value in
+                record(
+                    "2026-08-0\(index + 1)T12:00:00Z",
+                    score: value,
+                    duration: 180
+                )
+            }
         )
     }
 }

@@ -32,6 +32,188 @@ public struct TrendPoint: Identifiable, Hashable, Sendable {
     }
 }
 
+public enum ModelTrendSeriesConfiguration {
+    public static let defaultCount = 3
+    public static let maximumCount = 5
+}
+
+/// Metric/range data that is expensive to derive but independent of the user's
+/// current curve selection. Keeping this value alive lets changing one color
+/// slot filter existing points instead of reparsing the source history.
+public struct TrendSeriesSourceData: Hashable, Sendable {
+    public let metric: RankingMetric
+    public let automaticModelIDs: [String]
+    public let selectableGroups: [ModelCatalogFamilyGroup]
+
+    private let pointsByModelID: [String: [TrendPoint]]
+    private let drawableModelIDs: Set<String>
+
+    fileprivate init(
+        metric: RankingMetric,
+        pointsByModelID: [String: [TrendPoint]],
+        automaticModelIDs: [String],
+        selectableGroups: [ModelCatalogFamilyGroup],
+        drawableModelIDs: Set<String>
+    ) {
+        self.metric = metric
+        self.pointsByModelID = pointsByModelID
+        self.automaticModelIDs = automaticModelIDs
+        self.selectableGroups = selectableGroups
+        self.drawableModelIDs = drawableModelIDs
+    }
+
+    public func selecting(savedModelIDs: [String]) -> TrendSeriesData {
+        var seen = Set<String>()
+        var explicitModelIDs: [String] = []
+        for modelID in savedModelIDs
+        where drawableModelIDs.contains(modelID) && seen.insert(modelID).inserted {
+            explicitModelIDs.append(modelID)
+            if explicitModelIDs.count == ModelTrendSeriesConfiguration.maximumCount { break }
+        }
+        let selectedModelIDs = explicitModelIDs.isEmpty
+            ? automaticModelIDs
+            : explicitModelIDs
+        let chartPoints = selectedModelIDs.flatMap { modelID in
+            pointsByModelID[modelID] ?? []
+        }
+        let chartDays = Array(Set(chartPoints.compactMap(\.day))).sorted()
+        let datedPoints = chartPoints.compactMap { point in
+            point.day.map { (day: $0, point: point) }
+        }
+        let pointsByDay = Dictionary(grouping: datedPoints, by: \.day)
+            .mapValues { $0.map(\.point) }
+
+        return TrendSeriesData(
+            metric: metric,
+            chartPoints: chartPoints,
+            chartDays: chartDays,
+            axisDays: TrendPointBuilder.axisDays(chartDays, maximumCount: 4),
+            pointsByDay: pointsByDay,
+            automaticModelIDs: automaticModelIDs,
+            selectedModelIDs: selectedModelIDs,
+            selectableGroups: selectableGroups,
+            hasCustomSelection: !savedModelIDs.isEmpty,
+            hasDrawableSeries: selectedModelIDs.contains {
+                pointsByModelID[$0, default: []].count >= 2
+            }
+        )
+    }
+}
+
+/// Immutable data prepared for one metric/range/selection combination.
+///
+/// SwiftUI containers such as `Menu` can evaluate their content more than once.
+/// Keeping every derived collection in one value prevents those evaluations from
+/// reparsing the complete source history for each label, submenu, and chart mark.
+public struct TrendSeriesData: Hashable, Sendable {
+    public let metric: RankingMetric
+    public let chartPoints: [TrendPoint]
+    public let chartDays: [Date]
+    public let axisDays: [Date]
+    public let pointsByDay: [Date: [TrendPoint]]
+    public let automaticModelIDs: [String]
+    public let selectedModelIDs: [String]
+    public let selectableGroups: [ModelCatalogFamilyGroup]
+    public let hasCustomSelection: Bool
+    public let hasDrawableSeries: Bool
+
+    public init(
+        metric: RankingMetric,
+        chartPoints: [TrendPoint],
+        chartDays: [Date],
+        axisDays: [Date],
+        pointsByDay: [Date: [TrendPoint]],
+        automaticModelIDs: [String],
+        selectedModelIDs: [String],
+        selectableGroups: [ModelCatalogFamilyGroup],
+        hasCustomSelection: Bool,
+        hasDrawableSeries: Bool
+    ) {
+        self.metric = metric
+        self.chartPoints = chartPoints
+        self.chartDays = chartDays
+        self.axisDays = axisDays
+        self.pointsByDay = pointsByDay
+        self.automaticModelIDs = automaticModelIDs
+        self.selectedModelIDs = selectedModelIDs
+        self.selectableGroups = selectableGroups
+        self.hasCustomSelection = hasCustomSelection
+        self.hasDrawableSeries = hasDrawableSeries
+    }
+}
+
+public enum TrendSeriesBuilder {
+    /// Parses and aggregates every source observation once for a metric/range.
+    public static func prepare(
+        benchmarks: [ModelBenchmark],
+        costHistory: [CostHistoryPoint],
+        rankedModelIDs: [String],
+        metric: RankingMetric,
+        days: Int,
+        now: Date,
+        calendar: Calendar
+    ) -> TrendSeriesSourceData {
+        let allRecentPoints = TrendPointBuilder.recentPoints(
+            TrendPointBuilder.points(
+                benchmarks: benchmarks,
+                costHistory: costHistory,
+                metric: metric,
+                modelIDs: benchmarks.map(\.id),
+                calendar: calendar
+            ),
+            days: days,
+            now: now,
+            calendar: calendar
+        )
+        let pointsByModelID = Dictionary(grouping: allRecentPoints, by: \.modelID)
+        let drawableModelIDs = Set(
+            pointsByModelID
+                .compactMap { modelID, points in
+                    points.count >= 2 ? modelID : nil
+                }
+        )
+        let automaticModelIDs = Array(
+            rankedModelIDs.lazy
+                .filter(drawableModelIDs.contains)
+                .prefix(ModelTrendSeriesConfiguration.defaultCount)
+        )
+        let selectableGroups = ModelCatalog.grouped(
+            benchmarks.filter { drawableModelIDs.contains($0.id) }
+        )
+
+        return TrendSeriesSourceData(
+            metric: metric,
+            pointsByModelID: pointsByModelID,
+            automaticModelIDs: automaticModelIDs,
+            selectableGroups: selectableGroups,
+            drawableModelIDs: drawableModelIDs
+        )
+    }
+
+    /// Convenience API for non-interactive callers and tests.
+    public static func build(
+        benchmarks: [ModelBenchmark],
+        costHistory: [CostHistoryPoint],
+        rankedModelIDs: [String],
+        metric: RankingMetric,
+        savedModelIDs: [String],
+        days: Int,
+        now: Date,
+        calendar: Calendar
+    ) -> TrendSeriesData {
+        prepare(
+            benchmarks: benchmarks,
+            costHistory: costHistory,
+            rankedModelIDs: rankedModelIDs,
+            metric: metric,
+            days: days,
+            now: now,
+            calendar: calendar
+        )
+        .selecting(savedModelIDs: savedModelIDs)
+    }
+}
+
 public enum TrendPointBuilder {
     /// Builds chart-ready points by retaining the latest valid source snapshot
     /// for each model and device-calendar day.
@@ -134,8 +316,18 @@ public enum TrendPointBuilder {
         maximumCount: Int = 4,
         calendar: Calendar = .current
     ) -> [Date] {
-        guard maximumCount > 0 else { return [] }
         let days = Array(Set(dailyPoints(points, calendar: calendar).compactMap(\.day))).sorted()
+        return axisDays(days, maximumCount: maximumCount)
+    }
+
+    /// Selects readable axis values from chart days that have already been
+    /// normalized, deduplicated, and sorted during series preparation.
+    public static func axisDays(
+        _ sortedDays: [Date],
+        maximumCount: Int = 4
+    ) -> [Date] {
+        guard maximumCount > 0 else { return [] }
+        let days = sortedDays
         guard days.count > maximumCount, maximumCount > 1 else {
             return Array(days.prefix(maximumCount))
         }
@@ -155,12 +347,39 @@ public enum TrendPointBuilder {
         in points: [TrendPoint],
         calendar: Calendar = .current
     ) -> Date? {
-        axisCandidates(points, calendar: calendar).min { lhs, rhs in
-            let lhsDistance = abs(lhs.timeIntervalSince(date))
-            let rhsDistance = abs(rhs.timeIntervalSince(date))
-            if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
-            return lhs < rhs
+        nearestDay(
+            to: date,
+            inSortedDays: axisCandidates(points, calendar: calendar)
+        )
+    }
+
+    /// Finds a hover target with a binary search over prepared chart days.
+    /// Ties choose the earlier day for deterministic pointer behavior.
+    public static func nearestDay(
+        to date: Date,
+        inSortedDays days: [Date]
+    ) -> Date? {
+        guard !days.isEmpty else { return nil }
+
+        var lowerBound = 0
+        var upperBound = days.count
+        while lowerBound < upperBound {
+            let middle = lowerBound + (upperBound - lowerBound) / 2
+            if days[middle] < date {
+                lowerBound = middle + 1
+            } else {
+                upperBound = middle
+            }
         }
+
+        guard lowerBound > 0 else { return days[0] }
+        guard lowerBound < days.count else { return days[days.count - 1] }
+
+        let earlier = days[lowerBound - 1]
+        let later = days[lowerBound]
+        let earlierDistance = date.timeIntervalSince(earlier)
+        let laterDistance = later.timeIntervalSince(date)
+        return earlierDistance <= laterDistance ? earlier : later
     }
 
     public static func shortDateLabel(_ dateKey: String) -> String {

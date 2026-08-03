@@ -27,6 +27,7 @@ struct RankingSection: View {
     let metric: RankingMetric
     let rankings: [RankedModel]
     let presentation: RankingSectionPresentation
+    let showsExpandedMetrics: Bool
     let namespace: Namespace.ID
     let onExpand: () -> Void
     let onCollapse: () -> Void
@@ -47,9 +48,18 @@ struct RankingSection: View {
             }
         } label: {
             GroupBox {
-                VStack(spacing: presentation == .compact ? 4 : 7) {
+                VStack(spacing: contentSpacing) {
+                    if showsMetricTable {
+                        metricTableHeader
+                        Divider()
+                    }
+
                     ForEach(visibleRankings) { ranked in
-                        RankRow(ranked: ranked, presentation: presentation)
+                        RankRow(
+                            ranked: ranked,
+                            presentation: presentation,
+                            showsExpandedMetrics: showsExpandedMetrics
+                        )
                         if ranked.id != visibleRankings.last?.id {
                             Divider()
                         }
@@ -84,6 +94,52 @@ struct RankingSection: View {
         .help(presentation == .expanded ? "点击收起“\(metric.rankingTitle)”榜单" : "点击展开“\(metric.rankingTitle)”榜单")
         .accessibilityLabel("\(metric.rankingTitle)，\(presentation == .expanded ? "已展开" : "点击展开")")
         .accessibilityHint(presentation == .expanded ? "按下可恢复四宫格" : "按下可查看前五名")
+    }
+
+    private var showsMetricTable: Bool {
+        presentation == .expanded
+            && showsExpandedMetrics
+            && !visibleRankings.isEmpty
+    }
+
+    private var contentSpacing: CGFloat {
+        if presentation == .compact {
+            return 4
+        }
+        // The table header adds two stack children (the header and its
+        // divider). Tighten only this presentation so the added semantics do
+        // not create artificial overflow in the otherwise unchanged popover.
+        return showsMetricTable ? 5 : 7
+    }
+
+    private var metricTableHeader: some View {
+        let auxiliaryMetrics = RankingTableLayout.auxiliaryMetrics(for: metric)
+        let auxiliaryColumnWidth = RankingTableLayout.auxiliaryColumnWidth(
+            metricCount: auxiliaryMetrics.count
+        )
+
+        return HStack(spacing: RankingTableLayout.rowSpacing) {
+            Color.clear
+                .frame(width: RankingTableLayout.medalWidth, height: 1)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: RankingTableLayout.metricSpacing) {
+                ForEach(auxiliaryMetrics, id: \.self) { auxiliaryMetric in
+                    Text(auxiliaryMetric.displayName)
+                        .frame(width: auxiliaryColumnWidth, alignment: .trailing)
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            Text(metric.displayName)
+                .foregroundStyle(metric.tint.opacity(0.82))
+                .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
+        }
+        .font(.system(size: 8, weight: .semibold))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .accessibilityHidden(true)
     }
 
     private var header: some View {

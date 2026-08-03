@@ -32,7 +32,11 @@ struct DashboardView: View {
         self.layoutState = layoutState
         self.onPreferredHeightChange = onPreferredHeightChange
         _interaction = StateObject(
-            wrappedValue: DashboardInteractionState(expandedMetric: initiallyExpandedMetric)
+            wrappedValue: DashboardInteractionState(
+                expandedMetric: initiallyExpandedMetric,
+                isTrendExpanded: appModel.settings.showsTrendChart
+                    && appModel.settings.expandsTrendChartByDefault
+            )
         )
     }
 
@@ -104,6 +108,12 @@ struct DashboardView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
             interaction.collapseTrend()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.willShowNotification)) { _ in
+            interaction.beginTrendSession(
+                expandedByDefault: appModel.settings.showsTrendChart
+                    && appModel.settings.expandsTrendChartByDefault
+            )
         }
         .onChange(of: appModel.settings.showsTrendChart) { _, isVisible in
             if !isVisible {
@@ -206,7 +216,7 @@ struct DashboardView: View {
 
             if !collapsed {
                 moduleContent(module)
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                    .transition(ToolboxMotion.dashboardContentTransition(reduceMotion: reduceMotion))
             }
         }
     }
@@ -337,6 +347,7 @@ struct DashboardView: View {
             metric: metric,
             rankings: appModel.rankings(for: metric),
             presentation: presentation,
+            showsExpandedMetrics: appModel.settings.showsExpandedRankingMetrics,
             namespace: rankingNamespace,
             onExpand: {
                 withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
@@ -477,10 +488,15 @@ private struct DashboardScrollViewportHeightPreferenceKey: PreferenceKey {
 @MainActor
 private final class DashboardInteractionState: ObservableObject {
     @Published var expandedMetric: RankingMetric?
-    @Published var isTrendExpanded = false
+    @Published var isTrendExpanded: Bool
 
-    init(expandedMetric: RankingMetric? = nil) {
+    init(expandedMetric: RankingMetric? = nil, isTrendExpanded: Bool = false) {
         self.expandedMetric = expandedMetric
+        self.isTrendExpanded = isTrendExpanded
+    }
+
+    func beginTrendSession(expandedByDefault: Bool) {
+        isTrendExpanded = expandedByDefault
     }
 
     func collapseTrend() {

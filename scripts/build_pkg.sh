@@ -8,6 +8,7 @@ source "$ROOT_DIR/scripts/version.sh"
 
 BUILD_DIR="$(mktemp -d "${TMPDIR%/}/CodexToolbox-archive.XXXXXX")"
 ARCHIVE_PATH="$BUILD_DIR/CodexToolbox.xcarchive"
+DERIVED_DATA_PATH="$BUILD_DIR/DerivedData"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/Codex Toolbox.app"
 EXECUTABLE="$APP_PATH/Contents/MacOS/Codex Toolbox"
 OUTPUT_PKG="${OUTPUT_PKG:-$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.pkg}"
@@ -35,6 +36,7 @@ xcodebuild archive \
     -scheme CodexToolbox \
     -configuration Release \
     -destination "generic/platform=macOS" \
+    -derivedDataPath "$DERIVED_DATA_PATH" \
     -archivePath "$ARCHIVE_PATH" \
     ARCHS="arm64 x86_64" \
     ONLY_ACTIVE_ARCH=NO \

@@ -1,9 +1,34 @@
 import CodexToolboxCore
 import SwiftUI
 
+enum RankingTableLayout {
+    static let medalWidth: CGFloat = 22
+    static let primaryValueWidth: CGFloat = 48
+    static let rowSpacing: CGFloat = 6
+    static let metricSpacing: CGFloat = 4
+
+    static func auxiliaryMetrics(for metric: RankingMetric) -> [RankingMetric] {
+        switch metric {
+        case .iq:
+            [.cost, .duration]
+        case .cost:
+            [.iq, .duration]
+        case .duration:
+            [.iq, .cost]
+        case .overall:
+            [.iq, .cost, .duration]
+        }
+    }
+
+    static func auxiliaryColumnWidth(metricCount: Int) -> CGFloat {
+        metricCount == 3 ? 42 : 54
+    }
+}
+
 struct RankRow: View {
     let ranked: RankedModel
     let presentation: RankingSectionPresentation
+    let showsExpandedMetrics: Bool
 
     var body: some View {
         Group {
@@ -15,15 +40,13 @@ struct RankRow: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
-        )
+        .accessibilityLabel(accessibilityDescription)
     }
 
     private var regularBody: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: RankingTableLayout.rowSpacing) {
             medal
-                .frame(width: 22, height: 22)
+                .frame(width: RankingTableLayout.medalWidth, height: RankingTableLayout.medalWidth)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(ranked.benchmark.label)
@@ -37,10 +60,21 @@ struct RankRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
-            Spacer(minLength: 4)
+            if shouldShowExpandedMetrics {
+                HStack(spacing: RankingTableLayout.metricSpacing) {
+                    ForEach(expandedMetrics, id: \.self) { metric in
+                        expandedMetricCell(metric)
+                            .frame(width: expandedMetricColumnWidth, alignment: .trailing)
+                    }
+                }
+                .fixedSize(horizontal: true, vertical: false)
+            }
 
             valueText
+                .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
         }
     }
 
@@ -96,5 +130,57 @@ struct RankRow: View {
             return "\(passed)/\(tasks) 项通过"
         }
         return ranked.benchmark.reasoningEffort
+    }
+
+    private var shouldShowExpandedMetrics: Bool {
+        presentation == .expanded
+            && showsExpandedMetrics
+    }
+
+    private var expandedMetricColumnWidth: CGFloat {
+        RankingTableLayout.auxiliaryColumnWidth(metricCount: expandedMetrics.count)
+    }
+
+    @ViewBuilder
+    private func expandedMetricCell(_ metric: RankingMetric) -> some View {
+        Group {
+            if let value = ranked.benchmark.value(for: metric) {
+                Text(MetricFormatter.detailValue(value, metric: metric))
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+            } else {
+                Text("—")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .accessibilityLabel(metric.displayName)
+        .accessibilityValue(
+            ranked.benchmark.value(for: metric).map {
+                MetricFormatter.detailValue($0, metric: metric)
+            } ?? "暂无"
+        )
+    }
+
+    private var expandedMetricSummary: String {
+        expandedMetrics.compactMap { metric in
+            ranked.benchmark.value(for: metric).map {
+                "\(metric.displayName) \(MetricFormatter.detailValue($0, metric: metric))"
+            }
+        }
+        .joined(separator: "  ·  ")
+    }
+
+    private var expandedMetrics: [RankingMetric] {
+        RankingTableLayout.auxiliaryMetrics(for: ranked.metric)
+    }
+
+    private var accessibilityDescription: String {
+        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
+        guard shouldShowExpandedMetrics else { return primary }
+        return "\(primary)，其他指标：\(expandedMetricSummary)"
     }
 }

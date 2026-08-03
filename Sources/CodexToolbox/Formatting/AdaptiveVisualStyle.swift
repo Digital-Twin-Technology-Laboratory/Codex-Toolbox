@@ -5,17 +5,27 @@ extension View {
     func adaptiveGlassCard(
         tint: Color,
         id: String,
-        namespace: Namespace.ID
+        namespace: Namespace.ID,
+        isInteractive: Bool = true
     ) -> some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
         if #available(macOS 26.0, *) {
-            self
-                .overlay {
-                    shape.stroke(.white.opacity(0.16), lineWidth: 0.75)
-                }
-                .glassEffect(.regular.tint(tint.opacity(0.10)).interactive(), in: shape)
-                .glassEffectID(id, in: namespace)
+            if isInteractive {
+                self
+                    .overlay {
+                        shape.stroke(.white.opacity(0.16), lineWidth: 0.75)
+                    }
+                    .glassEffect(.regular.tint(tint.opacity(0.10)).interactive(), in: shape)
+                    .glassEffectID(id, in: namespace)
+            } else {
+                self
+                    .overlay {
+                        shape.stroke(.white.opacity(0.16), lineWidth: 0.75)
+                    }
+                    .glassEffect(.regular.tint(tint.opacity(0.10)), in: shape)
+                    .glassEffectID(id, in: namespace)
+            }
         } else {
             self
                 .background(.regularMaterial, in: shape)
