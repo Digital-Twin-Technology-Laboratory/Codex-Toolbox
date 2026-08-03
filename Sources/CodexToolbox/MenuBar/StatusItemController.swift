@@ -10,6 +10,8 @@ final class StatusItemController: NSObject {
     private let dashboardLayoutState: DashboardLayoutState
     private var pendingPopoverSize: NSSize?
     private var isPopoverSizeUpdateScheduled = false
+    private var localMouseMonitor: Any?
+    private var globalMouseMonitor: Any?
 
     init(appModel: AppModel) {
         self.appModel = appModel
@@ -52,6 +54,7 @@ final class StatusItemController: NSObject {
     private func configurePopover(appModel: AppModel) {
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         popover.contentViewController = NSHostingController(
             rootView: DashboardView(
                 appModel: appModel,
@@ -108,7 +111,7 @@ final class StatusItemController: NSObject {
 
     private func togglePopover() {
         if popover.isShown {
-            popover.performClose(nil)
+            closePopover()
         } else {
             showPopover()
         }
@@ -121,6 +124,66 @@ final class StatusItemController: NSObject {
         NSApplication.shared.activate(ignoringOtherApps: true)
         popover.show(relativeTo: statusView.bounds, of: statusView, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        beginOutsideClickMonitoring()
+    }
+
+    private func closePopover() {
+        guard popover.isShown else {
+            endOutsideClickMonitoring()
+            return
+        }
+        popover.performClose(nil)
+    }
+
+    private func beginOutsideClickMonitoring() {
+        guard localMouseMonitor == nil, globalMouseMonitor == nil else { return }
+        let eventMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+
+        // Local monitors receive normal application events, while AppKit keeps
+        // menu tracking inside its own nested event loop. This lets SwiftUI
+        // menus finish normally and restores deterministic outside-click
+        // dismissal immediately after the menu closes.
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: eventMask) { [weak self] event in
+            guard let self, self.popover.isShown else { return event }
+            guard !self.isEventInsidePresentedInterface(event) else { return event }
+            self.closePopover()
+            return event
+        }
+
+        // Global mouse monitoring does not require Accessibility permission;
+        // only key-event monitoring has that restriction.
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: eventMask) { [weak self] _ in
+            Task { @MainActor in
+                self?.closePopover()
+            }
+        }
+    }
+
+    private func endOutsideClickMonitoring() {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+            self.localMouseMonitor = nil
+        }
+        if let globalMouseMonitor {
+            NSEvent.removeMonitor(globalMouseMonitor)
+            self.globalMouseMonitor = nil
+        }
+    }
+
+    private func isEventInsidePresentedInterface(_ event: NSEvent) -> Bool {
+        if event.window === popover.contentViewController?.view.window {
+            return true
+        }
+
+        guard event.window === statusView.window else { return false }
+        let pointInStatusView = statusView.convert(event.locationInWindow, from: nil)
+        return statusView.bounds.contains(pointInStatusView)
+    }
+}
+
+extension StatusItemController: NSPopoverDelegate {
+    func popoverDidClose(_ notification: Notification) {
+        endOutsideClickMonitoring()
     }
 }
 

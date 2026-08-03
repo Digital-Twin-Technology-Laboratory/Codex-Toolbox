@@ -82,14 +82,13 @@ struct TokenUsageModuleView: View {
     }
 
     private var taskBreakdown: some View {
-        ZStack(alignment: .topTrailing) {
-            Button(action: toggleTaskList) {
-                taskBreakdownCard
-            }
-            .buttonStyle(ToolboxPressButtonStyle())
-            .accessibilityLabel("\(selectedPeriodName) Token Top \(currentTaskLimit) 任务榜单")
-            .accessibilityHint(taskCardHelp)
-
+        Button(action: toggleTaskList) {
+            taskBreakdownContent
+        }
+        .buttonStyle(ToolboxPressButtonStyle())
+        .accessibilityLabel("\(selectedPeriodName) Token Top \(currentTaskLimit) 任务榜单")
+        .accessibilityHint(taskCardHelp)
+        .overlay(alignment: .topTrailing) {
             if !isViewingToday {
                 Button(action: returnToToday) {
                     Label("返回今日", systemImage: "arrow.uturn.backward")
@@ -105,6 +104,7 @@ struct TokenUsageModuleView: View {
                 .accessibilityLabel("返回今日 Token 用量")
             }
         }
+        .adaptiveGlassCard(tint: .indigo, id: "token-tasks", namespace: glassNamespace)
         .onHover { hovering in
             withAnimation(reduceMotion ? .easeOut(duration: 0.20) : .easeOut(duration: 0.16)) {
                 isTaskCardHovered = hovering
@@ -113,7 +113,7 @@ struct TokenUsageModuleView: View {
         .help(taskCardHelp)
     }
 
-    private var taskBreakdownCard: some View {
+    private var taskBreakdownContent: some View {
         VStack(alignment: .leading, spacing: 9) {
             taskCardHeader
 
@@ -153,7 +153,6 @@ struct TokenUsageModuleView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(11)
-        .adaptiveGlassCard(tint: .indigo, id: "token-tasks", namespace: glassNamespace)
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
@@ -203,13 +202,8 @@ struct TokenUsageModuleView: View {
                     .frame(width: 24, height: 24)
                     .accessibilityHidden(true)
             }
-
-            if !isViewingToday {
-                Color.clear
-                    .frame(width: 78, height: 26)
-                    .accessibilityHidden(true)
-            }
         }
+        .padding(.trailing, isViewingToday ? 0 : 78 + 8)
     }
 
     private func taskRow(_ task: DailyTaskUsage) -> some View {

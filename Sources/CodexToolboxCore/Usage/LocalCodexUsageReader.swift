@@ -197,9 +197,12 @@ struct ParsedRollout: Sendable {
 }
 
 enum QuotaUsageWeighting {
-    // Normalized against GPT-5.6 Terra's input-token rate from OpenAI's
-    // Codex rate card, verified on 2026-08-02:
+    // Standard-mode rates normalized against GPT-5.6 Terra's 50-credit
+    // input-token rate from OpenAI's Codex rate card, verified on 2026-08-04:
     // https://help.openai.com/en/articles/20001106-codex-rate-card
+    // Fast mode is not recorded in rollout token events. The estimator's live
+    // quota-per-weight calibration absorbs a consistent fast-mode multiplier;
+    // it must not guess a per-event tier that the local source cannot prove.
     // Unknown models deliberately fall back to raw tokens until a future
     // release adds a verified rate.
     private struct Multipliers {
@@ -235,28 +238,28 @@ enum QuotaUsageWeighting {
             return Multipliers(input: 1, cachedInput: 0.1, output: 6)
         }
         if modelID.contains("gpt-5.6-luna") {
-            return Multipliers(input: 0.4, cachedInput: 0.04, output: 2.4)
+            return Multipliers(input: 0.1, cachedInput: 0.01, output: 0.6)
         }
         if modelID.contains("gpt-5.6-sol") || modelID.contains("gpt-5.6") {
-            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
         }
         if modelID.contains("gpt-5.5-cyber") {
-            return Multipliers(input: 8, cachedInput: 0.8, output: 48)
+            return Multipliers(input: 6.25, cachedInput: 0.625, output: 37.5)
         }
         if modelID.contains("gpt-5.5") {
-            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
         }
         if modelID.contains("gpt-5.4-mini") {
-            return Multipliers(input: 0.3, cachedInput: 0.03, output: 1.808)
+            return Multipliers(input: 0.375, cachedInput: 0.0375, output: 2.26)
         }
         if modelID.contains("gpt-5.4") {
-            return Multipliers(input: 1, cachedInput: 0.1, output: 6)
+            return Multipliers(input: 1.25, cachedInput: 0.125, output: 7.5)
         }
         if modelID.contains("gpt-5.3-codex-spark") {
             return nil
         }
         if modelID.contains("gpt-5.3-codex") || modelID.contains("gpt-5.2") {
-            return Multipliers(input: 0.7, cachedInput: 0.07, output: 5.6)
+            return Multipliers(input: 0.875, cachedInput: 0.0875, output: 7)
         }
         return nil
     }
@@ -277,6 +280,17 @@ enum RolloutTokenParser {
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
         let currentSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let previousCheckpoint = previous?.checkpoint
+        if let previousCheckpoint,
+           previousCheckpoint.path == fileURL.path,
+           currentSize == Int64(previousCheckpoint.parsedOffset) {
+            return ParsedRollout(
+                dailyTokens: previous?.dailyTokens ?? [:],
+                quotaObservations: previous?.quotaObservations ?? [],
+                checkpoint: previousCheckpoint,
+                damagedLineCount: 0,
+                resumedFromCheckpoint: true
+            )
+        }
         let canResume = previousCheckpoint.map {
             $0.path == fileURL.path && currentSize >= Int64($0.parsedOffset)
         } ?? false
@@ -297,10 +311,11 @@ enum RolloutTokenParser {
             let chunk = try handle.read(upToCount: 64 * 1024) ?? Data()
             if chunk.isEmpty { break }
             buffer.append(chunk)
-            while let newline = buffer.firstIndex(of: 0x0A) {
-                let line = Data(buffer[..<newline])
-                let consumed = buffer.distance(from: buffer.startIndex, to: newline) + 1
-                buffer.removeSubrange(buffer.startIndex...newline)
+            var lineStart = buffer.startIndex
+            while let newline = buffer[lineStart...].firstIndex(of: 0x0A) {
+                let line = Data(buffer[lineStart..<newline])
+                let consumed = buffer.distance(from: lineStart, to: newline) + 1
+                lineStart = buffer.index(after: newline)
                 parsedOffset += UInt64(consumed)
                 guard !line.isEmpty else { continue }
                 guard let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else {
@@ -343,6 +358,9 @@ enum RolloutTokenParser {
                         )
                     )
                 }
+            }
+            if lineStart != buffer.startIndex {
+                buffer.removeSubrange(buffer.startIndex..<lineStart)
             }
         }
 

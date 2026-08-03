@@ -129,8 +129,50 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 4"))
+        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 5"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
+    }
+
+    func testRolloutParserHandlesChunkBoundariesAndReusesEndCheckpoint() throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("large.jsonl")
+        let data = Data(
+            ((1...700).map {
+                tokenLine(
+                    timestamp: "2026-07-18T00:00:00Z",
+                    cumulative: Int64($0),
+                    increment: 1
+                )
+            }.joined(separator: "\n") + "\n").utf8
+        )
+        XCTAssertGreaterThan(data.count, 64 * 1_024)
+        try data.write(to: rollout)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "GMT"))
+        let first = try RolloutTokenParser.parse(fileURL: rollout, previous: nil, calendar: calendar)
+
+        XCTAssertEqual(first.dailyTokens["2026-07-18"], 700)
+        XCTAssertEqual(first.checkpoint.parsedOffset, UInt64(data.count))
+        let previous = ThreadUsageLedgerEntry(
+            threadID: "thread",
+            rootTaskID: "thread",
+            title: "Large rollout",
+            dailyTokens: first.dailyTokens,
+            quotaObservations: first.quotaObservations,
+            checkpoint: first.checkpoint,
+            isComplete: false
+        )
+
+        let reused = try RolloutTokenParser.parse(fileURL: rollout, previous: previous, calendar: calendar)
+
+        XCTAssertTrue(reused.resumedFromCheckpoint)
+        XCTAssertEqual(reused.damagedLineCount, 0)
+        XCTAssertEqual(reused.dailyTokens, first.dailyTokens)
+        XCTAssertEqual(reused.quotaObservations, first.quotaObservations)
+        XCTAssertEqual(reused.checkpoint, first.checkpoint)
     }
 
     func testExtractsSanitizedQuotaObservationsAndAggregatesThemToTheRoot() async throws {
@@ -177,12 +219,12 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(history.quotaObservations.map(\.tokenIncrement), [100, 200])
         XCTAssertEqual(
             try XCTUnwrap(history.quotaObservations[0].quotaUsageWeight),
-            506,
+            632.5,
             accuracy: 0.0001
         )
         XCTAssertEqual(
             try XCTUnwrap(history.quotaObservations[1].quotaUsageWeight),
-            1_012,
+            1_265,
             accuracy: 0.0001
         )
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
@@ -201,15 +243,15 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             "output_tokens": 200
         ]
         let cases: [(model: String, expected: Double)] = [
-            ("gpt-5.6-sol", 3_680),
+            ("gpt-5.6-sol", 4_600),
             ("gpt-5.6-terra", 1_840),
-            ("gpt-5.6-luna", 736),
-            ("gpt-5.5", 3_680),
-            ("gpt-5.5-cyber", 14_720),
-            ("gpt-5.4", 1_840),
-            ("gpt-5.4-mini", 553.6),
-            ("gpt-5.3-codex", 1_568),
-            ("gpt-5.2", 1_568)
+            ("gpt-5.6-luna", 184),
+            ("gpt-5.5", 4_600),
+            ("gpt-5.5-cyber", 11_500),
+            ("gpt-5.4", 2_300),
+            ("gpt-5.4-mini", 692),
+            ("gpt-5.3-codex", 1_960),
+            ("gpt-5.2", 1_960)
         ]
 
         for item in cases {
@@ -298,21 +340,21 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 4)
+        XCTAssertEqual(migrated.schemaVersion, 5)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens[todayKey], 123)
         XCTAssertNil(migrated.threads["thread"]?.checkpoint)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
         XCTAssertEqual(migrated.threads["old-thread"]?.checkpoint?.parsedOffset, 30)
     }
 
-    func testMigratesVersionTwoAndThreeActiveWindowsByRebuildingWeightedObservations() throws {
+    func testMigratesOlderQuotaWeightsWithoutDiscardingCheckpoints() throws {
         let workspace = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: workspace) }
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
         let formatter = ISO8601DateFormatter()
         let now = Date()
         let activeReset = now.addingTimeInterval(3_600)
-        for sourceVersion in [2, 3] {
+        for sourceVersion in [2, 3, 4] {
             let ledgerURL = workspace.appendingPathComponent("usage-ledger-\(sourceVersion).json")
             let legacy = """
             {
@@ -350,10 +392,10 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
             let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-            XCTAssertEqual(migrated.schemaVersion, 4, "source schema \(sourceVersion)")
+            XCTAssertEqual(migrated.schemaVersion, 5, "source schema \(sourceVersion)")
             XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-31"], 123)
             XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
-            XCTAssertNil(migrated.threads["thread"]?.checkpoint)
+            XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
         }
     }
 
@@ -401,7 +443,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 4)
+        XCTAssertEqual(migrated.schemaVersion, 5)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
         XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-01"], 123)

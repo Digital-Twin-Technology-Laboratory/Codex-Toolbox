@@ -76,9 +76,7 @@ final class AppModel {
     }
 
     var availableModels: [ModelBenchmark] {
-        (snapshot?.benchmarks ?? []).sorted {
-            $0.label.localizedStandardCompare($1.label) == .orderedAscending
-        }
+        ModelCatalog.sorted(snapshot?.benchmarks ?? [])
     }
 
     var menuBarRanking: [RankedModel] {

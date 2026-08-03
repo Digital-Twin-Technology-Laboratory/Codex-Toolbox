@@ -73,7 +73,7 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
 }
 
 struct VersionedUsageLedger: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 4
+    static let currentSchemaVersion = 5
 
     var schemaVersion: Int
     var generatedAt: Date
@@ -144,22 +144,15 @@ struct UsageLedgerStore {
                     ledger.threads[threadID]?.checkpoint = nil
                 }
             }
-        } else if sourceSchemaVersion == 2 || sourceSchemaVersion == 3 {
-            let now = Date()
+        } else if sourceSchemaVersion < VersionedUsageLedger.currentSchemaVersion {
             for threadID in ledger.threads.keys {
-                let hasActiveQuotaWindow = ledger.threads[threadID]?.quotaObservations.contains {
-                    $0.windows.contains { now < $0.resetsAt }
-                } ?? false
-                // Schema 2/3 observations were calibrated in raw-token units.
-                // They cannot be retained as historical samples after schema 4
-                // switches to model-aware credit weights.
+                // Schema 2/3 observations used raw-token units, while schema 4
+                // used the previous Codex rate card. Neither can remain after
+                // schema 5 adopts the 2026-08-04 model-aware credit weights.
                 ledger.threads[threadID]?.quotaObservations = []
-                if hasActiveQuotaWindow {
-                    // Only active windows need an immediate full reparse. Older
-                    // threads keep their offsets and start collecting weighted
-                    // observations when they receive future rollout events.
-                    ledger.threads[threadID]?.checkpoint = nil
-                }
+                // The checkpoint remains valid for token totals. Replaying every
+                // active historical rollout here can block the first dashboard
+                // open for minutes; subsequent events supply weighted samples.
             }
         }
         return ledger

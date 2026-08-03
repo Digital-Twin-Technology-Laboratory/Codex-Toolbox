@@ -67,11 +67,19 @@ public struct ModelComparison: Decodable, Sendable {
     }
 
     fileprivate func benchmark(id: String) -> ModelBenchmark {
-        ModelBenchmark(
+        let sourceModel = model?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let sourceEffort = reasoningEffort?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedModel = sourceModel.isEmpty ? id : sourceModel
+        let resolvedEffort = sourceEffort.isEmpty ? "unknown" : sourceEffort
+        let generatedLabel = ModelCatalog.entry(
+            model: resolvedModel,
+            reasoningEffort: resolvedEffort
+        ).displayLabel
+        return ModelBenchmark(
             id: id,
-            label: label ?? id,
-            model: model ?? id,
-            reasoningEffort: reasoningEffort ?? "unknown",
+            label: sourceModel.isEmpty || sourceEffort.isEmpty ? (label ?? generatedLabel) : generatedLabel,
+            model: resolvedModel,
+            reasoningEffort: resolvedEffort,
             latest: latest,
             recentDays: recentDays
         )
@@ -241,17 +249,11 @@ struct IntelligenceEfficiencyModelIdentity: Hashable, Sendable {
         } else {
             id = "\(Self.sanitizedIDComponent(normalizedModel))_\(Self.sanitizedIDComponent(normalizedEffort))"
         }
-        let prefix = Self.labelPrefixes[normalizedModel] ?? normalizedModel
-        label = "\(prefix) \(normalizedEffort)"
+        label = ModelCatalog.entry(
+            model: normalizedModel,
+            reasoningEffort: normalizedEffort
+        ).displayLabel
     }
-
-    private static let labelPrefixes: [String: String] = [
-        "gpt-5.6-sol": "GPT-5.6 Sol",
-        "gpt-5.6-terra": "GPT-5.6 Terra",
-        "gpt-5.6-luna": "GPT-5.6 Luna",
-        "gpt-5.5": "5.5",
-        "deepseek-v4-flash": "DeepSeek V4 Flash"
-    ]
 
     private static let legacyIDs: [String: String] = [
         "gpt-5.6-sol|low": "gpt_56_sol_low",

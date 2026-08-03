@@ -26,8 +26,11 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.showsMenuBarDetails)
         XCTAssertTrue(settings.menuBarModelAliases.isEmpty)
         XCTAssertFalse(settings.showsTrendChart)
+        XCTAssertFalse(settings.expandsTrendChartByDefault)
         XCTAssertEqual(settings.modelTrendRange, .sevenDays)
+        XCTAssertTrue(settings.modelTrendSelections.isEmpty)
         XCTAssertTrue(settings.showsDetailedBenchmarkTime)
+        XCTAssertFalse(settings.showsExpandedRankingMetrics)
         XCTAssertTrue(settings.automaticRefreshEnabled)
         XCTAssertEqual(settings.refreshInterval, .thirtyMinutes)
         XCTAssertEqual(settings.rankingWeights, .default)
@@ -83,8 +86,10 @@ final class AppSettingsTests: XCTestCase {
         settings.showsMenuBarIcon = false
         settings.showsMenuBarDetails = true
         settings.showsTrendChart = true
+        settings.expandsTrendChartByDefault = true
         settings.modelTrendRange = .fourteenDays
         settings.showsDetailedBenchmarkTime = false
+        settings.showsExpandedRankingMetrics = true
         settings.setMenuBarModelAlias("  Sol xh  ", for: "gpt_56_sol_xhigh")
 
         let restored = AppSettings(defaults: defaults)
@@ -92,8 +97,10 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(restored.showsMenuBarIcon)
         XCTAssertTrue(restored.showsMenuBarDetails)
         XCTAssertTrue(restored.showsTrendChart)
+        XCTAssertTrue(restored.expandsTrendChartByDefault)
         XCTAssertEqual(restored.modelTrendRange, .fourteenDays)
         XCTAssertFalse(restored.showsDetailedBenchmarkTime)
+        XCTAssertTrue(restored.showsExpandedRankingMetrics)
         XCTAssertEqual(restored.menuBarRankStyle.prefix(for: 2), "2、")
         XCTAssertEqual(restored.menuBarModelAlias(for: "gpt_56_sol_xhigh"), "Sol xh")
         XCTAssertEqual(
@@ -113,6 +120,46 @@ final class AppSettingsTests: XCTestCase {
             ),
             "5.6 Sol xh"
         )
+    }
+
+    func testModelTrendSelectionsPersistDeduplicateFiveCurveLimitAndReset() {
+        let suite = "AppSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let settings = AppSettings(defaults: defaults)
+        settings.setModelTrendSelection(
+            [
+                "sol-ultra", "  sol-ultra  ", "terra-ultra", "luna-max",
+                "5.5-xhigh", "deepseek-high", "ignored-sixth"
+            ],
+            for: .iq
+        )
+        settings.setModelTrendSelection(["luna-low"], for: .cost)
+        settings.setModelTrendSelection(["luna-low", "terra-low"], for: .duration)
+        settings.setModelTrendSelection(["ignored"], for: .overall)
+
+        XCTAssertEqual(
+            settings.modelTrendSelection(for: .iq),
+            ["sol-ultra", "terra-ultra", "luna-max", "5.5-xhigh", "deepseek-high"]
+        )
+        XCTAssertEqual(settings.modelTrendSelection(for: .cost), ["luna-low"])
+        XCTAssertEqual(settings.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
+        XCTAssertEqual(settings.modelTrendSelection(for: .overall), [])
+
+        let restored = AppSettings(defaults: defaults)
+        XCTAssertEqual(
+            restored.modelTrendSelection(for: .iq),
+            ["sol-ultra", "terra-ultra", "luna-max", "5.5-xhigh", "deepseek-high"]
+        )
+        XCTAssertEqual(restored.modelTrendSelection(for: .cost), ["luna-low"])
+        XCTAssertEqual(restored.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
+
+        restored.resetModelTrendSelection(for: .iq)
+        restored.setModelTrendSelection([], for: .cost)
+        XCTAssertEqual(restored.modelTrendSelection(for: .iq), [])
+        XCTAssertEqual(restored.modelTrendSelection(for: .cost), [])
+        XCTAssertEqual(restored.modelTrendSelection(for: .duration), ["luna-low", "terra-low"])
     }
 
     func testInvalidStoredValuesMigrateToDefaults() {
