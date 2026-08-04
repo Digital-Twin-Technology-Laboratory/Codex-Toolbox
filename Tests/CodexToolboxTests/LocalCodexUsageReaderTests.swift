@@ -129,7 +129,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 5"))
+        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 6"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
     }
 
@@ -219,12 +219,12 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(history.quotaObservations.map(\.tokenIncrement), [100, 200])
         XCTAssertEqual(
             try XCTUnwrap(history.quotaObservations[0].quotaUsageWeight),
-            632.5,
+            506,
             accuracy: 0.0001
         )
         XCTAssertEqual(
             try XCTUnwrap(history.quotaObservations[1].quotaUsageWeight),
-            1_265,
+            1_012,
             accuracy: 0.0001
         )
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
@@ -243,15 +243,15 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             "output_tokens": 200
         ]
         let cases: [(model: String, expected: Double)] = [
-            ("gpt-5.6-sol", 4_600),
+            ("gpt-5.6-sol", 3_680),
             ("gpt-5.6-terra", 1_840),
-            ("gpt-5.6-luna", 184),
-            ("gpt-5.5", 4_600),
-            ("gpt-5.5-cyber", 11_500),
-            ("gpt-5.4", 2_300),
-            ("gpt-5.4-mini", 692),
-            ("gpt-5.3-codex", 1_960),
-            ("gpt-5.2", 1_960)
+            ("gpt-5.6-luna", 736),
+            ("gpt-5.5", 3_680),
+            ("gpt-5.5-cyber", 14_720),
+            ("gpt-5.4", 1_840),
+            ("gpt-5.4-mini", 553.6),
+            ("gpt-5.3-codex", 1_568),
+            ("gpt-5.2", 1_568)
         ]
 
         for item in cases {
@@ -340,7 +340,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 5)
+        XCTAssertEqual(migrated.schemaVersion, 6)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens[todayKey], 123)
         XCTAssertNil(migrated.threads["thread"]?.checkpoint)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
@@ -354,7 +354,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         let formatter = ISO8601DateFormatter()
         let now = Date()
         let activeReset = now.addingTimeInterval(3_600)
-        for sourceVersion in [2, 3, 4] {
+        for sourceVersion in [2, 3, 4, 5] {
             let ledgerURL = workspace.appendingPathComponent("usage-ledger-\(sourceVersion).json")
             let legacy = """
             {
@@ -392,7 +392,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
             let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-            XCTAssertEqual(migrated.schemaVersion, 5, "source schema \(sourceVersion)")
+            XCTAssertEqual(migrated.schemaVersion, 6, "source schema \(sourceVersion)")
             XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-31"], 123)
             XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
             XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
@@ -443,7 +443,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 5)
+        XCTAssertEqual(migrated.schemaVersion, 6)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
         XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-01"], 123)

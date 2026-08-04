@@ -197,7 +197,7 @@ struct ParsedRollout: Sendable {
 }
 
 enum QuotaUsageWeighting {
-    // Standard-mode rates normalized against GPT-5.6 Terra's 50-credit
+    // Standard-mode rates normalized against GPT-5.6 Terra's 62.5-credit
     // input-token rate from OpenAI's Codex rate card, verified on 2026-08-04:
     // https://help.openai.com/en/articles/20001106-codex-rate-card
     // Fast mode is not recorded in rollout token events. The estimator's live
@@ -238,28 +238,28 @@ enum QuotaUsageWeighting {
             return Multipliers(input: 1, cachedInput: 0.1, output: 6)
         }
         if modelID.contains("gpt-5.6-luna") {
-            return Multipliers(input: 0.1, cachedInput: 0.01, output: 0.6)
+            return Multipliers(input: 0.4, cachedInput: 0.04, output: 2.4)
         }
         if modelID.contains("gpt-5.6-sol") || modelID.contains("gpt-5.6") {
-            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
+            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
         }
         if modelID.contains("gpt-5.5-cyber") {
-            return Multipliers(input: 6.25, cachedInput: 0.625, output: 37.5)
+            return Multipliers(input: 8, cachedInput: 0.8, output: 48)
         }
         if modelID.contains("gpt-5.5") {
-            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
+            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
         }
         if modelID.contains("gpt-5.4-mini") {
-            return Multipliers(input: 0.375, cachedInput: 0.0375, output: 2.26)
+            return Multipliers(input: 0.3, cachedInput: 0.03, output: 1.808)
         }
         if modelID.contains("gpt-5.4") {
-            return Multipliers(input: 1.25, cachedInput: 0.125, output: 7.5)
+            return Multipliers(input: 1, cachedInput: 0.1, output: 6)
         }
         if modelID.contains("gpt-5.3-codex-spark") {
             return nil
         }
         if modelID.contains("gpt-5.3-codex") || modelID.contains("gpt-5.2") {
-            return Multipliers(input: 0.875, cachedInput: 0.0875, output: 7)
+            return Multipliers(input: 0.7, cachedInput: 0.07, output: 5.6)
         }
         return nil
     }

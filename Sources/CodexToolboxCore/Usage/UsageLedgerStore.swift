@@ -73,7 +73,7 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
 }
 
 struct VersionedUsageLedger: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 5
+    static let currentSchemaVersion = 6
 
     var schemaVersion: Int
     var generatedAt: Date
@@ -146,9 +146,9 @@ struct UsageLedgerStore {
             }
         } else if sourceSchemaVersion < VersionedUsageLedger.currentSchemaVersion {
             for threadID in ledger.threads.keys {
-                // Schema 2/3 observations used raw-token units, while schema 4
-                // used the previous Codex rate card. Neither can remain after
-                // schema 5 adopts the 2026-08-04 model-aware credit weights.
+                // Schema 2/3 observations used raw-token units, while schemas
+                // 4/5 used superseded Codex rate cards. None can remain after
+                // schema 6 adopts the final pre-release 2026-08-04 rates.
                 ledger.threads[threadID]?.quotaObservations = []
                 // The checkpoint remains valid for token totals. Replaying every
                 // active historical rollout here can block the first dashboard
