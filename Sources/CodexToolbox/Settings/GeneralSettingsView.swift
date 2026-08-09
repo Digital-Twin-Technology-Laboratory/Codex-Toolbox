@@ -50,11 +50,16 @@ struct ModelRadarSettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("打开模型名称简称设置")
+            }
 
+            Section("榜单") {
                 Toggle("显示数据详细时间", isOn: showsDetailedBenchmarkTimeBinding)
                     .help("关闭后仅显示 YYYY-MM-DD · AM/PM")
                 Toggle("展开榜单显示其他指标", isOn: showsExpandedRankingMetricsBinding)
                     .help("主指标保持突出，并在展开榜单中补充其余原始指标")
+            }
+
+            Section("变化趋势") {
                 Toggle("显示模型趋势入口", isOn: showsTrendChartBinding)
                 Toggle("固定展开", isOn: expandsTrendChartByDefaultBinding)
                     .disabled(!appModel.settings.showsTrendChart)

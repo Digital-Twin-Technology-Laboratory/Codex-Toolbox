@@ -7,32 +7,31 @@ struct TokenUsageSettingsView: View {
 
     var body: some View {
         Form {
-            Section("刷新与展示") {
+            Section("刷新") {
                 Picker("刷新间隔", selection: refreshIntervalBinding) {
                     ForEach(UsageRefreshInterval.allCases) { interval in
                         Text(interval.displayName).tag(interval)
                     }
                 }
+            }
+
+            Section("任务榜单") {
                 Picker("榜单展开后", selection: expandedTaskLimitBinding) {
                     ForEach(UsageExpandedTaskLimit.allCases) { limit in
                         Text(limit.displayName).tag(limit)
                     }
                 }
+                Text("默认显示 Top 3；点击任务卡后按此设置展开。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("每日趋势") {
                 Picker("趋势范围", selection: trendRangeBinding) {
                     ForEach(UsageTrendRange.allCases) { range in
                         Text(range.displayName).tag(range)
                     }
                 }
-                Text("用量榜单默认显示 Top 3；点击榜单卡片后按此设置展开。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("任务名称") {
-                Label("看板使用 Codex 在本机记录的具体对话或任务名称", systemImage: "text.quote")
-                Text("标题只从本机 SQLite 与账本读取，不会上传。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Section("本机历史") {

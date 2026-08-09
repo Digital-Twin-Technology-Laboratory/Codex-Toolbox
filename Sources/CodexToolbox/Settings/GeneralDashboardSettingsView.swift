@@ -57,12 +57,6 @@ struct GeneralDashboardSettingsView: View {
                     appModel.settings.resetDashboardConfiguration()
                 }
             }
-
-            Section("隐私边界") {
-                Label("本机 Token 审计不调用模型、不上传任务内容", systemImage: "externaldrive.badge.checkmark")
-                Label("重置卡仅保存发放时间、过期时间与可用状态", systemImage: "person.badge.shield.checkmark")
-                Label("更新只从 GitHub 下载，并使用 Ed25519 与代码签名双重校验", systemImage: "arrow.triangle.2.circlepath")
-            }
         }
         .formStyle(.grouped)
         .padding(8)

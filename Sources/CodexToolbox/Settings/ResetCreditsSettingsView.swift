@@ -25,12 +25,6 @@ struct ResetCreditsSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("只读边界") {
-                Label("仅请求 account/rateLimits/read", systemImage: "lock.shield")
-                Text("Codex Toolbox 不会兑换、删除或自动使用重置卡；不保存或输出 access token、refresh token、cookie、文字说明或完整唯一 ID。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
         .padding(8)

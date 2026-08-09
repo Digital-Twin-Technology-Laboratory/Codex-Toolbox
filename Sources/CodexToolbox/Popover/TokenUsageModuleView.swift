@@ -164,46 +164,53 @@ struct TokenUsageModuleView: View {
     }
 
     private var taskCardHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Label("\(selectedPeriodName) Top \(currentTaskLimit) 任务", systemImage: "list.number")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.indigo)
-                Text(format(selectedSummary?.totalTokens ?? 0))
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+                    .lineLimit(1)
 
-            Spacer()
+                Spacer()
 
-            if selectedSummary?.isComplete == false {
-                Label("不完整", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.orange)
-            }
+                if selectedSummary?.isComplete == false {
+                    Label("不完整", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
 
-            if taskCount > 0 {
-                Text(hasAdditionalTasks ? "共 \(taskCount) 项" : "当日仅 \(taskCount) 项")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(.quaternary, in: Capsule())
-            }
+                if taskCount > 0 {
+                    Text(hasAdditionalTasks ? "共 \(taskCount) 项" : "当日仅 \(taskCount) 项")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(.quaternary, in: Capsule())
+                }
 
-            if hasAdditionalTasks {
-                Image(systemName: isTaskListExpanded ? "chevron.up" : "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                    .accessibilityHidden(true)
+                if hasAdditionalTasks {
+                    Image(systemName: isTaskListExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .accessibilityHidden(true)
+                }
             }
+            .padding(.trailing, isViewingToday ? 0 : 78 + 8)
+
+            Text(format(selectedSummary?.totalTokens ?? 0))
+                .font(.system(size: 25, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.64)
+                .allowsTightening(true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
-        .padding(.trailing, isViewingToday ? 0 : 78 + 8)
     }
 
     private func taskRow(_ task: DailyTaskUsage) -> some View {
