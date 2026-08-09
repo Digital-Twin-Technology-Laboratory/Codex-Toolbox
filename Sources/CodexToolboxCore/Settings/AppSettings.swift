@@ -298,7 +298,11 @@ public final class AppSettings {
         } else {
             showsDetailedBenchmarkTime = defaults.bool(forKey: Keys.showsDetailedBenchmarkTime)
         }
-        showsExpandedRankingMetrics = defaults.bool(forKey: Keys.showsExpandedRankingMetrics)
+        if defaults.object(forKey: Keys.showsExpandedRankingMetrics) == nil {
+            showsExpandedRankingMetrics = true
+        } else {
+            showsExpandedRankingMetrics = defaults.bool(forKey: Keys.showsExpandedRankingMetrics)
+        }
 
         if defaults.object(forKey: Keys.automaticRefreshEnabled) == nil {
             automaticRefreshEnabled = true
