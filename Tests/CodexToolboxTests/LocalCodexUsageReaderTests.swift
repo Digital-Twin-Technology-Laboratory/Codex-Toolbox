@@ -129,7 +129,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 6"))
+        XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 7"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
     }
 
@@ -217,23 +217,19 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(history.quotaObservations.count, 2)
         XCTAssertEqual(history.quotaObservations.map(\.rootTaskID), ["root", "root"])
         XCTAssertEqual(history.quotaObservations.map(\.tokenIncrement), [100, 200])
-        XCTAssertEqual(
-            try XCTUnwrap(history.quotaObservations[0].quotaUsageWeight),
-            506,
-            accuracy: 0.0001
-        )
-        XCTAssertEqual(
-            try XCTUnwrap(history.quotaObservations[1].quotaUsageWeight),
-            1_012,
-            accuracy: 0.0001
-        )
+        XCTAssertNil(history.quotaObservations[0].quotaUsageWeight)
+        XCTAssertEqual(history.quotaObservations[0].tokenBreakdown?.totalTokens, 100)
+        XCTAssertEqual(history.quotaObservations[1].tokenBreakdown?.totalTokens, 200)
+        XCTAssertEqual(history.quotaObservations[0].executionContext?.modelID, "gpt-5.6-sol")
+        XCTAssertEqual(history.quotaObservations[0].executionContext?.planType, "prolite")
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.usedPercent), [12, 13])
         let ledgerText = try String(contentsOf: ledger, encoding: .utf8)
-        XCTAssertTrue(ledgerText.contains("\"quotaUsageWeight\""))
+        XCTAssertTrue(ledgerText.contains("\"tokenBreakdown\""))
+        XCTAssertTrue(ledgerText.contains("\"executionContext\""))
         XCTAssertFalse(ledgerText.contains("opaque-limit-id"))
         XCTAssertFalse(ledgerText.contains("must-not-persist"))
-        XCTAssertFalse(ledgerText.contains("prolite"))
+        XCTAssertTrue(ledgerText.contains("prolite"))
     }
 
     func testQuotaUsageWeightingMatchesPublishedCodexRateCard() throws {
@@ -243,15 +239,15 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             "output_tokens": 200
         ]
         let cases: [(model: String, expected: Double)] = [
-            ("gpt-5.6-sol", 3_680),
+            ("gpt-5.6-sol", 4_600),
             ("gpt-5.6-terra", 1_840),
-            ("gpt-5.6-luna", 736),
-            ("gpt-5.5", 3_680),
-            ("gpt-5.5-cyber", 14_720),
-            ("gpt-5.4", 1_840),
-            ("gpt-5.4-mini", 553.6),
-            ("gpt-5.3-codex", 1_568),
-            ("gpt-5.2", 1_568)
+            ("gpt-5.6-luna", 184),
+            ("gpt-5.5", 4_600),
+            ("gpt-5.5-cyber", 11_500),
+            ("gpt-5.4", 2_300),
+            ("gpt-5.4-mini", 692),
+            ("gpt-5.3-codex", 1_960),
+            ("gpt-5.2", 1_960)
         ]
 
         for item in cases {
@@ -340,7 +336,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 6)
+        XCTAssertEqual(migrated.schemaVersion, 7)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens[todayKey], 123)
         XCTAssertNil(migrated.threads["thread"]?.checkpoint)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
@@ -392,10 +388,10 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
             let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-            XCTAssertEqual(migrated.schemaVersion, 6, "source schema \(sourceVersion)")
+            XCTAssertEqual(migrated.schemaVersion, 7, "source schema \(sourceVersion)")
             XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-31"], 123)
             XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
-            XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
+            XCTAssertNil(migrated.threads["thread"]?.checkpoint)
         }
     }
 
@@ -443,7 +439,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         let migrated = try UsageLedgerStore(fileURL: ledgerURL).load(timezoneIdentifier: "GMT")
 
-        XCTAssertEqual(migrated.schemaVersion, 6)
+        XCTAssertEqual(migrated.schemaVersion, 7)
         XCTAssertTrue(migrated.threads["thread"]?.quotaObservations.isEmpty == true)
         XCTAssertEqual(migrated.threads["thread"]?.checkpoint?.parsedOffset, 20)
         XCTAssertEqual(migrated.threads["thread"]?.dailyTokens["2026-07-01"], 123)
@@ -535,7 +531,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         )
 
         XCTAssertEqual(estimate.percent, 10, accuracy: 0.0001)
-        XCTAssertEqual(estimate.confidence, .medium)
+        XCTAssertEqual(estimate.confidence, .high)
         XCTAssertEqual(estimate.observedStepCount, 10)
     }
 
@@ -738,6 +734,57 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
 
         XCTAssertEqual(concurrent.percent, 0.1, accuracy: 0.0001)
         XCTAssertEqual(concurrent.observedStepCount, 0)
+    }
+
+    func testQuotaEstimatorMarksAccountOnlyIncreaseAsExternalUsage() throws {
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = AccountQuotaWindow(
+            durationMinutes: 10_080,
+            usedPercent: 6,
+            resetsAt: reset
+        )
+        let start = reset.addingTimeInterval(-1_000)
+        var observations = [
+            quotaObservation(at: start, task: "local", tokens: 0, percent: 0, reset: reset)
+        ]
+        for step in 1...5 {
+            observations.append(
+                quotaObservation(
+                    at: start.addingTimeInterval(Double(step * 10)),
+                    task: "local",
+                    tokens: 1_000,
+                    percent: Double(step),
+                    reset: reset
+                )
+            )
+        }
+        observations.append(
+            LocalQuotaUsageObservation(
+                timestamp: start.addingTimeInterval(60),
+                rootTaskID: "__account__",
+                tokenIncrement: 0,
+                isAccountSnapshot: true,
+                windows: [windowAt(percent: 6, reset: reset, duration: 10_080)]
+            )
+        )
+        let history = UsageHistory(
+            generatedAt: start.addingTimeInterval(70),
+            timezoneIdentifier: "GMT",
+            days: [],
+            quotaObservations: observations
+        )
+
+        let estimate = try XCTUnwrap(
+            TaskQuotaEstimator.estimates(
+                history: history,
+                window: window,
+                now: start.addingTimeInterval(70)
+            )["\(dayKey(start))|local"]
+        )
+
+        XCTAssertEqual(estimate.percent, 5, accuracy: 0.0001)
+        XCTAssertEqual(estimate.confidence, .medium)
+        XCTAssertTrue(estimate.hasConcurrentInterference)
     }
 
     func testClearHistoryRemovesLedger() async throws {

@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "current_version": "2026-08-05",
+  "generated_at": "2026-08-05T00:00:00Z",
+  "sources": [
+    "https://help.openai.com/en/articles/20001106-codex-rate-card",
+    "https://learn.chatgpt.com/docs/agent-configuration/speed"
+  ],
+  "versions": [
+    {
+      "id": "2026-08-05",
+      "effective_at": "2026-08-05T00:00:00Z",
+      "models": [
+        {"id":"gpt-5.6-sol","aliases":["gpt-5.6-sol","gpt-5.6"],"input_credits_per_million":125,"cached_input_credits_per_million":12.5,"output_credits_per_million":750},
+        {"id":"gpt-5.6-terra","aliases":["gpt-5.6-terra"],"input_credits_per_million":50,"cached_input_credits_per_million":5,"output_credits_per_million":300},
+        {"id":"gpt-5.6-luna","aliases":["gpt-5.6-luna"],"input_credits_per_million":5,"cached_input_credits_per_million":0.5,"output_credits_per_million":30},
+        {"id":"gpt-5.5-cyber","aliases":["gpt-5.5-cyber"],"input_credits_per_million":312.5,"cached_input_credits_per_million":31.25,"output_credits_per_million":1875},
+        {"id":"gpt-5.5","aliases":["gpt-5.5"],"input_credits_per_million":125,"cached_input_credits_per_million":12.5,"output_credits_per_million":750},
+        {"id":"gpt-5.4-mini","aliases":["gpt-5.4-mini"],"input_credits_per_million":18.75,"cached_input_credits_per_million":1.875,"output_credits_per_million":113},
+        {"id":"gpt-5.4","aliases":["gpt-5.4"],"input_credits_per_million":62.5,"cached_input_credits_per_million":6.25,"output_credits_per_million":375},
+        {"id":"gpt-5.3-codex","aliases":["gpt-5.3-codex"],"input_credits_per_million":43.75,"cached_input_credits_per_million":4.375,"output_credits_per_million":350},
+        {"id":"gpt-5.2","aliases":["gpt-5.2"],"input_credits_per_million":43.75,"cached_input_credits_per_million":4.375,"output_credits_per_million":350}
+      ],
+      "fast_multipliers": [
+        {"model_prefix":"gpt-5.6","multiplier":2.5},
+        {"model_prefix":"gpt-5.5","multiplier":2.5},
+        {"model_prefix":"gpt-5.4","multiplier":2.0}
+      ],
+      "legacy_models": [
+        {"id":"gpt-5.6-sol","aliases":["gpt-5.6-sol","gpt-5.6"],"credits_per_message":14},
+        {"id":"gpt-5.6-terra","aliases":["gpt-5.6-terra"],"credits_per_message":6},
+        {"id":"gpt-5.6-luna","aliases":["gpt-5.6-luna"],"credits_per_message":1},
+        {"id":"gpt-5.5-cyber","aliases":["gpt-5.5-cyber"],"credits_per_message":56},
+        {"id":"gpt-5.5","aliases":["gpt-5.5"],"credits_per_message":14},
+        {"id":"gpt-5.4","aliases":["gpt-5.4"],"credits_per_message":7}
+      ]
+    }
+  ]
+}

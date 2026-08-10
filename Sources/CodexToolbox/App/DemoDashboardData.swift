@@ -2,8 +2,13 @@
 import CodexToolboxCore
 import Foundation
 
-actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
-    func readUsage(now: Date, calendar: Calendar) async throws -> UsageHistory {
+actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnapshotRecording {
+    func readUsage(
+        now: Date,
+        calendar: Calendar,
+        rateCard: RateCardManifest?,
+        rateCardMode: RateCardMode
+    ) async throws -> UsageHistory {
         let totals: [Int64] = [182_400, 296_800, 241_100, 418_600, 387_900, 512_300, 684_200]
         let days = totals.enumerated().compactMap { index, total -> DailyUsageSummary? in
             guard let date = calendar.date(byAdding: .day, value: index - 6, to: now) else { return nil }
@@ -128,6 +133,12 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing {
     }
 
     func clearHistory() async throws {}
+
+    func recordAccountQuotaSnapshot(
+        windows: [AccountQuotaWindow],
+        planType: String?,
+        timestamp: Date
+    ) async throws {}
 
     private func dayKey(_ date: Date, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: date)

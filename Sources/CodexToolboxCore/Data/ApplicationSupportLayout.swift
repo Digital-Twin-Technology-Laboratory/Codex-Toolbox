@@ -15,8 +15,12 @@ public struct ApplicationSupportLayout: Sendable {
     public var radarEfficiencyStateURL: URL {
         currentDirectory.appendingPathComponent("radar-intelligence-efficiency-v2.json")
     }
+    public var stationRecommendationsStateURL: URL {
+        currentDirectory.appendingPathComponent("radar-station-recommendations-v1.json")
+    }
     public var radarStateURL: URL { currentDirectory.appendingPathComponent("radar-latest.json") }
     public var legacyRadarStateURL: URL { legacyDirectory.appendingPathComponent("latest.json") }
     public var usageLedgerURL: URL { currentDirectory.appendingPathComponent("usage-ledger.json") }
+    public var rateCardCacheURL: URL { currentDirectory.appendingPathComponent("codex-rate-card-v1.json") }
     public var resetCreditsCacheURL: URL { currentDirectory.appendingPathComponent("reset-credits.json") }
 }

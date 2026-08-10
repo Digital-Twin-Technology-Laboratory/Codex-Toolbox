@@ -15,6 +15,38 @@ struct TokenUsageSettingsView: View {
                 }
             }
 
+            Section("官方费率与 Credits") {
+                Toggle("自动更新官方费率", isOn: automaticRateUpdatesBinding)
+                Picker("费率制度", selection: rateCardModeBinding) {
+                    ForEach(RateCardMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("当前版本 \(appModel.rateCardState.manifest.currentVersion)")
+                        Text(rateCardStatus)
+                            .foregroundStyle(appModel.isRateCardStale ? .orange : .secondary)
+                    }
+                    .font(.caption)
+                    Spacer()
+                    Button("立即检查") {
+                        Task { await appModel.refreshRateCard() }
+                    }
+                    .disabled(appModel.isRefreshingRateCard)
+                }
+
+                Text("自动模式仅在可确认 ChatGPT 计划时计算 Credits；API Key 用量不套用 ChatGPT Credits。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let errorMessage = appModel.rateCardState.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+
             Section("任务榜单") {
                 Picker("榜单展开后", selection: expandedTaskLimitBinding) {
                     ForEach(UsageExpandedTaskLimit.allCases) { limit in
@@ -77,6 +109,35 @@ struct TokenUsageSettingsView: View {
             get: { appModel.settings.usageExpandedTaskLimit },
             set: { appModel.settings.usageExpandedTaskLimit = $0 }
         )
+    }
+
+    private var automaticRateUpdatesBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.automaticRateCardUpdatesEnabled },
+            set: {
+                appModel.settings.automaticRateCardUpdatesEnabled = $0
+                appModel.settingsDidChange()
+            }
+        )
+    }
+
+    private var rateCardModeBinding: Binding<RateCardMode> {
+        Binding(
+            get: { appModel.settings.rateCardMode },
+            set: {
+                appModel.settings.rateCardMode = $0
+                appModel.settingsDidChange()
+            }
+        )
+    }
+
+    private var rateCardStatus: String {
+        if appModel.isRateCardStale { return "费率可能过期" }
+        switch appModel.rateCardState.source {
+        case .bundled: return "内置回退数据"
+        case .cached: return "上次有效缓存"
+        case .remote: return "已从项目托管清单校验"
+        }
     }
 
 }

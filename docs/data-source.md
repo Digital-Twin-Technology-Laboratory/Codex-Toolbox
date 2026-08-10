@@ -5,6 +5,7 @@
 ## 请求范围
 
 - 端点：`https://codexradar.com/data/intelligence-efficiency.json`
+- 可选站长推荐：`https://codexradar.com/api/radar-insights`（`schema = 1`，默认关闭）
 - 应用不抓取网页 HTML，不请求网页使用的原始任务表或需要 Key 的完整 API。
 - 默认请求频率为 30 分钟一次，最短可设为 15 分钟。
 - 客户端发送明确的 `User-Agent`、`Accept: application/json`、`If-None-Match` 和 `If-Modified-Since`。
@@ -18,6 +19,7 @@
 - `model`、`effort`、`iq`
 - `passed`、`valid_tasks`
 - `average_price_usd`、`average_minutes`
+- `combined_cost_index`（只由费用与耗时组成，越低越好）
 - 顶层 `source_updated_at`
 - `history[].at` 与其中同结构的 `points`
 
@@ -28,7 +30,7 @@
 - 智商、费用和耗时趋势优先使用 `history` 中的同口径观察点。
 - 只有远端费用历史完全缺失时，才从安装后的新聚合快照继续积累平均费用，不做累计值换算或伪造。
 - 历史观察按快照时间排序，不依赖 CDN 返回的数组顺序。
-- “综合最佳”不是 Codex 雷达直接发布的字段，而是应用基于智商、平均费用和平均耗时的百分位，按用户配置权重在本机计算。
+- 第四榜单默认仍是本地智商/费用/耗时加权百分位；用户可切换为 Radar `combined_cost_index`，此时标题明确改为“雷达成本效率”，不冒充综合智商分。
 - 新数据源使用 `radar-intelligence-efficiency-v2.json`；旧 `radar-latest.json` 和 Show Codex IQ 快照不会迁移、覆盖或删除，避免累计值与平均值混用。
 
 ## 模型标识兼容

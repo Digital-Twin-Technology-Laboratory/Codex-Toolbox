@@ -20,7 +20,10 @@ struct ModelRadarSettingsView: View {
             Section("菜单栏") {
                 Picker("默认展示", selection: menuBarMetricBinding) {
                     ForEach(RankingMetric.allCases) { metric in
-                        Label(metric.displayName, systemImage: metric.systemImage)
+                        Label(
+                            metric.displayName(overallMode: appModel.settings.overallRankingMode),
+                            systemImage: metric.systemImage
+                        )
                             .tag(metric)
                     }
                 }
@@ -57,6 +60,30 @@ struct ModelRadarSettingsView: View {
                     .help("关闭后仅显示 YYYY-MM-DD · AM/PM")
                 Toggle("展开榜单显示其他指标", isOn: showsExpandedRankingMetricsBinding)
                     .help("主指标保持突出，并在展开榜单中补充其余原始指标")
+
+                Picker("第四榜单", selection: overallRankingModeBinding) {
+                    ForEach(OverallRankingMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                Text(appModel.settings.overallRankingMode == .localWeighted
+                    ? "本地综合按 IQ、费用和耗时加权。"
+                    : "Radar 成本效率只使用费用和耗时，指数越低越好。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("站长场景推荐") {
+                Toggle("显示站长推荐", isOn: stationRecommendationsBinding)
+                Picker("显示位置", selection: stationPlacementBinding) {
+                    ForEach(StationRecommendationPlacement.allCases) { placement in
+                        Text(placement.displayName).tag(placement)
+                    }
+                }
+                .disabled(!appModel.settings.showsStationRecommendations)
+                Text("关闭时不会请求推荐接口；开启后会与模型榜单一起刷新。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("变化趋势") {
@@ -82,37 +109,39 @@ struct ModelRadarSettingsView: View {
                 .disabled(!appModel.settings.automaticRefreshEnabled)
             }
 
-            Section {
-                WeightDistributionSummary(weights: weights.weights)
+            if appModel.settings.overallRankingMode == .localWeighted {
+                Section {
+                    WeightDistributionSummary(weights: weights.weights)
 
-                WeightDistributionSlider(
-                    firstBoundary: weights.firstBoundary,
-                    secondBoundary: weights.secondBoundary,
-                    onFirstBoundaryChange: { value in
-                        weights.updateFirstBoundary(to: value)
-                        applyWeights()
-                    },
-                    onSecondBoundaryChange: { value in
-                        weights.updateSecondBoundary(to: value)
-                        applyWeights()
-                    }
-                )
+                    WeightDistributionSlider(
+                        firstBoundary: weights.firstBoundary,
+                        secondBoundary: weights.secondBoundary,
+                        onFirstBoundaryChange: { value in
+                            weights.updateFirstBoundary(to: value)
+                            applyWeights()
+                        },
+                        onSecondBoundaryChange: { value in
+                            weights.updateSecondBoundary(to: value)
+                            applyWeights()
+                        }
+                    )
 
-                HStack {
-                    Button("恢复 50 / 25 / 25") {
-                        weights.reset()
-                        applyWeights()
+                    HStack {
+                        Button("恢复 50 / 25 / 25") {
+                            weights.reset()
+                            applyWeights()
+                        }
+                        Spacer()
+                        Text("合计 100%")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
                     }
-                    Spacer()
-                    Text("合计 100%")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("综合排名权重")
+                } footer: {
+                    Text("拖动两个分隔点调整三项占比；合计始终为 100%，调整后立即重新计算。")
                 }
-            } header: {
-                Text("综合排名权重")
-            } footer: {
-                Text("拖动两个分隔点调整三项占比；合计始终为 100%，调整后立即重新计算。")
             }
 
         }
@@ -200,6 +229,30 @@ struct ModelRadarSettingsView: View {
                 appModel.settings.refreshInterval = $0
                 appModel.settingsDidChange()
             }
+        )
+    }
+
+    private var overallRankingModeBinding: Binding<OverallRankingMode> {
+        Binding(
+            get: { appModel.settings.overallRankingMode },
+            set: { appModel.settings.overallRankingMode = $0 }
+        )
+    }
+
+    private var stationRecommendationsBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.showsStationRecommendations },
+            set: {
+                appModel.settings.showsStationRecommendations = $0
+                appModel.settingsDidChange()
+            }
+        )
+    }
+
+    private var stationPlacementBinding: Binding<StationRecommendationPlacement> {
+        Binding(
+            get: { appModel.settings.stationRecommendationPlacement },
+            set: { appModel.settings.stationRecommendationPlacement = $0 }
         )
     }
 

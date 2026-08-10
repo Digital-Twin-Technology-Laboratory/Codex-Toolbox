@@ -275,11 +275,16 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
             throw ResetCreditsError.protocolIncompatible("rateLimits/read 结果不是 JSON 对象")
         }
         let quotaWindows = Self.quotaWindows(from: result["rateLimits"])
+        let rateLimits = result["rateLimits"] as? [String: Any]
+        let planType = (rateLimits?["planType"] as? String)
+            ?? (rateLimits?["plan_type"] as? String)
+            ?? (result["planType"] as? String)
         guard let container = result["rateLimitResetCredits"] as? [String: Any] else {
             return ResetCreditsSnapshot(
                 availableCount: 0,
                 credits: [],
                 quotaWindows: quotaWindows,
+                planType: planType,
                 fetchedAt: now()
             )
         }
@@ -297,6 +302,7 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
             availableCount: availableCount,
             credits: credits,
             quotaWindows: quotaWindows,
+            planType: planType,
             fetchedAt: now()
         )
     }

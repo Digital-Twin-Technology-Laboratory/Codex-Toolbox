@@ -71,6 +71,24 @@ final class RadarDecodingTests: XCTestCase {
         XCTAssertTrue(RankingEngine.rank(response.benchmarks, by: .overall).isEmpty)
     }
 
+    func testEfficiencySnapshotDecodesRadarCostEfficiencyIndex() throws {
+        let json = #"{"schema":2,"source_updated_at":"2026-08-11T00:00:00Z","points":[{"model":"gpt-5.6-luna","effort":"low","iq":4,"combined_cost_index":0.0002}]}"#
+        let response = try JSONDecoder().decode(
+            IntelligenceEfficiencyResponse.self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(response.benchmarks.first?.latest?.combinedCostIndex, 0.0002)
+        XCTAssertEqual(
+            RankingEngine.rank(
+                response.benchmarks,
+                by: .overall,
+                overallMode: .radarCostEfficiency
+            ).first?.benchmark.id,
+            "gpt_56_luna_low"
+        )
+    }
+
     func testEfficiencyHistoryIsChronologicalEvenWhenSourceOrderIsNot() throws {
         let json = #"{"schema":2,"source_updated_at":"2026-08-02T13:23:26+08:00","points":[{"model":"gpt-5.6-sol","effort":"ultra","iq":107}],"history":[{"at":"2026-08-02T12:00:00+08:00","points":[{"model":"gpt-5.6-sol","effort":"ultra","iq":106}]},{"at":"2026-08-01T12:00:00+08:00","points":[{"model":"gpt-5.6-sol","effort":"ultra","iq":105}]}]}"#
         let response = try JSONDecoder().decode(

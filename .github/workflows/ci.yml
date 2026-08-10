@@ -25,6 +25,7 @@ jobs:
 
       - name: Verify core
         run: |
+          python3 -m unittest discover -s Tests/RateCardScriptTests -v
           swift test
           swift run CoreVerification
 

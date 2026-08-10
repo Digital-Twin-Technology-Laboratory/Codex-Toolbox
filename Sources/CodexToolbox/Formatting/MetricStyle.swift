@@ -12,11 +12,22 @@ extension RankingMetric {
     }
 
     var rankingTitle: String {
+        rankingTitle(overallMode: .localWeighted)
+    }
+
+    func rankingTitle(overallMode: OverallRankingMode) -> String {
         switch self {
         case .iq: "智商最高"
         case .cost: "费用最低"
         case .duration: "耗时最低"
-        case .overall: "综合最佳"
+        case .overall:
+            overallMode == .localWeighted ? "综合最佳" : "雷达成本效率"
         }
+    }
+
+    func displayName(overallMode: OverallRankingMode) -> String {
+        self == .overall && overallMode == .radarCostEfficiency
+            ? "成本效率"
+            : displayName
     }
 }

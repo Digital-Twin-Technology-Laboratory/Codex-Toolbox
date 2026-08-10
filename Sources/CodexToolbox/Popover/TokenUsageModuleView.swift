@@ -210,6 +210,12 @@ struct TokenUsageModuleView: View {
             Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                usageMetric("本机 Credits", creditsText(selectedSummary))
+                usageMetric("账户已用", accountUsedText)
+                usageMetric("任务额度", taskEstimateStatus)
+            }
         }
     }
 
@@ -230,7 +236,9 @@ struct TokenUsageModuleView: View {
                 Text(
                     usageAndQuotaText(
                         tokens: task.tokens,
-                        taskIDs: [task.id]
+                        taskIDs: [task.id],
+                        credits: task.credits,
+                        precision: task.creditPrecision
                     )
                 )
                     .font(.caption.monospacedDigit())
@@ -436,22 +444,32 @@ struct TokenUsageModuleView: View {
         return "账户未返回 5 小时/周窗口，暂不能估算任务额度。"
     }
 
-    private func usageAndQuotaText(tokens: Int64, taskIDs: Set<String>) -> String {
+    private func usageAndQuotaText(
+        tokens: Int64,
+        taskIDs: Set<String>,
+        credits: Double? = nil,
+        precision: CreditEstimatePrecision? = nil
+    ) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
-        guard !estimates.isEmpty else { return format(tokens) }
+        let base = credits.map { "\(format(tokens)) · \(creditPrefix(precision))\(formatCredits($0)) Cr" }
+            ?? format(tokens)
+        guard !estimates.isEmpty else { return base }
         let quota = estimates.map {
             "\($0.window.displayName)≈\(formatPercent($0.percent))"
         }.joined(separator: " / ")
-        return "\(format(tokens)) · \(quota)"
+        return "\(base) · \(quota)"
     }
 
     private func quotaEstimateHelp(taskIDs: Set<String>) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
         guard !estimates.isEmpty else { return "暂无足够的逐轮额度快照" }
         return estimates.map {
-            "\($0.window.displayName)估算置信度：\($0.confidence.displayName)"
+            let interference = $0.hasConcurrentInterference
+                ? "，检测到其他设备、共享产品或并发干扰"
+                : ""
+            return "\($0.window.displayName)估算置信度：\($0.confidence.displayName)\(interference)"
         }.joined(separator: "；")
-            + "；已按模型输入、缓存输入与输出权重校准"
+            + "；已按官方费率、Fast、缓存和输出校准"
     }
 
     private func quotaEstimateSummaries(taskIDs: Set<String>) -> [TaskQuotaEstimate] {
@@ -469,7 +487,8 @@ struct TokenUsageModuleView: View {
                 percent: estimates.reduce(0) { $0 + $1.percent },
                 confidence: combinedConfidence(estimates.map(\.confidence)),
                 observedStepCount: estimates.reduce(0) { $0 + $1.observedStepCount },
-                observedTokenCoverage: estimates.map(\.observedTokenCoverage).min() ?? 0
+                observedTokenCoverage: estimates.map(\.observedTokenCoverage).min() ?? 0,
+                hasConcurrentInterference: estimates.contains { $0.hasConcurrentInterference }
             )
         }
     }
@@ -478,7 +497,63 @@ struct TokenUsageModuleView: View {
         _ confidences: [QuotaEstimateConfidence]
     ) -> QuotaEstimateConfidence {
         if confidences.contains(.low) { return .low }
-        return .medium
+        if confidences.contains(.medium) { return .medium }
+        return .high
+    }
+
+    private func usageMetric(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(title).foregroundStyle(.tertiary)
+            Text(value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .font(.system(size: 9))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func creditsText(_ summary: DailyUsageSummary?) -> String {
+        guard let credits = summary?.totalCredits else {
+            return appModel.settings.rateCardMode == .automatic
+                ? "待确认费率制度"
+                : "数据不完整"
+        }
+        return "\(creditPrefix(summary?.creditPrecision))\(formatCredits(credits))"
+    }
+
+    private var accountUsedText: String {
+        let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
+            Date() < $0.resetsAt
+        }
+        guard !windows.isEmpty else { return "暂无" }
+        return windows.map { "\($0.displayName) \(formatPercent($0.usedPercent))" }
+            .joined(separator: " / ")
+    }
+
+    private var taskEstimateStatus: String {
+        let values = appModel.taskQuotaEstimatesByDuration.values.flatMap(\.values)
+        guard !values.isEmpty else { return "样本不足" }
+        if values.contains(where: \.hasConcurrentInterference) {
+            return "≈ · 外部/并发"
+        }
+        let confidence = combinedConfidence(values.map(\.confidence))
+        return "≈ · \(confidence.displayName)置信"
+    }
+
+    private func creditPrefix(_ precision: CreditEstimatePrecision?) -> String {
+        switch precision {
+        case .exact: ""
+        case .upperBound: "≤"
+        case .lowerBound: "≥"
+        case .approximate, nil: "≈"
+        }
+    }
+
+    private func formatCredits(_ value: Double) -> String {
+        if value < 0.01, value > 0 { return "<0.01" }
+        return String(format: "%.2f", value)
     }
 
     private func formatPercent(_ value: Double) -> String {

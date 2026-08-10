@@ -53,6 +53,7 @@ export TOOLCHAINS="${TOOLCHAINS:-com.apple.dt.toolchain.XcodeDefault}"
 cd "$ROOT_DIR"
 xcodegen generate
 bash scripts/version.sh
+python3 -m unittest discover -s Tests/RateCardScriptTests -v
 
 xcrun --toolchain "$TOOLCHAINS" swift test \
     --scratch-path "$SPM_SCRATCH"

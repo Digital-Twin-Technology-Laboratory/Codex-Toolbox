@@ -5,8 +5,8 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 ## Token 用量
 
 - 只读访问当前用户的 `~/.codex/state_*.sqlite` 和 rollout JSONL。
-- 本机 Usage Ledger 包含逐线程、逐日 Token 总量、文件路径检查点、文件偏移与累计 Token；为估算任务额度，还保存 rollout 已包含的事件时间、单轮 Token、按模型费率计算的单轮相对额度权重、窗口时长、已用百分比和重置时间。增量检查点会保留最近的模型标识以便续读，但不保存对话正文。
-- rollout 中的额度快照会在写入账本前脱敏；不保存额度 limit ID、套餐字段、积分余额或其他账户字段。
+- 本机 Usage Ledger schema 7 包含逐日 Token 总量、文件检查点，以及逐轮输入、缓存输入、缓存写入、输出、推理输出和总 Token；同时保存当时的模型、推理强度、Standard/Fast、脱敏计划类型和费率版本，用于按事件时间重算 Credits。
+- rollout 与账户时间线会在写入账本前脱敏；不保存额度 limit ID、积分余额、凭据、opaque ID 或任务正文。
 - 看板使用 Codex SQLite 中的具体对话/任务标题；通用标题会回退到本机首条用户消息或预览摘要，数据不会上传。
 - 用户可清除历史账本；不会因 rollout 被删除而自动删除已记录历史。
 
@@ -19,7 +19,11 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 
 ## 模型排名
 
-该模块只请求 `https://codexradar.com/data/intelligence-efficiency.json`，读取 Codex 雷达已经聚合的智商、每题平均费用、每题平均耗时和历史观察点。客户端使用 ETag 和 Last-Modified 缓存验证，不抓取 HTML，也不请求网页使用的原始任务表接口。
+榜单请求 `https://codexradar.com/data/intelligence-efficiency.json`；用户开启站长推荐后，另外请求 `https://codexradar.com/api/radar-insights`。两者只发送普通 GET 与 ETag/Last-Modified，缓存、错误状态相互隔离，不上传账户、Token、任务或设备信息。
+
+## 官方费率
+
+应用每 6 小时对项目托管的版本化费率 JSON 发送 GET/ETag，不携带 Codex/ChatGPT 账户或本机用量。该 JSON 由 GitHub Actions 从 OpenAI 公开费率页与 Speed 页严格解析、校验并保留历史版本；应用在远程数据无效时回退到最后有效缓存或内置版本。
 
 ## 更新检查
 

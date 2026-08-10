@@ -5,6 +5,8 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
     public let rootTaskID: String
     public let title: String
     public let tokens: Int64
+    public let credits: Double?
+    public let creditPrecision: CreditEstimatePrecision?
     public let descendantCount: Int
 
     public var id: String { "\(dateKey)|\(rootTaskID)" }
@@ -14,12 +16,16 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
         rootTaskID: String,
         title: String,
         tokens: Int64,
+        credits: Double? = nil,
+        creditPrecision: CreditEstimatePrecision? = nil,
         descendantCount: Int
     ) {
         self.dateKey = dateKey
         self.rootTaskID = rootTaskID
         self.title = title
         self.tokens = tokens
+        self.credits = credits.flatMap { $0.isFinite ? max(0, $0) : nil }
+        self.creditPrecision = creditPrecision
         self.descendantCount = descendantCount
     }
 }
@@ -27,6 +33,8 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
 public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
     public let dateKey: String
     public let totalTokens: Int64
+    public let totalCredits: Double?
+    public let creditPrecision: CreditEstimatePrecision?
     public let tasks: [DailyTaskUsage]
     public let isComplete: Bool
 
@@ -35,11 +43,15 @@ public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
     public init(
         dateKey: String,
         totalTokens: Int64,
+        totalCredits: Double? = nil,
+        creditPrecision: CreditEstimatePrecision? = nil,
         tasks: [DailyTaskUsage],
         isComplete: Bool
     ) {
         self.dateKey = dateKey
         self.totalTokens = totalTokens
+        self.totalCredits = totalCredits.flatMap { $0.isFinite ? max(0, $0) : nil }
+        self.creditPrecision = creditPrecision
         self.tasks = tasks.sorted {
             if $0.tokens != $1.tokens { return $0.tokens > $1.tokens }
             return $0.rootTaskID < $1.rootTaskID
@@ -61,6 +73,10 @@ public struct LocalQuotaUsageObservation: Codable, Hashable, Sendable {
     public let rootTaskID: String
     public let tokenIncrement: Int64
     public let quotaUsageWeight: Double?
+    public let tokenBreakdown: UsageTokenBreakdown?
+    public let executionContext: UsageExecutionContext?
+    public let creditEstimate: TokenCreditEstimate?
+    public let isAccountSnapshot: Bool
     public let windows: [AccountQuotaWindow]
 
     public init(
@@ -68,6 +84,10 @@ public struct LocalQuotaUsageObservation: Codable, Hashable, Sendable {
         rootTaskID: String,
         tokenIncrement: Int64,
         quotaUsageWeight: Double? = nil,
+        tokenBreakdown: UsageTokenBreakdown? = nil,
+        executionContext: UsageExecutionContext? = nil,
+        creditEstimate: TokenCreditEstimate? = nil,
+        isAccountSnapshot: Bool = false,
         windows: [AccountQuotaWindow]
     ) {
         self.timestamp = timestamp
@@ -76,18 +96,55 @@ public struct LocalQuotaUsageObservation: Codable, Hashable, Sendable {
         self.quotaUsageWeight = quotaUsageWeight.flatMap {
             $0.isFinite ? max(0, $0) : nil
         }
+        self.tokenBreakdown = tokenBreakdown
+        self.executionContext = executionContext
+        self.creditEstimate = creditEstimate
+        self.isAccountSnapshot = isAccountSnapshot
         self.windows = windows.sorted { $0.durationMinutes < $1.durationMinutes }
+    }
+
+    public var calibrationWeight: Double {
+        creditEstimate?.credits ?? quotaUsageWeight ?? Double(tokenIncrement)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case timestamp
+        case rootTaskID
+        case tokenIncrement
+        case quotaUsageWeight
+        case tokenBreakdown
+        case executionContext
+        case creditEstimate
+        case isAccountSnapshot
+        case windows
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            timestamp: try container.decode(Date.self, forKey: .timestamp),
+            rootTaskID: try container.decode(String.self, forKey: .rootTaskID),
+            tokenIncrement: try container.decode(Int64.self, forKey: .tokenIncrement),
+            quotaUsageWeight: try container.decodeIfPresent(Double.self, forKey: .quotaUsageWeight),
+            tokenBreakdown: try container.decodeIfPresent(UsageTokenBreakdown.self, forKey: .tokenBreakdown),
+            executionContext: try container.decodeIfPresent(UsageExecutionContext.self, forKey: .executionContext),
+            creditEstimate: try container.decodeIfPresent(TokenCreditEstimate.self, forKey: .creditEstimate),
+            isAccountSnapshot: try container.decodeIfPresent(Bool.self, forKey: .isAccountSnapshot) ?? false,
+            windows: try container.decode([AccountQuotaWindow].self, forKey: .windows)
+        )
     }
 }
 
 public enum QuotaEstimateConfidence: String, Codable, Hashable, Sendable {
     case low
     case medium
+    case high
 
     public var displayName: String {
         switch self {
         case .low: "低"
         case .medium: "中"
+        case .high: "高"
         }
     }
 }
@@ -98,19 +155,22 @@ public struct TaskQuotaEstimate: Codable, Hashable, Sendable {
     public let confidence: QuotaEstimateConfidence
     public let observedStepCount: Int
     public let observedTokenCoverage: Double
+    public let hasConcurrentInterference: Bool
 
     public init(
         window: AccountQuotaWindow,
         percent: Double,
         confidence: QuotaEstimateConfidence,
         observedStepCount: Int,
-        observedTokenCoverage: Double
+        observedTokenCoverage: Double,
+        hasConcurrentInterference: Bool = false
     ) {
         self.window = window
         self.percent = max(0, percent)
         self.confidence = confidence
         self.observedStepCount = max(0, observedStepCount)
         self.observedTokenCoverage = min(1, max(0, observedTokenCoverage))
+        self.hasConcurrentInterference = hasConcurrentInterference
     }
 }
 
@@ -140,6 +200,47 @@ public struct UsageHistory: Codable, Hashable, Sendable {
 
     public func summary(for dateKey: String) -> DailyUsageSummary? {
         days.first { $0.dateKey == dateKey }
+    }
+
+    public var lastLocalActivityAt: Date? {
+        quotaObservations
+            .filter { !$0.isAccountSnapshot && $0.tokenIncrement > 0 }
+            .map(\.timestamp)
+            .max()
+    }
+
+    public func appendingAccountSnapshot(
+        timestamp: Date,
+        planType: String?,
+        windows: [AccountQuotaWindow]
+    ) -> UsageHistory {
+        guard !windows.isEmpty else { return self }
+        let observation = LocalQuotaUsageObservation(
+            timestamp: timestamp,
+            rootTaskID: "__account__",
+            tokenIncrement: 0,
+            executionContext: UsageExecutionContext(
+                modelID: nil,
+                reasoningEffort: nil,
+                serviceTier: nil,
+                planType: planType,
+                hasAccountRateLimits: true
+            ),
+            isAccountSnapshot: true,
+            windows: windows
+        )
+        let minute = Int64(timestamp.timeIntervalSince1970 / 60)
+        let retained = quotaObservations.filter {
+            !$0.isAccountSnapshot
+                || Int64($0.timestamp.timeIntervalSince1970 / 60) != minute
+        }
+        return UsageHistory(
+            generatedAt: generatedAt,
+            timezoneIdentifier: timezoneIdentifier,
+            days: days,
+            warnings: warnings,
+            quotaObservations: retained + [observation]
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -187,6 +288,9 @@ public enum TaskQuotaEstimator {
         let dailyTaskID: String
         let usageWeight: Double
         let percent: Double
+        let isAccountSnapshot: Bool
+        let calibrationKey: String
+        let hasCompleteCreditEvidence: Bool
     }
 
     private struct Attribution {
@@ -196,6 +300,8 @@ public enum TaskQuotaEstimator {
         var observedStepsByTask: [String: Int] = [:]
         var globalRates: [Double] = []
         var observedPercentagePoints = 0.0
+        var hasConcurrentInterference = false
+        var hasIncompleteCreditEvidence = false
     }
 
     private struct Bucket: Sendable {
@@ -214,6 +320,7 @@ public enum TaskQuotaEstimator {
     private struct WindowKey: Hashable {
         let durationMinutes: Int
         let resetBucket: Int64
+        let calibrationKey: String
     }
 
     public static func estimates(
@@ -258,9 +365,14 @@ public enum TaskQuotaEstimator {
             let coverage = coveredUsage / totalUsage
             let stepCount = current.observedStepsByTask[taskID] ?? 0
             let confidence: QuotaEstimateConfidence
-            if current.observedPercentagePoints >= 10,
-               stepCount >= 2,
-               coverage >= 0.5 {
+            if current.hasIncompleteCreditEvidence {
+                confidence = .low
+            } else if stepCount >= 5,
+               coverage >= 0.8,
+               !current.hasConcurrentInterference {
+                confidence = .high
+            } else if stepCount >= 2,
+                      coverage >= 0.5 {
                 confidence = .medium
             } else if !current.globalRates.isEmpty || historicalRate != nil {
                 confidence = .low
@@ -272,7 +384,8 @@ public enum TaskQuotaEstimator {
                 percent: estimate,
                 confidence: confidence,
                 observedStepCount: stepCount,
-                observedTokenCoverage: coverage
+                observedTokenCoverage: coverage,
+                hasConcurrentInterference: current.hasConcurrentInterference
             )
         }
 
@@ -286,7 +399,8 @@ public enum TaskQuotaEstimator {
                 percent: estimate.percent * scale,
                 confidence: estimate.confidence,
                 observedStepCount: estimate.observedStepCount,
-                observedTokenCoverage: estimate.observedTokenCoverage
+                observedTokenCoverage: estimate.observedTokenCoverage,
+                hasConcurrentInterference: estimate.hasConcurrentInterference
             )
         }
     }
@@ -300,7 +414,7 @@ public enum TaskQuotaEstimator {
         let windowStart = window.resetsAt.addingTimeInterval(
             -TimeInterval(window.durationMinutes * 60)
         )
-        return observations.compactMap { observation in
+        let eligible = observations.compactMap { observation -> (LocalQuotaUsageObservation, AccountQuotaWindow)? in
             guard observation.timestamp >= windowStart,
                   observation.timestamp <= now,
                   observation.timestamp < window.resetsAt,
@@ -308,17 +422,42 @@ public enum TaskQuotaEstimator {
                       $0.durationMinutes == window.durationMinutes
                           && abs($0.resetsAt.timeIntervalSince(window.resetsAt)) <= resetTolerance
                   }) else { return nil }
+            return (observation, observedWindow)
+        }.sorted {
+            if $0.0.timestamp != $1.0.timestamp { return $0.0.timestamp < $1.0.timestamp }
+            return $0.0.rootTaskID < $1.0.rootTaskID
+        }
+        var nextLocalKeys = Array<String?>(repeating: nil, count: eligible.count)
+        var nextLocalKey: String?
+        for index in eligible.indices.reversed() {
+            let observation = eligible[index].0
+            if !observation.isAccountSnapshot {
+                nextLocalKey = calibrationKey(for: observation)
+            }
+            nextLocalKeys[index] = nextLocalKey
+        }
+        var lastLocalKey: String?
+        return eligible.enumerated().map { index, pair in
+            let observation = pair.0
+            let observedWindow = pair.1
             let dateKey = dayKey(observation.timestamp, calendar: calendar)
+            let key: String
+            if observation.isAccountSnapshot {
+                key = lastLocalKey ?? nextLocalKeys[index] ?? "unknown|unknown"
+            } else {
+                key = calibrationKey(for: observation)
+                lastLocalKey = key
+            }
             return Sample(
                 timestamp: observation.timestamp,
                 dailyTaskID: "\(dateKey)|\(observation.rootTaskID)",
-                usageWeight: observation.quotaUsageWeight
-                    ?? Double(observation.tokenIncrement),
-                percent: observedWindow.usedPercent
+                usageWeight: observation.calibrationWeight,
+                percent: observedWindow.usedPercent,
+                isAccountSnapshot: observation.isAccountSnapshot,
+                calibrationKey: key,
+                hasCompleteCreditEvidence: observation.executionContext == nil
+                    || observation.creditEstimate?.precision == .exact
             )
-        }.sorted {
-            if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
-            return $0.dailyTaskID < $1.dailyTaskID
         }
     }
 
@@ -329,7 +468,12 @@ public enum TaskQuotaEstimator {
         var buckets: [Bucket] = []
 
         for sample in samples {
-            result.totalUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
+            if !sample.isAccountSnapshot {
+                result.totalUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
+                if !sample.hasCompleteCreditEvidence, sample.usageWeight > 0 {
+                    result.hasIncompleteCreditEvidence = true
+                }
+            }
             guard let last = previous else {
                 previous = sample
                 continue
@@ -339,19 +483,24 @@ public enum TaskQuotaEstimator {
             let percentDelta = sample.percent - last.percent
             guard gap >= 0,
                   gap <= inactivityThreshold,
+                  sample.calibrationKey == last.calibrationKey,
                   percentDelta >= -percentEpsilon else {
                 bucketUsageByTask.removeAll(keepingCapacity: true)
                 previous = sample
                 continue
             }
 
-            bucketUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
+            if !sample.isAccountSnapshot, sample.usageWeight > 0 {
+                bucketUsageByTask[sample.dailyTaskID, default: 0] += sample.usageWeight
+            }
             if percentDelta > percentEpsilon {
                 let bucket = Bucket(
                     percentDelta: percentDelta,
                     usageByTask: bucketUsageByTask
                 )
-                if percentDelta <= maximumCleanStep,
+                if bucket.totalUsage == 0 || percentDelta > maximumCleanStep {
+                    result.hasConcurrentInterference = true
+                } else if percentDelta <= maximumCleanStep,
                    bucket.totalUsage > 0,
                    bucket.rate.isFinite,
                    bucket.rate > 0 {
@@ -395,25 +544,27 @@ public enum TaskQuotaEstimator {
         now: Date,
         calendar: Calendar
     ) -> [Double] {
-        var grouped: [WindowKey: [Sample]] = [:]
+        var windows: [WindowKey: AccountQuotaWindow] = [:]
         for observation in observations where observation.timestamp <= now {
             for window in observation.windows where window.durationMinutes == durationMinutes {
                 let key = WindowKey(
                     durationMinutes: durationMinutes,
-                    resetBucket: Int64(window.resetsAt.timeIntervalSince1970 / resetTolerance)
+                    resetBucket: Int64(window.resetsAt.timeIntervalSince1970 / resetTolerance),
+                    calibrationKey: "segmented"
                 )
-                grouped[key, default: []].append(
-                    Sample(
-                        timestamp: observation.timestamp,
-                        dailyTaskID: "\(dayKey(observation.timestamp, calendar: calendar))|\(observation.rootTaskID)",
-                        usageWeight: observation.quotaUsageWeight
-                            ?? Double(observation.tokenIncrement),
-                        percent: window.usedPercent
-                    )
-                )
+                windows[key] = window
             }
         }
-        return grouped.values.flatMap { attribute($0.sorted { $0.timestamp < $1.timestamp }).globalRates }
+        return windows.values.flatMap { window in
+            attribute(
+                samples(
+                    observations: observations,
+                    matching: window,
+                    now: now,
+                    calendar: calendar
+                )
+            ).globalRates
+        }
     }
 
     private static func median(_ values: [Double]) -> Double? {
@@ -424,6 +575,12 @@ public enum TaskQuotaEstimator {
             return (sorted[middle - 1] + sorted[middle]) / 2
         }
         return sorted[middle]
+    }
+
+    private static func calibrationKey(for observation: LocalQuotaUsageObservation) -> String {
+        let plan = observation.executionContext?.planType ?? "unknown"
+        let rate = observation.creditEstimate?.rateCardVersion ?? "unknown"
+        return "\(plan)|\(rate)"
     }
 
     private static func dayKey(_ date: Date, calendar: Calendar) -> String {
@@ -438,11 +595,38 @@ public enum TaskQuotaEstimator {
 }
 
 public protocol CodexUsageReading: Sendable {
-    func readUsage(now: Date, calendar: Calendar) async throws -> UsageHistory
+    func readUsage(
+        now: Date,
+        calendar: Calendar,
+        rateCard: RateCardManifest?,
+        rateCardMode: RateCardMode
+    ) async throws -> UsageHistory
+}
+
+public extension CodexUsageReading {
+    func readUsage(
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) async throws -> UsageHistory {
+        try await readUsage(
+            now: now,
+            calendar: calendar,
+            rateCard: nil,
+            rateCardMode: .automatic
+        )
+    }
 }
 
 public protocol UsageHistoryClearing: Sendable {
     func clearHistory() async throws
+}
+
+public protocol AccountQuotaSnapshotRecording: Sendable {
+    func recordAccountQuotaSnapshot(
+        windows: [AccountQuotaWindow],
+        planType: String?,
+        timestamp: Date
+    ) async throws
 }
 
 public protocol UsageHistoryStoring: Sendable {

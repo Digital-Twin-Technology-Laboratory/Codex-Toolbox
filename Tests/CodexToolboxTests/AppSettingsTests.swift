@@ -17,6 +17,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.usageRefreshInterval, .fiveMinutes)
         XCTAssertEqual(settings.usageTrendRange, .sevenDays)
         XCTAssertEqual(settings.usageExpandedTaskLimit, .topFive)
+        XCTAssertTrue(settings.automaticRateCardUpdatesEnabled)
+        XCTAssertEqual(settings.rateCardMode, .automatic)
         XCTAssertFalse(settings.anonymizesTaskTitles)
         XCTAssertEqual(settings.resetCreditsRefreshInterval, .thirtyMinutes)
         XCTAssertEqual(settings.resetExpiryWarning, .threeDays)
@@ -31,6 +33,10 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(settings.modelTrendSelections.isEmpty)
         XCTAssertTrue(settings.showsDetailedBenchmarkTime)
         XCTAssertTrue(settings.showsExpandedRankingMetrics)
+        XCTAssertFalse(settings.showsStationRecommendations)
+        XCTAssertEqual(settings.stationRecommendationPlacement, .aboveRankings)
+        XCTAssertEqual(settings.selectedStationRecommendationScenario, .dailyDevelopment)
+        XCTAssertEqual(settings.overallRankingMode, .localWeighted)
         XCTAssertTrue(settings.automaticRefreshEnabled)
         XCTAssertEqual(settings.refreshInterval, .thirtyMinutes)
         XCTAssertEqual(settings.rankingWeights, .default)
@@ -51,11 +57,17 @@ final class AppSettingsTests: XCTestCase {
         settings.usageRefreshInterval = .oneMinute
         settings.usageTrendRange = .ninetyDays
         settings.usageExpandedTaskLimit = .topTen
+        settings.automaticRateCardUpdatesEnabled = false
+        settings.rateCardMode = .legacy
         settings.anonymizesTaskTitles = true
         settings.resetCreditsRefreshInterval = .twoHours
         settings.resetExpiryWarning = .sevenDays
         settings.automaticUpdateChecksEnabled = false
         settings.modelTrendRange = .ninetyDays
+        settings.showsStationRecommendations = true
+        settings.stationRecommendationPlacement = .belowRankings
+        settings.selectedStationRecommendationScenario = .backgroundAutomation
+        settings.overallRankingMode = .radarCostEfficiency
 
         let restored = AppSettings(defaults: defaults)
         XCTAssertEqual(restored.dashboardModuleOrder, [.resetCredits, .modelRadar, .tokenUsage])
@@ -64,11 +76,17 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(restored.usageRefreshInterval, .oneMinute)
         XCTAssertEqual(restored.usageTrendRange, .ninetyDays)
         XCTAssertEqual(restored.usageExpandedTaskLimit, .topTen)
+        XCTAssertFalse(restored.automaticRateCardUpdatesEnabled)
+        XCTAssertEqual(restored.rateCardMode, .legacy)
         XCTAssertTrue(restored.anonymizesTaskTitles)
         XCTAssertEqual(restored.resetCreditsRefreshInterval, .twoHours)
         XCTAssertEqual(restored.resetExpiryWarning, .sevenDays)
         XCTAssertFalse(restored.automaticUpdateChecksEnabled)
         XCTAssertEqual(restored.modelTrendRange, .ninetyDays)
+        XCTAssertTrue(restored.showsStationRecommendations)
+        XCTAssertEqual(restored.stationRecommendationPlacement, .belowRankings)
+        XCTAssertEqual(restored.selectedStationRecommendationScenario, .backgroundAutomation)
+        XCTAssertEqual(restored.overallRankingMode, .radarCostEfficiency)
 
         restored.resetDashboardConfiguration()
         XCTAssertEqual(restored.dashboardModuleOrder, ToolboxModule.allCases)

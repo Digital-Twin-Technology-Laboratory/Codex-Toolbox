@@ -8,6 +8,7 @@ public struct BenchmarkRecord: Codable, Hashable, Sendable {
     public let tasks: Int?
     public let wallSeconds: Double?
     public let costUSD: Double?
+    public let combinedCostIndex: Double?
 
     private enum CodingKeys: String, CodingKey {
         case date
@@ -17,6 +18,7 @@ public struct BenchmarkRecord: Codable, Hashable, Sendable {
         case tasks
         case wallSeconds = "wall_seconds"
         case costUSD = "cost_usd"
+        case combinedCostIndex = "combined_cost_index"
     }
 
     public init(
@@ -26,7 +28,8 @@ public struct BenchmarkRecord: Codable, Hashable, Sendable {
         passed: Int?,
         tasks: Int?,
         wallSeconds: Double?,
-        costUSD: Double?
+        costUSD: Double?,
+        combinedCostIndex: Double? = nil
     ) {
         self.date = date
         self.score = score
@@ -35,6 +38,7 @@ public struct BenchmarkRecord: Codable, Hashable, Sendable {
         self.tasks = tasks
         self.wallSeconds = wallSeconds
         self.costUSD = costUSD
+        self.combinedCostIndex = combinedCostIndex
     }
 }
 

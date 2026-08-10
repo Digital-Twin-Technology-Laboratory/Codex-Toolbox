@@ -30,7 +30,7 @@ struct AboutView: View {
 
             GroupBox("数据与隐私") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("模型数据来自 Codex Radar；Token 与重置卡只读取当前 Mac 上的必要数据。应用不调用模型、不上传任务内容，也不包含分析 SDK。")
+                    Text("模型与可选站长推荐数据来自 Codex Radar；费率来自项目托管的 OpenAI 公开费率版本。应用不调用模型、不上传任务或 Token，也不包含分析 SDK。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -66,14 +66,21 @@ struct AboutPrivacySettingsView: View {
             Form {
                 Section("模型数据") {
                     Label("只访问 Codex Radar 的公开聚合数据", systemImage: "network")
-                    Text("榜单与趋势不会发送 Codex 账户、本机任务或系统画像。")
+                    Text("站长推荐默认关闭；榜单、趋势与推荐都不会发送 Codex 账户、Token、本机任务或系统画像。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Section("Token 用量") {
                     Label("只读本机 Codex 数据", systemImage: "externaldrive.badge.checkmark")
-                    Text("账本保存 Token 汇总、增量检查点和额度估算所需的脱敏观察；不调用模型、不上传任务内容。")
+                    Text("账本保存原始 Token 分项、执行上下文和脱敏账户窗口，用于按历史费率计算 Credits 与校准任务估算；不上传任务内容。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("费率更新") {
+                    Label("只读取项目托管的版本化 JSON", systemImage: "dollarsign.arrow.circlepath")
+                    Text("只发送 GET/ETag，不携带账户、任务、Token 或设备信息；无效远程数据不会覆盖上次有效版本。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

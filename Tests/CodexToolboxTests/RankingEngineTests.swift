@@ -63,11 +63,45 @@ final class RankingEngineTests: XCTestCase {
         XCTAssertEqual(RankingEngine.rank([model], by: .overall).first?.percentileScore, 100)
     }
 
+    func testRadarCostEfficiencyUsesLowerSourceIndexAndDoesNotRequireIQ() {
+        let expensive = benchmark(
+            "expensive",
+            iq: 150,
+            cost: 30,
+            duration: 2_000,
+            combinedCostIndex: 80
+        )
+        let efficient = benchmark(
+            "efficient",
+            iq: nil,
+            cost: 2,
+            duration: 500,
+            combinedCostIndex: 0.4
+        )
+
+        let ranked = RankingEngine.rank(
+            [expensive, efficient],
+            by: .overall,
+            overallMode: .radarCostEfficiency
+        )
+
+        XCTAssertEqual(ranked.map(\.id), ["efficient", "expensive"])
+        XCTAssertEqual(ranked.first?.value, 0.4)
+        XCTAssertEqual(ranked.first?.overallMode, .radarCostEfficiency)
+        XCTAssertTrue(
+            RankingEngine.rank([expensive, efficient], by: .overall).allSatisfy {
+                $0.id != "efficient"
+                    && $0.overallMode == .localWeighted
+            }
+        )
+    }
+
     private func benchmark(
         _ id: String,
         iq: Double?,
         cost: Double?,
-        duration: Double?
+        duration: Double?,
+        combinedCostIndex: Double? = nil
     ) -> ModelBenchmark {
         ModelBenchmark(
             id: id,
@@ -81,7 +115,8 @@ final class RankingEngineTests: XCTestCase {
                 passed: nil,
                 tasks: nil,
                 wallSeconds: duration,
-                costUSD: cost
+                costUSD: cost,
+                combinedCostIndex: combinedCostIndex
             ),
             recentDays: []
         )

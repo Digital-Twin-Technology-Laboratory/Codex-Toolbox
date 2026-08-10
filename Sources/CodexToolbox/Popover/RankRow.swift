@@ -29,6 +29,7 @@ struct RankRow: View {
     let ranked: RankedModel
     let presentation: RankingSectionPresentation
     let showsExpandedMetrics: Bool
+    let overallMode: OverallRankingMode
 
     var body: some View {
         Group {
@@ -126,7 +127,9 @@ struct RankRow: View {
 
     private var statusText: String {
         if ranked.metric == .overall {
-            return "本地加权百分位"
+            return effectiveOverallMode == .localWeighted
+                ? "本地加权百分位"
+                : "Radar 费用+耗时指数 · 越低越好"
         }
         guard let latest = ranked.benchmark.latest else { return "暂无详细数据" }
         if let passed = latest.passed, let tasks = latest.tasks {
@@ -182,8 +185,12 @@ struct RankRow: View {
     }
 
     private var accessibilityDescription: String {
-        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
+        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
         guard shouldShowExpandedMetrics else { return primary }
         return "\(primary)，其他指标：\(expandedMetricSummary)"
+    }
+
+    private var effectiveOverallMode: OverallRankingMode {
+        ranked.overallMode ?? overallMode
     }
 }

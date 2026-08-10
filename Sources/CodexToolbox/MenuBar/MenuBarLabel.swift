@@ -93,7 +93,9 @@ struct MenuBarLabel: View {
 
     private var accessibilitySummary: String {
         appModel.menuBarRanking.map { ranked in
-            "第 \(ranked.position) 名 \(ranked.benchmark.label) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
+            "第 \(ranked.position) 名 \(ranked.benchmark.label) "
+                + "\(ranked.metric.displayName(overallMode: ranked.overallMode ?? appModel.settings.overallRankingMode)) "
+                + MetricFormatter.detailValue(ranked.value, metric: ranked.metric)
         }
         .joined(separator: "，")
     }

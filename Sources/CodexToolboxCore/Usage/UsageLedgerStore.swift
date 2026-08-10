@@ -6,13 +6,51 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
     var parsedOffset: UInt64
     var seenCumulativeTotals: [Int64]
     var lastModelID: String?
+    var lastExecutionContext: UsageExecutionContext?
+
+    init(
+        path: String,
+        fileSize: Int64,
+        parsedOffset: UInt64,
+        seenCumulativeTotals: [Int64],
+        lastModelID: String?,
+        lastExecutionContext: UsageExecutionContext? = nil
+    ) {
+        self.path = path
+        self.fileSize = fileSize
+        self.parsedOffset = parsedOffset
+        self.seenCumulativeTotals = seenCumulativeTotals
+        self.lastModelID = lastModelID
+        self.lastExecutionContext = lastExecutionContext
+    }
 }
 
 struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
     var timestamp: Date
     var tokenIncrement: Int64
     var quotaUsageWeight: Double?
+    var tokenBreakdown: UsageTokenBreakdown?
+    var executionContext: UsageExecutionContext?
+    var creditEstimate: TokenCreditEstimate?
     var windows: [AccountQuotaWindow]
+
+    init(
+        timestamp: Date,
+        tokenIncrement: Int64,
+        quotaUsageWeight: Double? = nil,
+        tokenBreakdown: UsageTokenBreakdown? = nil,
+        executionContext: UsageExecutionContext? = nil,
+        creditEstimate: TokenCreditEstimate? = nil,
+        windows: [AccountQuotaWindow]
+    ) {
+        self.timestamp = timestamp
+        self.tokenIncrement = max(0, tokenIncrement)
+        self.quotaUsageWeight = quotaUsageWeight
+        self.tokenBreakdown = tokenBreakdown
+        self.executionContext = executionContext
+        self.creditEstimate = creditEstimate
+        self.windows = windows
+    }
 }
 
 struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
@@ -73,12 +111,13 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
 }
 
 struct VersionedUsageLedger: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 6
+    static let currentSchemaVersion = 7
 
     var schemaVersion: Int
     var generatedAt: Date
     var timezoneIdentifier: String
     var threads: [String: ThreadUsageLedgerEntry]
+    var accountObservations: [ThreadQuotaUsageObservation]
     var warnings: [String]
 
     static func empty(timezoneIdentifier: String) -> VersionedUsageLedger {
@@ -87,7 +126,48 @@ struct VersionedUsageLedger: Codable, Hashable, Sendable {
             generatedAt: .distantPast,
             timezoneIdentifier: timezoneIdentifier,
             threads: [:],
+            accountObservations: [],
             warnings: []
+        )
+    }
+
+    init(
+        schemaVersion: Int,
+        generatedAt: Date,
+        timezoneIdentifier: String,
+        threads: [String: ThreadUsageLedgerEntry],
+        accountObservations: [ThreadQuotaUsageObservation] = [],
+        warnings: [String]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.generatedAt = generatedAt
+        self.timezoneIdentifier = timezoneIdentifier
+        self.threads = threads
+        self.accountObservations = accountObservations
+        self.warnings = warnings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case generatedAt
+        case timezoneIdentifier
+        case threads
+        case accountObservations
+        case warnings
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            schemaVersion: try container.decode(Int.self, forKey: .schemaVersion),
+            generatedAt: try container.decode(Date.self, forKey: .generatedAt),
+            timezoneIdentifier: try container.decode(String.self, forKey: .timezoneIdentifier),
+            threads: try container.decode([String: ThreadUsageLedgerEntry].self, forKey: .threads),
+            accountObservations: try container.decodeIfPresent(
+                [ThreadQuotaUsageObservation].self,
+                forKey: .accountObservations
+            ) ?? [],
+            warnings: try container.decodeIfPresent([String].self, forKey: .warnings) ?? []
         )
     }
 }
@@ -145,15 +225,35 @@ struct UsageLedgerStore {
                 }
             }
         } else if sourceSchemaVersion < VersionedUsageLedger.currentSchemaVersion {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: timezoneIdentifier) ?? .current
+            let rebuildStart = calendar.date(byAdding: .day, value: -8, to: Date()) ?? .distantPast
+            let rebuildStartComponents = calendar.dateComponents(
+                [.year, .month, .day],
+                from: rebuildStart
+            )
+            let rebuildStartKey = String(
+                format: "%04d-%02d-%02d",
+                rebuildStartComponents.year ?? 0,
+                rebuildStartComponents.month ?? 0,
+                rebuildStartComponents.day ?? 0
+            )
             for threadID in ledger.threads.keys {
-                // Schema 2/3 observations used raw-token units, while schemas
-                // 4/5 used superseded Codex rate cards. None can remain after
-                // schema 6 adopts the final pre-release 2026-08-04 rates.
+                let hasActiveQuotaWindow = ledger.threads[threadID]?.quotaObservations.contains {
+                    $0.windows.contains { $0.resetsAt > Date() }
+                } == true
+                // Schema 6 and earlier persisted derived weights. Schema 7
+                // keeps raw token/context evidence so historical rates can be
+                // selected by event time and recalculated safely.
                 ledger.threads[threadID]?.quotaObservations = []
-                // The checkpoint remains valid for token totals. Replaying every
-                // active historical rollout here can block the first dashboard
-                // open for minutes; subsequent events supply weighted samples.
+                let needsBoundedRebuild = ledger.threads[threadID]?.dailyTokens.keys.contains {
+                    $0 >= rebuildStartKey
+                } == true || hasActiveQuotaWindow
+                if needsBoundedRebuild {
+                    ledger.threads[threadID]?.checkpoint = nil
+                }
             }
+            ledger.accountObservations = []
         }
         return ledger
     }

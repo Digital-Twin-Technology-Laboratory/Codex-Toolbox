@@ -141,6 +141,16 @@ public final class AppSettings {
         didSet { defaults.set(usageExpandedTaskLimit.rawValue, forKey: Keys.usageExpandedTaskLimit) }
     }
 
+    public var automaticRateCardUpdatesEnabled: Bool {
+        didSet {
+            defaults.set(automaticRateCardUpdatesEnabled, forKey: Keys.automaticRateCardUpdatesEnabled)
+        }
+    }
+
+    public var rateCardMode: RateCardMode {
+        didSet { defaults.set(rateCardMode.rawValue, forKey: Keys.rateCardMode) }
+    }
+
     public var anonymizesTaskTitles: Bool {
         didSet { defaults.set(anonymizesTaskTitles, forKey: Keys.anonymizesTaskTitles) }
     }
@@ -209,6 +219,31 @@ public final class AppSettings {
         }
     }
 
+    public var showsStationRecommendations: Bool {
+        didSet {
+            defaults.set(showsStationRecommendations, forKey: Keys.showsStationRecommendations)
+        }
+    }
+
+    public var stationRecommendationPlacement: StationRecommendationPlacement {
+        didSet {
+            defaults.set(stationRecommendationPlacement.rawValue, forKey: Keys.stationRecommendationPlacement)
+        }
+    }
+
+    public var selectedStationRecommendationScenario: StationRecommendationScenarioKey {
+        didSet {
+            defaults.set(
+                selectedStationRecommendationScenario.rawValue,
+                forKey: Keys.selectedStationRecommendationScenario
+            )
+        }
+    }
+
+    public var overallRankingMode: OverallRankingMode {
+        didSet { defaults.set(overallRankingMode.rawValue, forKey: Keys.overallRankingMode) }
+    }
+
     public var refreshInterval: RefreshInterval {
         didSet { defaults.set(refreshInterval.rawValue, forKey: Keys.refreshInterval) }
     }
@@ -247,6 +282,16 @@ public final class AppSettings {
         usageExpandedTaskLimit = UsageExpandedTaskLimit(
             rawValue: defaults.integer(forKey: Keys.usageExpandedTaskLimit)
         ) ?? .topFive
+        if defaults.object(forKey: Keys.automaticRateCardUpdatesEnabled) == nil {
+            automaticRateCardUpdatesEnabled = true
+        } else {
+            automaticRateCardUpdatesEnabled = defaults.bool(
+                forKey: Keys.automaticRateCardUpdatesEnabled
+            )
+        }
+        rateCardMode = RateCardMode(
+            rawValue: defaults.string(forKey: Keys.rateCardMode) ?? ""
+        ) ?? .automatic
         anonymizesTaskTitles = defaults.bool(forKey: Keys.anonymizesTaskTitles)
         resetCreditsRefreshInterval = ResetCreditsRefreshInterval(
             rawValue: defaults.integer(forKey: Keys.resetCreditsRefreshInterval)
@@ -303,6 +348,16 @@ public final class AppSettings {
         } else {
             showsExpandedRankingMetrics = defaults.bool(forKey: Keys.showsExpandedRankingMetrics)
         }
+        showsStationRecommendations = defaults.bool(forKey: Keys.showsStationRecommendations)
+        stationRecommendationPlacement = StationRecommendationPlacement(
+            rawValue: defaults.string(forKey: Keys.stationRecommendationPlacement) ?? ""
+        ) ?? .aboveRankings
+        selectedStationRecommendationScenario = StationRecommendationScenarioKey(
+            rawValue: defaults.string(forKey: Keys.selectedStationRecommendationScenario) ?? ""
+        ) ?? .dailyDevelopment
+        overallRankingMode = OverallRankingMode(
+            rawValue: defaults.string(forKey: Keys.overallRankingMode) ?? ""
+        ) ?? .localWeighted
 
         if defaults.object(forKey: Keys.automaticRefreshEnabled) == nil {
             automaticRefreshEnabled = true
@@ -502,6 +557,8 @@ public final class AppSettings {
         static let usageRefreshInterval = "usageRefreshIntervalMinutes"
         static let usageTrendRange = "usageTrendRangeDays"
         static let usageExpandedTaskLimit = "usageExpandedTaskLimit"
+        static let automaticRateCardUpdatesEnabled = "automaticRateCardUpdatesEnabled"
+        static let rateCardMode = "rateCardMode"
         static let anonymizesTaskTitles = "anonymizesTaskTitles"
         static let resetCreditsRefreshInterval = "resetCreditsRefreshIntervalMinutes"
         static let resetExpiryWarning = "resetExpiryWarningDays"
@@ -516,6 +573,10 @@ public final class AppSettings {
         static let modelTrendSelections = "modelTrendSelectionsByMetric"
         static let showsDetailedBenchmarkTime = "showsDetailedBenchmarkTime"
         static let showsExpandedRankingMetrics = "showsExpandedRankingMetrics"
+        static let showsStationRecommendations = "showsStationRecommendations"
+        static let stationRecommendationPlacement = "stationRecommendationPlacement"
+        static let selectedStationRecommendationScenario = "selectedStationRecommendationScenario"
+        static let overallRankingMode = "overallRankingMode"
         static let automaticRefreshEnabled = "automaticRefreshEnabled"
         static let refreshInterval = "refreshIntervalMinutes"
         static let iqWeight = "rankingWeightIQ"

@@ -10,16 +10,24 @@ final class AppModel {
     let updateManager: AppUpdateManager
 
     private let repository: RadarRepository
+    private let stationRepository: StationRecommendationRepository
+    private let rateCardRepository: RateCardRepository
     private let radarScheduler: RefreshScheduler
     private let usageScheduler: RefreshScheduler
     private let resetCreditsScheduler: RefreshScheduler
-    private let usageReader: any CodexUsageReading & UsageHistoryClearing
+    private let rateCardScheduler: RefreshScheduler
+    private let activeQuotaScheduler: RefreshScheduler
+    private let usageReader: any CodexUsageReading & UsageHistoryClearing & AccountQuotaSnapshotRecording
     private let resetCreditsReader: any AccountRateLimitsReading
     private let resetCreditsCache: ResetCreditsCacheStore
     private var didStart = false
 
     var repositoryState: RadarRepositoryState = .empty
+    var stationRecommendationState: StationRecommendationRepositoryState = .empty
+    var rateCardState: RateCardRepositoryState
     var isRefreshing = false
+    var isRefreshingStationRecommendations = false
+    var isRefreshingRateCard = false
     var hasLoadedCache = false
     var usageHistory: UsageHistory?
     var taskQuotaEstimatesByDuration: [Int: [String: TaskQuotaEstimate]] = [:]
@@ -35,10 +43,14 @@ final class AppModel {
             client: URLSessionRadarClient(),
             store: SnapshotStore()
         ),
+        stationRepository: StationRecommendationRepository = StationRecommendationRepository(),
+        rateCardRepository: RateCardRepository? = nil,
         radarScheduler: RefreshScheduler = RefreshScheduler(),
         usageScheduler: RefreshScheduler = RefreshScheduler(),
         resetCreditsScheduler: RefreshScheduler = RefreshScheduler(),
-        usageReader: any CodexUsageReading & UsageHistoryClearing = LocalCodexUsageReader(),
+        rateCardScheduler: RefreshScheduler = RefreshScheduler(),
+        activeQuotaScheduler: RefreshScheduler = RefreshScheduler(),
+        usageReader: any CodexUsageReading & UsageHistoryClearing & AccountQuotaSnapshotRecording = LocalCodexUsageReader(),
         resetCreditsReader: any AccountRateLimitsReading = ResetCreditsClient(),
         resetCreditsCache: ResetCreditsCacheStore = ResetCreditsCacheStore(),
         updateManager: AppUpdateManager = AppUpdateManager(),
@@ -47,9 +59,22 @@ final class AppModel {
         self.settings = settings
         self.isDemoMode = isDemoMode
         self.repository = repository
+        self.stationRepository = stationRepository
+        let bundledRateCard = Self.loadBundledRateCard()
+        self.rateCardRepository = rateCardRepository
+            ?? RateCardRepository(bundledManifest: bundledRateCard)
+        rateCardState = RateCardRepositoryState(
+            manifest: bundledRateCard,
+            source: .bundled,
+            fetchedAt: nil,
+            validators: CacheValidators(),
+            errorMessage: nil
+        )
         self.radarScheduler = radarScheduler
         self.usageScheduler = usageScheduler
         self.resetCreditsScheduler = resetCreditsScheduler
+        self.rateCardScheduler = rateCardScheduler
+        self.activeQuotaScheduler = activeQuotaScheduler
         self.usageReader = usageReader
         self.resetCreditsReader = resetCreditsReader
         self.resetCreditsCache = resetCreditsCache
@@ -75,6 +100,12 @@ final class AppModel {
             ?? snapshot?.benchmarks.compactMap(\.latest?.date).max()
     }
 
+    var stationRecommendations: StationRecommendationSnapshot? {
+        stationRecommendationState.snapshot
+    }
+
+    var isRateCardStale: Bool { rateCardState.isStale(now: Date()) }
+
     var availableModels: [ModelBenchmark] {
         ModelCatalog.sorted(snapshot?.benchmarks ?? [])
     }
@@ -87,7 +118,8 @@ final class AppModel {
         RankingEngine.rank(
             snapshot?.benchmarks ?? [],
             by: metric,
-            weights: settings.rankingWeights
+            weights: settings.rankingWeights,
+            overallMode: settings.overallRankingMode
         )
     }
 
@@ -95,20 +127,50 @@ final class AppModel {
         guard !didStart else { return }
         didStart = true
         repositoryState = await repository.loadCached()
+        rateCardState = await rateCardRepository.loadCached()
+        if settings.showsStationRecommendations {
+            stationRecommendationState = await stationRepository.loadCached()
+        }
         resetCreditsSnapshot = try? await resetCreditsCache.load()
         hasLoadedCache = true
         await reconfigureSchedulers()
         Task { [weak self] in await self?.refreshIfNeeded() }
         Task { [weak self] in await self?.refreshUsageIfNeeded() }
         Task { [weak self] in await self?.refreshResetCreditsIfNeeded() }
+        if settings.automaticRateCardUpdatesEnabled {
+            Task { [weak self] in await self?.refreshRateCard() }
+        }
         updateManager.start()
     }
 
     func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
-        repositoryState = await repository.refresh()
+        if settings.showsStationRecommendations {
+            async let radar = repository.refresh()
+            async let station = stationRepository.refresh()
+            repositoryState = await radar
+            stationRecommendationState = await station
+        } else {
+            repositoryState = await repository.refresh()
+        }
         isRefreshing = false
+    }
+
+    func refreshStationRecommendations() async {
+        guard settings.showsStationRecommendations,
+              !isRefreshingStationRecommendations else { return }
+        isRefreshingStationRecommendations = true
+        defer { isRefreshingStationRecommendations = false }
+        stationRecommendationState = await stationRepository.refresh()
+    }
+
+    func refreshRateCard() async {
+        guard !isRefreshingRateCard else { return }
+        isRefreshingRateCard = true
+        defer { isRefreshingRateCard = false }
+        rateCardState = await rateCardRepository.refresh()
+        await refreshUsage()
     }
 
     func refreshIfNeeded() async {
@@ -127,7 +189,12 @@ final class AppModel {
         isRefreshingUsage = true
         defer { isRefreshingUsage = false }
         do {
-            usageHistory = try await usageReader.readUsage(now: Date(), calendar: .current)
+            usageHistory = try await usageReader.readUsage(
+                now: Date(),
+                calendar: .current,
+                rateCard: rateCardState.manifest,
+                rateCardMode: settings.rateCardMode
+            )
             recalculateTaskQuotaEstimates()
             usageErrorMessage = nil
         } catch {
@@ -161,6 +228,16 @@ final class AppModel {
         do {
             let snapshot = try await resetCreditsReader.readResetCredits()
             resetCreditsSnapshot = snapshot
+            try? await usageReader.recordAccountQuotaSnapshot(
+                windows: snapshot.quotaWindows,
+                planType: snapshot.planType,
+                timestamp: snapshot.fetchedAt
+            )
+            usageHistory = usageHistory?.appendingAccountSnapshot(
+                timestamp: snapshot.fetchedAt,
+                planType: snapshot.planType,
+                windows: snapshot.quotaWindows
+            )
             recalculateTaskQuotaEstimates()
             resetCreditsErrorMessage = nil
             try? await resetCreditsCache.save(snapshot)
@@ -185,7 +262,15 @@ final class AppModel {
     }
 
     func settingsDidChange() {
-        Task { await reconfigureSchedulers() }
+        Task {
+            await reconfigureSchedulers()
+            if settings.showsStationRecommendations,
+               stationRecommendationState.snapshot == nil {
+                stationRecommendationState = await stationRepository.loadCached()
+                await refreshStationRecommendations()
+            }
+            await refreshUsage()
+        }
     }
 
     private func reconfigureSchedulers() async {
@@ -206,6 +291,35 @@ final class AppModel {
         ) { [weak self] in
             await self?.refreshResetCredits()
         }
+        await rateCardScheduler.configure(
+            enabled: settings.automaticRateCardUpdatesEnabled,
+            everyMinutes: 360
+        ) { [weak self] in
+            await self?.refreshRateCard()
+        }
+        await activeQuotaScheduler.configure(enabled: true, everyMinutes: 1) { [weak self] in
+            await self?.sampleActiveAccountQuotaIfNeeded()
+        }
+    }
+
+    private func sampleActiveAccountQuotaIfNeeded(now: Date = Date()) async {
+        guard let lastActivity = usageHistory?.lastLocalActivityAt,
+              now.timeIntervalSince(lastActivity) >= 0,
+              now.timeIntervalSince(lastActivity) <= 15 * 60 else { return }
+        await refreshResetCredits()
+    }
+
+    private static func loadBundledRateCard() -> RateCardManifest {
+        guard let url = Bundle.main.url(
+            forResource: "codex-rate-card-v1",
+            withExtension: "json"
+        ),
+        let data = try? Data(contentsOf: url),
+        let manifest = try? JSONDecoder().decode(RateCardManifest.self, from: data),
+        let validated = try? manifest.validated() else {
+            preconditionFailure("缺少或无法读取内置 Codex 费率清单。")
+        }
+        return validated
     }
 
     private func recalculateTaskQuotaEstimates(now: Date = Date()) {

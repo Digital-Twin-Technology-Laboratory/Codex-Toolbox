@@ -185,6 +185,7 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
     let validTasks: Int?
     let averagePriceUSD: Double?
     let averageMinutes: Double?
+    let combinedCostIndex: Double?
 
     private enum CodingKeys: String, CodingKey {
         case model
@@ -194,6 +195,7 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
         case validTasks = "valid_tasks"
         case averagePriceUSD = "average_price_usd"
         case averageMinutes = "average_minutes"
+        case combinedCostIndex = "combined_cost_index"
     }
 
     var identity: IntelligenceEfficiencyModelIdentity? {
@@ -219,7 +221,11 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
             passed: passed.flatMap { $0 >= 0 ? $0 : nil },
             tasks: validTasks.flatMap { $0 >= 0 ? $0 : nil },
             wallSeconds: wallSeconds,
-            costUSD: cost
+            costUSD: cost,
+            combinedCostIndex: combinedCostIndex.flatMap { value in
+                guard let value = Self.finite(value), value >= 0 else { return nil }
+                return value
+            }
         )
     }
 

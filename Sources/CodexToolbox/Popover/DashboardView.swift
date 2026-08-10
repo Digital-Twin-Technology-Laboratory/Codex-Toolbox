@@ -18,8 +18,8 @@ struct DashboardView: View {
     let onPreferredHeightChange: (CGFloat) -> Void
 
     private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
+        GridItem(.flexible(), spacing: 10, alignment: .top),
+        GridItem(.flexible(), spacing: 10, alignment: .top)
     ]
 
     init(
@@ -306,7 +306,15 @@ struct DashboardView: View {
 
     private var modelRadarCardStack: some View {
         VStack(spacing: 10) {
+            if appModel.settings.showsStationRecommendations,
+               appModel.settings.stationRecommendationPlacement == .aboveRankings {
+                StationRecommendationCard(appModel: appModel, namespace: rankingNamespace)
+            }
             rankingLayout
+            if appModel.settings.showsStationRecommendations,
+               appModel.settings.stationRecommendationPlacement == .belowRankings {
+                StationRecommendationCard(appModel: appModel, namespace: rankingNamespace)
+            }
             if appModel.settings.showsTrendChart {
                 TrendChartView(
                     appModel: appModel,
@@ -348,6 +356,7 @@ struct DashboardView: View {
             rankings: appModel.rankings(for: metric),
             presentation: presentation,
             showsExpandedMetrics: appModel.settings.showsExpandedRankingMetrics,
+            overallMode: appModel.settings.overallRankingMode,
             namespace: rankingNamespace,
             onExpand: {
                 withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {

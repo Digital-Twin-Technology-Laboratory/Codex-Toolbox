@@ -197,14 +197,10 @@ struct ParsedRollout: Sendable {
 }
 
 enum QuotaUsageWeighting {
-    // Standard-mode rates normalized against GPT-5.6 Terra's 62.5-credit
-    // input-token rate from OpenAI's Codex rate card, verified on 2026-08-04:
+    // Compatibility fallback for pre-schema-7 callers. Standard-mode rates
+    // are normalized against GPT-5.6 Terra's 50-credit input-token rate:
     // https://help.openai.com/en/articles/20001106-codex-rate-card
-    // Fast mode is not recorded in rollout token events. The estimator's live
-    // quota-per-weight calibration absorbs a consistent fast-mode multiplier;
-    // it must not guess a per-event tier that the local source cannot prove.
-    // Unknown models deliberately fall back to raw tokens until a future
-    // release adds a verified rate.
+    // Schema 7 uses the versioned manifest and execution context instead.
     private struct Multipliers {
         let input: Double
         let cachedInput: Double
@@ -238,28 +234,28 @@ enum QuotaUsageWeighting {
             return Multipliers(input: 1, cachedInput: 0.1, output: 6)
         }
         if modelID.contains("gpt-5.6-luna") {
-            return Multipliers(input: 0.4, cachedInput: 0.04, output: 2.4)
+            return Multipliers(input: 0.1, cachedInput: 0.01, output: 0.6)
         }
         if modelID.contains("gpt-5.6-sol") || modelID.contains("gpt-5.6") {
-            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
         }
         if modelID.contains("gpt-5.5-cyber") {
-            return Multipliers(input: 8, cachedInput: 0.8, output: 48)
+            return Multipliers(input: 6.25, cachedInput: 0.625, output: 37.5)
         }
         if modelID.contains("gpt-5.5") {
-            return Multipliers(input: 2, cachedInput: 0.2, output: 12)
+            return Multipliers(input: 2.5, cachedInput: 0.25, output: 15)
         }
         if modelID.contains("gpt-5.4-mini") {
-            return Multipliers(input: 0.3, cachedInput: 0.03, output: 1.808)
+            return Multipliers(input: 0.375, cachedInput: 0.0375, output: 2.26)
         }
         if modelID.contains("gpt-5.4") {
-            return Multipliers(input: 1, cachedInput: 0.1, output: 6)
+            return Multipliers(input: 1.25, cachedInput: 0.125, output: 7.5)
         }
         if modelID.contains("gpt-5.3-codex-spark") {
             return nil
         }
         if modelID.contains("gpt-5.3-codex") || modelID.contains("gpt-5.2") {
-            return Multipliers(input: 0.7, cachedInput: 0.07, output: 5.6)
+            return Multipliers(input: 0.875, cachedInput: 0.0875, output: 7)
         }
         return nil
     }
@@ -275,7 +271,9 @@ enum RolloutTokenParser {
     static func parse(
         fileURL: URL,
         previous: ThreadUsageLedgerEntry?,
-        calendar: Calendar
+        calendar: Calendar,
+        rateCard: RateCardManifest? = nil,
+        rateCardMode: RateCardMode = .automatic
     ) throws -> ParsedRollout {
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
         let currentSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
@@ -298,7 +296,14 @@ enum RolloutTokenParser {
         var dailyTokens = canResume ? previous?.dailyTokens ?? [:] : [:]
         var quotaObservations = canResume ? previous?.quotaObservations ?? [] : []
         var seenTotals = Set(canResume ? previousCheckpoint?.seenCumulativeTotals ?? [] : [])
-        var currentModelID = canResume ? previousCheckpoint?.lastModelID : nil
+        var currentContext = canResume
+            ? previousCheckpoint?.lastExecutionContext
+                ?? UsageExecutionContext(
+                    modelID: previousCheckpoint?.lastModelID,
+                    reasoningEffort: nil,
+                    serviceTier: nil
+                )
+            : UsageExecutionContext(modelID: nil, reasoningEffort: nil, serviceTier: nil)
         var damagedLineCount = 0
 
         let handle = try FileHandle(forReadingFrom: fileURL)
@@ -323,15 +328,18 @@ enum RolloutTokenParser {
                     continue
                 }
                 if event["type"] as? String == "turn_context",
-                   let payload = event["payload"] as? [String: Any],
-                   let modelID = payload["model"] as? String,
-                   !modelID.isEmpty {
-                    currentModelID = modelID
+                   let payload = event["payload"] as? [String: Any] {
+                    currentContext = updatedContext(currentContext, from: payload)
                     continue
                 }
                 guard event["type"] as? String == "event_msg",
-                      let payload = event["payload"] as? [String: Any],
-                      payload["type"] as? String == "token_count",
+                      let payload = event["payload"] as? [String: Any] else { continue }
+                if payload["type"] as? String == "thread_settings_applied" {
+                    let settings = payload["thread_settings"] as? [String: Any] ?? payload
+                    currentContext = updatedContext(currentContext, from: settings)
+                    continue
+                }
+                guard payload["type"] as? String == "token_count",
                       let info = payload["info"] as? [String: Any],
                       let totalUsage = info["total_token_usage"] as? [String: Any],
                       let cumulative = integer(totalUsage["total_tokens"]),
@@ -343,21 +351,39 @@ enum RolloutTokenParser {
                       let timestamp = date(event["timestamp"]) else { continue }
                 let day = dayKey(timestamp, calendar: calendar)
                 dailyTokens[day, default: 0] += increment
+                let rateLimits = payload["rate_limits"] as? [String: Any]
+                currentContext = UsageExecutionContext(
+                    modelID: currentContext.modelID,
+                    reasoningEffort: currentContext.reasoningEffort,
+                    serviceTier: currentContext.serviceTier,
+                    modelProviderID: currentContext.modelProviderID,
+                    planType: string(rateLimits?["plan_type"]) ?? currentContext.planType,
+                    hasAccountRateLimits: rateLimits?["primary"] != nil
+                        || rateLimits?["secondary"] != nil
+                        || currentContext.hasAccountRateLimits,
+                    rateCardMode: rateCardMode,
+                    rateCardVersion: rateCard?.version(at: timestamp)?.id
+                )
                 let windows = quotaWindows(from: payload["rate_limits"])
-                if !windows.isEmpty {
-                    quotaObservations.append(
-                        ThreadQuotaUsageObservation(
-                            timestamp: timestamp,
-                            tokenIncrement: increment,
-                            quotaUsageWeight: QuotaUsageWeighting.weight(
-                                lastUsage: lastUsage,
-                                modelID: currentModelID,
-                                fallbackTokens: increment
-                            ),
-                            windows: windows
-                        )
+                let breakdown = tokenBreakdown(from: lastUsage, fallbackTokens: increment)
+                let estimate = breakdown.flatMap {
+                    rateCard?.credits(
+                        for: $0,
+                        context: currentContext,
+                        mode: rateCardMode,
+                        at: timestamp
                     )
                 }
+                quotaObservations.append(
+                    ThreadQuotaUsageObservation(
+                        timestamp: timestamp,
+                        tokenIncrement: increment,
+                        tokenBreakdown: breakdown,
+                        executionContext: currentContext,
+                        creditEstimate: estimate,
+                        windows: windows
+                    )
+                )
             }
             if lineStart != buffer.startIndex {
                 buffer.removeSubrange(buffer.startIndex..<lineStart)
@@ -372,7 +398,8 @@ enum RolloutTokenParser {
                 fileSize: currentSize,
                 parsedOffset: parsedOffset,
                 seenCumulativeTotals: seenTotals.sorted(),
-                lastModelID: currentModelID
+                lastModelID: currentContext.modelID,
+                lastExecutionContext: currentContext
             ),
             damagedLineCount: damagedLineCount,
             resumedFromCheckpoint: canResume
@@ -389,6 +416,60 @@ enum RolloutTokenParser {
         if let number = value as? NSNumber { return number.doubleValue }
         if let string = value as? String { return Double(string) }
         return nil
+    }
+
+    private static func string(_ value: Any?) -> String? {
+        guard let value = value as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func updatedContext(
+        _ current: UsageExecutionContext,
+        from payload: [String: Any]
+    ) -> UsageExecutionContext {
+        UsageExecutionContext(
+            modelID: string(payload["model"]) ?? current.modelID,
+            reasoningEffort: string(payload["reasoning_effort"])
+                ?? string(payload["reasoningEffort"])
+                ?? current.reasoningEffort,
+            serviceTier: string(payload["service_tier"])
+                ?? string(payload["serviceTier"])
+                ?? current.serviceTier,
+            modelProviderID: string(payload["model_provider_id"])
+                ?? string(payload["modelProviderId"])
+                ?? current.modelProviderID,
+            planType: current.planType,
+            hasAccountRateLimits: current.hasAccountRateLimits,
+            rateCardMode: current.rateCardMode,
+            rateCardVersion: current.rateCardVersion
+        )
+    }
+
+    private static func tokenBreakdown(
+        from usage: [String: Any],
+        fallbackTokens: Int64
+    ) -> UsageTokenBreakdown? {
+        guard let input = integer(usage["input_tokens"]),
+              let cached = integer(usage["cached_input_tokens"]),
+              let output = integer(usage["output_tokens"]),
+              let reasoning = integer(usage["reasoning_output_tokens"]),
+              input >= 0,
+              cached >= 0,
+              output >= 0,
+              reasoning >= 0 else { return nil }
+        let cacheWrite = integer(usage["cache_write_input_tokens"])
+            ?? integer(usage["cache_write_tokens"])
+            ?? integer(usage["cache_write"])
+        let breakdown = UsageTokenBreakdown(
+            inputTokens: input,
+            cachedInputTokens: cached,
+            cacheWriteInputTokens: cacheWrite,
+            outputTokens: output,
+            reasoningOutputTokens: reasoning,
+            totalTokens: integer(usage["total_tokens"]) ?? fallbackTokens
+        )
+        return breakdown.hasConsistentComponents ? breakdown : nil
     }
 
     private static func quotaWindows(from value: Any?) -> [AccountQuotaWindow] {
@@ -426,7 +507,7 @@ enum RolloutTokenParser {
     }
 }
 
-public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
+public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnapshotRecording {
     private let codexHome: URL
     private let explicitDatabaseURL: URL?
     private let fileManager: FileManager
@@ -483,7 +564,12 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
         return best.1
     }
 
-    public func readUsage(now: Date = Date(), calendar: Calendar = .current) async throws -> UsageHistory {
+    public func readUsage(
+        now: Date,
+        calendar: Calendar,
+        rateCard: RateCardManifest?,
+        rateCardMode: RateCardMode
+    ) async throws -> UsageHistory {
         let timezoneIdentifier = calendar.timeZone.identifier
         var ledger = try ledgerStore.load(timezoneIdentifier: timezoneIdentifier)
         let databaseURL = try selectedStateDatabase()
@@ -521,7 +607,9 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
                 let parsed = try RolloutTokenParser.parse(
                     fileURL: rolloutURL,
                     previous: previous,
-                    calendar: calendar
+                    calendar: calendar,
+                    rateCard: rateCard,
+                    rateCardMode: rateCardMode
                 )
                 ledger.threads[thread.id] = ThreadUsageLedgerEntry(
                     threadID: thread.id,
@@ -557,7 +645,12 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
         // history. This is required for archived/deleted local tasks.
         ledger.generatedAt = now
         ledger.warnings = warnings
-        let history = history(from: ledger, now: now)
+        let history = history(
+            from: ledger,
+            now: now,
+            rateCard: rateCard,
+            rateCardMode: rateCardMode
+        )
         try ledgerStore.save(ledger)
         return history
     }
@@ -566,28 +659,98 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
         try ledgerStore.clear()
     }
 
-    private func history(from ledger: VersionedUsageLedger, now: Date) -> UsageHistory {
+    public func recordAccountQuotaSnapshot(
+        windows: [AccountQuotaWindow],
+        planType: String?,
+        timestamp: Date
+    ) async throws {
+        guard !windows.isEmpty else { return }
+        let timezone = Calendar.current.timeZone.identifier
+        var ledger = try ledgerStore.load(timezoneIdentifier: timezone)
+        let minute = Int64(timestamp.timeIntervalSince1970 / 60)
+        ledger.accountObservations.removeAll { observation in
+            Int64(observation.timestamp.timeIntervalSince1970 / 60) == minute
+        }
+        ledger.accountObservations.append(
+            ThreadQuotaUsageObservation(
+                timestamp: timestamp,
+                tokenIncrement: 0,
+                executionContext: UsageExecutionContext(
+                    modelID: nil,
+                    reasoningEffort: nil,
+                    serviceTier: nil,
+                    planType: planType,
+                    hasAccountRateLimits: true
+                ),
+                windows: windows
+            )
+        )
+        let retentionStart = timestamp.addingTimeInterval(-90 * 24 * 60 * 60)
+        ledger.accountObservations = ledger.accountObservations
+            .filter { $0.timestamp >= retentionStart }
+            .sorted { $0.timestamp < $1.timestamp }
+        try ledgerStore.save(ledger)
+    }
+
+    private func history(
+        from ledger: VersionedUsageLedger,
+        now: Date,
+        rateCard: RateCardManifest?,
+        rateCardMode: RateCardMode
+    ) -> UsageHistory {
         struct Aggregate {
             var tokens: Int64 = 0
+            var observedTokens: Int64 = 0
+            var credits: Double = 0
+            var creditPrecision: CreditEstimatePrecision?
+            var hasUnpricedObservation = false
             var memberIDs: Set<String> = []
             var complete = true
         }
         var byDayAndRoot: [String: [String: Aggregate]] = [:]
         var memberCountByRoot: [String: Int] = [:]
         var quotaObservations: [LocalQuotaUsageObservation] = []
+        var historyCalendar = Calendar(identifier: .gregorian)
+        historyCalendar.timeZone = TimeZone(identifier: ledger.timezoneIdentifier) ?? .current
         for entry in ledger.threads.values {
             memberCountByRoot[entry.rootTaskID, default: 0] += 1
-            quotaObservations.append(
-                contentsOf: entry.quotaObservations.map {
+            for observation in entry.quotaObservations {
+                let estimate = observation.tokenBreakdown.flatMap { breakdown in
+                    observation.executionContext.flatMap { context in
+                        rateCard?.credits(
+                            for: breakdown,
+                            context: context,
+                            mode: rateCardMode,
+                            at: observation.timestamp
+                        )
+                    }
+                } ?? observation.creditEstimate
+                quotaObservations.append(
                     LocalQuotaUsageObservation(
-                        timestamp: $0.timestamp,
+                        timestamp: observation.timestamp,
                         rootTaskID: entry.rootTaskID,
-                        tokenIncrement: $0.tokenIncrement,
-                        quotaUsageWeight: $0.quotaUsageWeight,
-                        windows: $0.windows
+                        tokenIncrement: observation.tokenIncrement,
+                        quotaUsageWeight: observation.quotaUsageWeight,
+                        tokenBreakdown: observation.tokenBreakdown,
+                        executionContext: observation.executionContext,
+                        creditEstimate: estimate,
+                        windows: observation.windows
                     )
+                )
+                let day = Self.dayKey(observation.timestamp, calendar: historyCalendar)
+                var aggregate = byDayAndRoot[day, default: [:]][entry.rootTaskID, default: Aggregate()]
+                aggregate.observedTokens += observation.tokenIncrement
+                if let estimate {
+                    aggregate.credits += estimate.credits
+                    aggregate.creditPrecision = Self.mergedPrecision(
+                        aggregate.creditPrecision,
+                        estimate.precision
+                    )
+                } else if observation.tokenIncrement > 0 {
+                    aggregate.hasUnpricedObservation = true
                 }
-            )
+                byDayAndRoot[day, default: [:]][entry.rootTaskID] = aggregate
+            }
             for (day, tokens) in entry.dailyTokens {
                 var aggregate = byDayAndRoot[day, default: [:]][entry.rootTaskID, default: Aggregate()]
                 aggregate.tokens += tokens
@@ -605,16 +768,38 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
                     rootTaskID: rootID,
                     title: root?.title ?? fallback?.title ?? "未命名任务",
                     tokens: aggregate.tokens,
+                    credits: aggregate.hasUnpricedObservation
+                        || aggregate.observedTokens < aggregate.tokens
+                        ? nil : aggregate.credits,
+                    creditPrecision: aggregate.creditPrecision,
                     descendantCount: max(0, (memberCountByRoot[rootID] ?? aggregate.memberIDs.count) - 1)
                 )
             }
             return DailyUsageSummary(
                 dateKey: day,
                 totalTokens: tasks.reduce(0) { $0 + $1.tokens },
+                totalCredits: tasks.allSatisfy { $0.credits != nil }
+                    ? tasks.compactMap(\.credits).reduce(0, +)
+                    : nil,
+                creditPrecision: tasks.compactMap(\.creditPrecision).reduce(nil) {
+                    Self.mergedPrecision($0, $1)
+                },
                 tasks: tasks,
                 isComplete: roots.values.allSatisfy(\.complete)
             )
         }
+        quotaObservations.append(
+            contentsOf: ledger.accountObservations.map {
+                LocalQuotaUsageObservation(
+                    timestamp: $0.timestamp,
+                    rootTaskID: "__account__",
+                    tokenIncrement: 0,
+                    executionContext: $0.executionContext,
+                    isAccountSnapshot: true,
+                    windows: $0.windows
+                )
+            }
+        )
         return UsageHistory(
             generatedAt: now,
             timezoneIdentifier: ledger.timezoneIdentifier,
@@ -622,6 +807,28 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing {
             warnings: ledger.warnings,
             quotaObservations: quotaObservations
         )
+    }
+
+    private static func dayKey(_ date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
+    }
+
+    private static func mergedPrecision(
+        _ lhs: CreditEstimatePrecision?,
+        _ rhs: CreditEstimatePrecision
+    ) -> CreditEstimatePrecision {
+        guard let lhs else { return rhs }
+        if lhs == .approximate || rhs == .approximate { return .approximate }
+        if lhs != rhs, lhs != .exact, rhs != .exact { return .approximate }
+        if lhs == .upperBound || rhs == .upperBound { return .upperBound }
+        if lhs == .lowerBound || rhs == .lowerBound { return .lowerBound }
+        return .exact
     }
 
     private func rootID(for threadID: String, parents: [String: String]) -> String {

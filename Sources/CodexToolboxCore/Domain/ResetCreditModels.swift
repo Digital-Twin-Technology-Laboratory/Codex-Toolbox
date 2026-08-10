@@ -58,12 +58,14 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
     public let availableCount: Int
     public let credits: [ResetCreditSummary]
     public let quotaWindows: [AccountQuotaWindow]
+    public let planType: String?
     public let fetchedAt: Date
 
     public init(
         availableCount: Int,
         credits: [ResetCreditSummary],
         quotaWindows: [AccountQuotaWindow] = [],
+        planType: String? = nil,
         fetchedAt: Date
     ) {
         self.availableCount = max(0, availableCount)
@@ -82,6 +84,8 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
             }
             return $0.resetsAt < $1.resetsAt
         }
+        let normalizedPlan = planType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        self.planType = normalizedPlan?.isEmpty == false ? String(normalizedPlan!.prefix(64)) : nil
         self.fetchedAt = fetchedAt
     }
 
@@ -89,6 +93,7 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
         case availableCount
         case credits
         case quotaWindows
+        case planType
         case fetchedAt
     }
 
@@ -98,6 +103,7 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
             availableCount: try container.decode(Int.self, forKey: .availableCount),
             credits: try container.decode([ResetCreditSummary].self, forKey: .credits),
             quotaWindows: try container.decodeIfPresent([AccountQuotaWindow].self, forKey: .quotaWindows) ?? [],
+            planType: try container.decodeIfPresent(String.self, forKey: .planType),
             fetchedAt: try container.decode(Date.self, forKey: .fetchedAt)
         )
     }
@@ -107,6 +113,7 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
         try container.encode(availableCount, forKey: .availableCount)
         try container.encode(credits, forKey: .credits)
         try container.encode(quotaWindows, forKey: .quotaWindows)
+        try container.encodeIfPresent(planType, forKey: .planType)
         try container.encode(fetchedAt, forKey: .fetchedAt)
     }
 

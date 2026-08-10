@@ -7,8 +7,14 @@ public enum AppMetadata {
     public static let radarJSONURL = URL(
         string: "https://codexradar.com/data/intelligence-efficiency.json"
     )!
+    public static let stationRecommendationsURL = URL(
+        string: "https://codexradar.com/api/radar-insights"
+    )!
     public static let repositoryURL = URL(
         string: "https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox"
+    )!
+    public static let rateCardManifestURL = URL(
+        string: "https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/Sources/CodexToolbox/Resources/codex-rate-card-v1.json"
     )!
     public static let releasesURL = repositoryURL.appendingPathComponent("releases")
     public static let latestReleasePageURL = releasesURL.appendingPathComponent("latest")

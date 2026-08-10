@@ -6,6 +6,7 @@ public struct RankedModel: Identifiable, Hashable, Sendable {
     public let position: Int
     public let value: Double
     public let percentileScore: Double
+    public let overallMode: OverallRankingMode?
 
     public var id: String { benchmark.id }
 
@@ -14,13 +15,15 @@ public struct RankedModel: Identifiable, Hashable, Sendable {
         metric: RankingMetric,
         position: Int,
         value: Double,
-        percentileScore: Double
+        percentileScore: Double,
+        overallMode: OverallRankingMode? = nil
     ) {
         self.benchmark = benchmark
         self.metric = metric
         self.position = position
         self.value = value
         self.percentileScore = percentileScore
+        self.overallMode = overallMode
     }
 }
 
@@ -28,10 +31,16 @@ public enum RankingEngine {
     public static func rank(
         _ benchmarks: [ModelBenchmark],
         by metric: RankingMetric,
-        weights: RankingWeights = .default
+        weights: RankingWeights = .default,
+        overallMode: OverallRankingMode = .localWeighted
     ) -> [RankedModel] {
         if metric == .overall {
-            return overallRanking(benchmarks, weights: weights)
+            switch overallMode {
+            case .localWeighted:
+                return overallRanking(benchmarks, weights: weights)
+            case .radarCostEfficiency:
+                return radarCostEfficiencyRanking(benchmarks)
+            }
         }
 
         let candidates = benchmarks.compactMap { benchmark -> Candidate? in
@@ -53,6 +62,32 @@ public enum RankingEngine {
                 position: index + 1,
                 value: candidate.value,
                 percentileScore: percentileByID[candidate.benchmark.id] ?? 0
+            )
+        }
+    }
+
+    private static func radarCostEfficiencyRanking(
+        _ benchmarks: [ModelBenchmark]
+    ) -> [RankedModel] {
+        let candidates = benchmarks.compactMap { benchmark -> Candidate? in
+            guard let value = benchmark.latest?.combinedCostIndex,
+                  value.isFinite,
+                  value >= 0 else { return nil }
+            return Candidate(benchmark: benchmark, value: value)
+        }
+        let sorted = candidates.sorted { lhs, rhs in
+            if lhs.value != rhs.value { return lhs.value < rhs.value }
+            return lhs.benchmark.id < rhs.benchmark.id
+        }
+        let percentileByID = percentileScores(sorted)
+        return sorted.enumerated().map { index, candidate in
+            RankedModel(
+                benchmark: candidate.benchmark,
+                metric: .overall,
+                position: index + 1,
+                value: candidate.value,
+                percentileScore: percentileByID[candidate.benchmark.id] ?? 0,
+                overallMode: .radarCostEfficiency
             )
         }
     }
@@ -116,7 +151,8 @@ public enum RankingEngine {
                 metric: .overall,
                 position: index + 1,
                 value: candidate.score,
-                percentileScore: candidate.score
+                percentileScore: candidate.score,
+                overallMode: .localWeighted
             )
         }
     }

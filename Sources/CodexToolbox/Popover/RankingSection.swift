@@ -28,6 +28,7 @@ struct RankingSection: View {
     let rankings: [RankedModel]
     let presentation: RankingSectionPresentation
     let showsExpandedMetrics: Bool
+    let overallMode: OverallRankingMode
     let namespace: Namespace.ID
     let onExpand: () -> Void
     let onCollapse: () -> Void
@@ -58,14 +59,15 @@ struct RankingSection: View {
                         RankRow(
                             ranked: ranked,
                             presentation: presentation,
-                            showsExpandedMetrics: showsExpandedMetrics
+                            showsExpandedMetrics: showsExpandedMetrics,
+                            overallMode: overallMode
                         )
                         if ranked.id != visibleRankings.last?.id {
                             Divider()
                         }
                     }
                     if rankings.isEmpty {
-                        Text("暂无可用数据")
+                        Text(emptyStateText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, minHeight: presentation.minimumContentHeight)
@@ -91,8 +93,8 @@ struct RankingSection: View {
                 interaction.isHovered = hovering
             }
         }
-        .help(presentation == .expanded ? "点击收起“\(metric.rankingTitle)”榜单" : "点击展开“\(metric.rankingTitle)”榜单")
-        .accessibilityLabel("\(metric.rankingTitle)，\(presentation == .expanded ? "已展开" : "点击展开")")
+        .help(presentation == .expanded ? "点击收起“\(rankingTitle)”榜单" : "点击展开“\(rankingTitle)”榜单")
+        .accessibilityLabel("\(rankingTitle)，\(presentation == .expanded ? "已展开" : "点击展开")")
         .accessibilityHint(presentation == .expanded ? "按下可恢复四宫格" : "按下可查看前五名")
     }
 
@@ -132,7 +134,7 @@ struct RankingSection: View {
             }
             .fixedSize(horizontal: true, vertical: false)
 
-            Text(metric.displayName)
+            Text(metric.displayName(overallMode: overallMode))
                 .foregroundStyle(metric.tint.opacity(0.82))
                 .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
         }
@@ -144,7 +146,7 @@ struct RankingSection: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Label(metric.rankingTitle, systemImage: metric.systemImage)
+            Label(rankingTitle, systemImage: metric.systemImage)
                 .font(.system(size: presentation == .compact ? 10 : 12, weight: .bold))
                 .foregroundStyle(metric.tint)
                 .lineLimit(1)
@@ -163,6 +165,16 @@ struct RankingSection: View {
                     .transition(ToolboxMotion.hoverTransition(reduceMotion: reduceMotion))
             }
         }
+    }
+
+    private var rankingTitle: String {
+        metric.rankingTitle(overallMode: overallMode)
+    }
+
+    private var emptyStateText: String {
+        metric == .overall && overallMode == .radarCostEfficiency
+            ? "Radar 成本效率字段不可用"
+            : "暂无可用数据"
     }
 }
 
