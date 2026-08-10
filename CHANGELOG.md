@@ -237,7 +237,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v0.1.0-beta.6.2...v1.0.0
