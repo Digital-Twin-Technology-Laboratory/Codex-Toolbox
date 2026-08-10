@@ -115,19 +115,10 @@ open CodexToolbox.xcodeproj
 核心和完整 Xcode 测试：
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift test \
-  --scratch-path /tmp/codex-toolbox-spm
-
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift run \
-  --scratch-path /tmp/codex-toolbox-spm CoreVerification
-
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault \
-xcodebuild -project CodexToolbox.xcodeproj -scheme CodexToolbox \
-  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+bash scripts/test_all.sh
 ```
+
+`test_all.sh` 会把 SwiftPM 与 Xcode 产物隔离到 `/private/tmp`，并在结束时终止、注销和清理临时 Debug 应用，不会在 Spotlight 中留下第二个 Codex Toolbox。真实界面手测只安装 PKG，由安装器替换 `/Applications/Codex Toolbox.app`；不直接启动 `DerivedData/Build/Products` 中的应用。
 
 ### PKG / DMG 构建、签名与公证
 

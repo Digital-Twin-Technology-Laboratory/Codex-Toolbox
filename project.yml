@@ -90,3 +90,10 @@ schemes:
     test:
       targets:
         - CodexToolboxTests
+  CodexToolboxCoreTests:
+    build:
+      targets:
+        CodexToolboxTests: [test]
+    test:
+      targets:
+        - CodexToolboxTests

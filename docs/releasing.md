@@ -42,22 +42,10 @@ appcast.xml
 ## 构建与测试
 
 ```bash
-xcodegen generate
-bash scripts/version.sh
-
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift test \
-  --scratch-path /tmp/codex-toolbox-spm
-
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-xcrun --toolchain com.apple.dt.toolchain.XcodeDefault swift run \
-  --scratch-path /tmp/codex-toolbox-spm CoreVerification
-
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer \
-TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault \
-xcodebuild -project CodexToolbox.xcodeproj -scheme CodexToolbox \
-  -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
+bash scripts/test_all.sh
 ```
+
+该入口固定在 `/private/tmp` 内生成 SwiftPM 与 Xcode 测试产物，并在退出时终止、注销和删除临时 Debug 应用，避免 Spotlight 或 LaunchServices 把它暴露为第二个 Codex Toolbox。需要真实界面验收时，必须安装本轮 PKG 替换 `/Applications/Codex Toolbox.app`，不得直接运行 `DerivedData/Build/Products` 中的 `.app`。
 
 没有证书时可运行 `bash scripts/build_pkg.sh` 和 `bash scripts/build_dmg.sh` 生成本地测试产物。它们使用 ad-hoc 应用签名，PKG 安装器也未签名，仅用于验证打包结构，不能作为 Release 附件。
 
