@@ -52,17 +52,18 @@ struct RankRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(ranked.benchmark.label)
                     .font(.system(size: presentation == .expanded ? 12 : 11, weight: .semibold))
-                    .lineLimit(presentation == .expanded ? 2 : 1)
+                    .lineLimit(1)
                     .minimumScaleFactor(presentation == .standard ? 0.82 : 1)
                     .allowsTightening(presentation == .standard)
                     .truncationMode(.middle)
-                    .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(2)
                     .help(ranked.benchmark.label)
-                Text(statusText)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if let statusText {
+                    Text(statusText)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
@@ -80,6 +81,7 @@ struct RankRow: View {
             valueText
                 .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
         }
+        .frame(height: presentation == .expanded ? 27 : 25)
     }
 
     private var compactBody: some View {
@@ -132,12 +134,14 @@ struct RankRow: View {
         }
     }
 
-    private var statusText: String {
-        guard let latest = ranked.benchmark.latest else { return "暂无详细数据" }
-        if let passed = latest.passed, let tasks = latest.tasks {
-            return "\(passed)/\(tasks) 项通过"
+    private var statusText: String? {
+        guard ranked.metric != .overall,
+              let latest = ranked.benchmark.latest,
+              let passed = latest.passed,
+              let tasks = latest.tasks else {
+            return nil
         }
-        return ranked.benchmark.reasoningEffort
+        return "\(passed)/\(tasks) 项通过"
     }
 
     private var shouldShowExpandedMetrics: Bool {
@@ -188,8 +192,9 @@ struct RankRow: View {
 
     private var accessibilityDescription: String {
         let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric, overallMode: effectiveOverallMode))"
-        guard shouldShowExpandedMetrics else { return primary }
-        return "\(primary)，其他指标：\(expandedMetricSummary)"
+        let status = statusText.map { "，\($0)" } ?? ""
+        guard shouldShowExpandedMetrics else { return primary + status }
+        return "\(primary)\(status)，其他指标：\(expandedMetricSummary)"
     }
 
     private var effectiveOverallMode: OverallRankingMode {

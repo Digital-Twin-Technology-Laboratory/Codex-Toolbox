@@ -103,11 +103,13 @@ struct StationRecommendationCard: View {
 
     private func recommendation(_ item: StationRecommendationItem?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(item.map(compactLabel) ?? "--")
+            Text(item.map(displayLabel) ?? "--")
                 .font(.system(size: 9, weight: .semibold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.82)
+                .allowsTightening(true)
                 .truncationMode(.middle)
+                .help(item.map(displayLabel) ?? "暂无推荐")
 
             if isExpanded {
                 HStack(spacing: 3) {
@@ -128,19 +130,19 @@ struct StationRecommendationCard: View {
         .accessibilityLabel(item.map(recommendationAccessibilityDescription) ?? "暂无推荐")
     }
 
-    private func compactLabel(_ item: StationRecommendationItem) -> String {
-        ModelCatalog.entry(model: item.model, reasoningEffort: item.effort).compactLabel
+    private func displayLabel(_ item: StationRecommendationItem) -> String {
+        ModelCatalog.entry(model: item.model, reasoningEffort: item.effort).displayLabel
     }
 
     private func accessibilityDescription(_ item: StationRecommendationItem) -> String {
         let iq = item.iq.map { String(format: "%.1f", $0) } ?? "不可用"
         let cost = item.averageCostUSD.map { String(format: "%.2f 美元", $0) } ?? "不可用"
         let duration = item.averageDurationMinutes.map { String(format: "%.0f 分钟", $0) } ?? "不可用"
-        return "\(compactLabel(item))，IQ \(iq)，费用 \(cost)，耗时 \(duration)"
+        return "\(displayLabel(item))，IQ \(iq)，费用 \(cost)，耗时 \(duration)"
     }
 
     private func recommendationAccessibilityDescription(_ item: StationRecommendationItem) -> String {
-        isExpanded ? accessibilityDescription(item) : compactLabel(item)
+        isExpanded ? accessibilityDescription(item) : displayLabel(item)
     }
 
     private var dataDate: String? {

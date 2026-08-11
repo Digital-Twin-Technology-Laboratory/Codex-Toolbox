@@ -14,6 +14,10 @@ enum ToolboxMotion {
             : .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
     }
 
+    static var rankingContentTransition: AnyTransition {
+        .opacity
+    }
+
     static func hoverTransition(reduceMotion: Bool) -> AnyTransition {
         if reduceMotion { return .opacity }
         return .scale(scale: 0.94).combined(with: .opacity)
@@ -33,20 +37,5 @@ struct ToolboxPressButtonStyle: ButtonStyle {
                     : .spring(response: 0.14, dampingFraction: 1.0),
                 value: configuration.isPressed
             )
-    }
-}
-
-extension View {
-    @ViewBuilder
-    func toolboxMatchedGeometryEffect<ID: Hashable>(
-        id: ID,
-        in namespace: Namespace.ID,
-        enabled: Bool
-    ) -> some View {
-        if enabled {
-            matchedGeometryEffect(id: id, in: namespace)
-        } else {
-            self
-        }
     }
 }

@@ -359,21 +359,22 @@ struct DashboardView: View {
             overallMode: appModel.settings.overallRankingMode,
             namespace: rankingNamespace,
             onExpand: {
-                withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
-                    interaction.expandedMetric = metric
-                }
+                setExpandedMetric(metric)
             },
             onCollapse: {
-                withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
-                    interaction.expandedMetric = nil
-                }
+                setExpandedMetric(nil)
             }
         )
-        .toolboxMatchedGeometryEffect(
-            id: metric.rawValue,
-            in: rankingNamespace,
-            enabled: !reduceMotion
-        )
+    }
+
+    private func setExpandedMetric(_ metric: RankingMetric?) {
+        if reduceMotion {
+            interaction.expandedMetric = metric
+        } else {
+            withAnimation(ToolboxMotion.dashboard(reduceMotion: false)) {
+                interaction.expandedMetric = metric
+            }
+        }
     }
 
     private func moduleSubtitle(_ module: ToolboxModule) -> String {

@@ -21,6 +21,14 @@ enum RankingSectionPresentation {
         case .compact: 38
         }
     }
+
+    var contentIdentity: String {
+        switch self {
+        case .standard: "standard"
+        case .expanded: "expanded"
+        case .compact: "compact"
+        }
+    }
 }
 
 struct RankingSection: View {
@@ -49,40 +57,9 @@ struct RankingSection: View {
             }
         } label: {
             GroupBox {
-                VStack(spacing: contentSpacing) {
-                    if let metricExplanation {
-                        Text(metricExplanation)
-                            .font(.system(size: 8.5, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if showsMetricTable {
-                        metricTableHeader
-                        Divider()
-                    }
-
-                    ForEach(visibleRankings) { ranked in
-                        RankRow(
-                            ranked: ranked,
-                            presentation: presentation,
-                            showsExpandedMetrics: showsExpandedMetrics,
-                            overallMode: overallMode
-                        )
-                        if ranked.id != visibleRankings.last?.id {
-                            Divider()
-                        }
-                    }
-                    if rankings.isEmpty {
-                        Text(emptyStateText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: presentation.minimumContentHeight)
-                    }
-                }
-                .frame(minHeight: presentation.minimumContentHeight, alignment: .top)
+                rankingContent
+                    .id(presentation.contentIdentity)
+                    .transition(ToolboxMotion.rankingContentTransition)
             } label: {
                 header
             }
@@ -105,6 +82,43 @@ struct RankingSection: View {
         .help(presentation == .expanded ? "点击收起“\(rankingTitle)”榜单" : "点击展开“\(rankingTitle)”榜单")
         .accessibilityLabel(sectionAccessibilityLabel)
         .accessibilityHint(presentation == .expanded ? "按下可恢复四宫格" : "按下可查看前五名")
+    }
+
+    private var rankingContent: some View {
+        VStack(spacing: contentSpacing) {
+            if let metricExplanation {
+                Text(metricExplanation)
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if showsMetricTable {
+                metricTableHeader
+                Divider()
+            }
+
+            ForEach(visibleRankings) { ranked in
+                RankRow(
+                    ranked: ranked,
+                    presentation: presentation,
+                    showsExpandedMetrics: showsExpandedMetrics,
+                    overallMode: overallMode
+                )
+                if ranked.id != visibleRankings.last?.id {
+                    Divider()
+                }
+            }
+            if rankings.isEmpty {
+                Text(emptyStateText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: presentation.minimumContentHeight)
+            }
+        }
+        .frame(minHeight: presentation.minimumContentHeight, alignment: .top)
     }
 
     private var showsMetricTable: Bool {
@@ -181,7 +195,7 @@ struct RankingSection: View {
     }
 
     private var metricExplanation: String? {
-        guard presentation != .compact else { return nil }
+        guard presentation == .expanded else { return nil }
         switch metric {
         case .iq:
             return "Radar IQ 分数 · 越高越好"

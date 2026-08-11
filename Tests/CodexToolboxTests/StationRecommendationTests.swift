@@ -47,6 +47,14 @@ final class StationRecommendationTests: XCTestCase {
         XCTAssertEqual(snapshot.scenarios.map(\.key), StationRecommendationScenarioKey.allCases)
         XCTAssertEqual(snapshot.scenario(for: .hardProblems)?.items.count, 2)
         XCTAssertEqual(snapshot.scenario(for: .hardProblems)?.items.first?.averageCostUSD, 21.73)
+        let dailyItem = try XCTUnwrap(snapshot.scenario(for: .dailyDevelopment)?.items.first)
+        XCTAssertEqual(
+            ModelCatalog.entry(
+                model: dailyItem.model,
+                reasoningEffort: dailyItem.effort
+            ).displayLabel,
+            "GPT-5.6 Sol medium"
+        )
         XCTAssertEqual(
             StationRecommendationScenarioKey.allCases.map(\.shortTitle),
             ["日常", "困难", "后台", "龙虾"]
