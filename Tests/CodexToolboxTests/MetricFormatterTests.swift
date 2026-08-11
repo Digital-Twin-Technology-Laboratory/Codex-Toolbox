@@ -11,6 +11,38 @@ final class MetricFormatterTests: XCTestCase {
         XCTAssertEqual(MetricFormatter.compactModelName("GPT-5.6 Sol xhigh"), "5.6 Sol xh")
     }
 
+    func testRadarCostEfficiencyKeepsSmallValuesDistinct() {
+        let values = [0.0002, 0.0036, 0.0109, 0.0936, 100]
+        let expected = ["0.0002", "0.0036", "0.0109", "0.0936", "100"]
+
+        XCTAssertEqual(
+            values.map {
+                MetricFormatter.detailValue(
+                    $0,
+                    metric: .overall,
+                    overallMode: .radarCostEfficiency
+                )
+            },
+            expected
+        )
+        XCTAssertEqual(
+            MetricFormatter.menuBarValue(
+                0.0036,
+                metric: .overall,
+                overallMode: .radarCostEfficiency
+            ),
+            "0.0036"
+        )
+        XCTAssertEqual(
+            MetricFormatter.detailValue(
+                82.25,
+                metric: .overall,
+                overallMode: .localWeighted
+            ),
+            "82.3"
+        )
+    }
+
     func testBenchmarkDateFormatting() {
         XCTAssertEqual(MetricFormatter.benchmarkDateLabel("2026-07-13-pm"), "2026-07-13 · PM")
         XCTAssertEqual(MetricFormatter.benchmarkDateLabel("2026-07-13-am_2"), "2026-07-13 · AM")

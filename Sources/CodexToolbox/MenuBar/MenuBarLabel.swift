@@ -49,7 +49,14 @@ struct MenuBarLabel: View {
                                 .lineLimit(1)
 
                             if appModel.settings.showsMenuBarDetails {
-                                Text(MetricFormatter.menuBarValue(ranked.value, metric: ranked.metric))
+                                Text(
+                                    MetricFormatter.menuBarValue(
+                                        ranked.value,
+                                        metric: ranked.metric,
+                                        overallMode: ranked.overallMode
+                                            ?? appModel.settings.overallRankingMode
+                                    )
+                                )
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
                             }
@@ -95,7 +102,11 @@ struct MenuBarLabel: View {
         appModel.menuBarRanking.map { ranked in
             "第 \(ranked.position) 名 \(ranked.benchmark.label) "
                 + "\(ranked.metric.displayName(overallMode: ranked.overallMode ?? appModel.settings.overallRankingMode)) "
-                + MetricFormatter.detailValue(ranked.value, metric: ranked.metric)
+                + MetricFormatter.detailValue(
+                    ranked.value,
+                    metric: ranked.metric,
+                    overallMode: ranked.overallMode ?? appModel.settings.overallRankingMode
+                )
         }
         .joined(separator: "，")
     }

@@ -48,7 +48,11 @@ public enum MetricFormatter {
         return date
     }
 
-    public static func detailValue(_ value: Double, metric: RankingMetric) -> String {
+    public static func detailValue(
+        _ value: Double,
+        metric: RankingMetric,
+        overallMode: OverallRankingMode = .localWeighted
+    ) -> String {
         switch metric {
         case .iq:
             formatNumber(value, maximumFractionDigits: value.rounded() == value ? 0 : 1)
@@ -57,11 +61,17 @@ public enum MetricFormatter {
         case .duration:
             detailDuration(value)
         case .overall:
-            formatNumber(value, minimumFractionDigits: 1, maximumFractionDigits: 1)
+            overallMode == .radarCostEfficiency
+                ? formatSignificantNumber(value)
+                : formatNumber(value, minimumFractionDigits: 1, maximumFractionDigits: 1)
         }
     }
 
-    public static func menuBarValue(_ value: Double, metric: RankingMetric) -> String {
+    public static func menuBarValue(
+        _ value: Double,
+        metric: RankingMetric,
+        overallMode: OverallRankingMode = .localWeighted
+    ) -> String {
         switch metric {
         case .duration:
             if value < 3_600 {
@@ -69,7 +79,7 @@ public enum MetricFormatter {
             }
             return formatNumber(value / 3_600, maximumFractionDigits: 1) + "h"
         default:
-            return detailValue(value, metric: metric)
+            return detailValue(value, metric: metric, overallMode: overallMode)
         }
     }
 
@@ -143,6 +153,18 @@ public enum MetricFormatter {
         formatter.roundingMode = .halfUp
         formatter.minimumFractionDigits = minimumFractionDigits
         formatter.maximumFractionDigits = maximumFractionDigits
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+
+    private static func formatSignificantNumber(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.roundingMode = .halfUp
+        formatter.usesSignificantDigits = true
+        formatter.minimumSignificantDigits = 1
+        formatter.maximumSignificantDigits = 4
         return formatter.string(from: NSNumber(value: value)) ?? String(value)
     }
 }

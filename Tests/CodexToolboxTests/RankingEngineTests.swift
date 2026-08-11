@@ -69,14 +69,14 @@ final class RankingEngineTests: XCTestCase {
             iq: 150,
             cost: 30,
             duration: 2_000,
-            combinedCostIndex: 80
+            combinedCostIndex: 0.0036
         )
         let efficient = benchmark(
             "efficient",
             iq: nil,
             cost: 2,
             duration: 500,
-            combinedCostIndex: 0.4
+            combinedCostIndex: 0.0002
         )
 
         let ranked = RankingEngine.rank(
@@ -86,7 +86,7 @@ final class RankingEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(ranked.map(\.id), ["efficient", "expensive"])
-        XCTAssertEqual(ranked.first?.value, 0.4)
+        XCTAssertEqual(ranked.first?.value, 0.0002)
         XCTAssertEqual(ranked.first?.overallMode, .radarCostEfficiency)
         XCTAssertTrue(
             RankingEngine.rank([expensive, efficient], by: .overall).allSatisfy {

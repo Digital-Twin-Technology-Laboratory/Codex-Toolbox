@@ -94,7 +94,7 @@ struct TokenUsageModuleView: View {
                     Label("返回今日", systemImage: "arrow.uturn.backward")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.indigo)
-                        .frame(width: 78, height: 26)
+                        .frame(width: 78, height: TaskHeaderControlMetrics.height)
                         .background(.indigo.opacity(0.10), in: Capsule())
                 }
                 .buttonStyle(.plain)
@@ -104,10 +104,22 @@ struct TokenUsageModuleView: View {
                 .accessibilityLabel("返回今日 Token 用量")
             }
         }
-        .adaptiveGlassCard(tint: .indigo, id: "token-tasks", namespace: glassNamespace)
+        .adaptiveGlassCard(
+            tint: .indigo,
+            id: "token-tasks",
+            namespace: glassNamespace,
+            isInteractive: hasAdditionalTasks
+        )
+        .adaptiveInteractiveCardFeedback(
+            tint: .indigo,
+            isHovered: isTaskCardHovered,
+            isEnabled: hasAdditionalTasks
+        )
         .onHover { hovering in
+            let shouldHighlight = hovering && hasAdditionalTasks
+            guard isTaskCardHovered != shouldHighlight else { return }
             withAnimation(reduceMotion ? .easeOut(duration: 0.20) : .easeOut(duration: 0.16)) {
-                isTaskCardHovered = hovering
+                isTaskCardHovered = shouldHighlight
             }
         }
         .help(taskCardHelp)
@@ -147,25 +159,14 @@ struct TokenUsageModuleView: View {
                 }
             }
 
-            Text(accountQuotaFootnote)
-                .font(.system(size: 9))
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(11)
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(
-                    Color.indigo.opacity(isTaskCardHovered && hasAdditionalTasks ? 0.44 : 0.12),
-                    lineWidth: isTaskCardHovered && hasAdditionalTasks ? 1.25 : 0.75
-                )
-        }
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var taskCardHeader: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Label("\(selectedPeriodName) Top \(currentTaskLimit) 任务", systemImage: "list.number")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.indigo)
@@ -185,7 +186,7 @@ struct TokenUsageModuleView: View {
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
+                        .frame(height: TaskHeaderControlMetrics.height)
                         .background(.quaternary, in: Capsule())
                 }
 
@@ -210,12 +211,6 @@ struct TokenUsageModuleView: View {
             Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                usageMetric("本机 Credits", creditsText(selectedSummary))
-                usageMetric("账户已用", accountUsedText)
-                usageMetric("任务额度", taskEstimateStatus)
-            }
         }
     }
 
@@ -236,9 +231,7 @@ struct TokenUsageModuleView: View {
                 Text(
                     usageAndQuotaText(
                         tokens: task.tokens,
-                        taskIDs: [task.id],
-                        credits: task.credits,
-                        precision: task.creditPrecision
+                        taskIDs: [task.id]
                     )
                 )
                     .font(.caption.monospacedDigit())
@@ -426,33 +419,12 @@ struct TokenUsageModuleView: View {
             : "点击展开为 \(appModel.settings.usageExpandedTaskLimit.displayName)"
     }
 
-    private var accountQuotaFootnote: String {
-        let windows = appModel.resetCreditsSnapshot?.quotaWindows ?? []
-        let activeWindows = windows.filter { Date() < $0.resetsAt }
-        if !activeWindows.isEmpty {
-            let usage = activeWindows.map {
-                "\($0.displayName)已用 \(formatPercent($0.usedPercent))"
-            }.joined(separator: " / ")
-            let estimateStatus = appModel.taskQuotaEstimatesByDuration.values.contains { !$0.isEmpty }
-                ? "任务额度按本机逐轮快照估算"
-                : "任务额度快照不足"
-            return "\(estimateStatus)；账户总用量（含所有设备）：\(usage)。"
-        }
-        if !windows.isEmpty {
-            return "账户额度窗口已过期，刷新后重新估算任务额度。"
-        }
-        return "账户未返回 5 小时/周窗口，暂不能估算任务额度。"
-    }
-
     private func usageAndQuotaText(
         tokens: Int64,
-        taskIDs: Set<String>,
-        credits: Double? = nil,
-        precision: CreditEstimatePrecision? = nil
+        taskIDs: Set<String>
     ) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
-        let base = credits.map { "\(format(tokens)) · \(creditPrefix(precision))\(formatCredits($0)) Cr" }
-            ?? format(tokens)
+        let base = format(tokens)
         guard !estimates.isEmpty else { return base }
         let quota = estimates.map {
             "\($0.window.displayName)≈\(formatPercent($0.percent))"
@@ -499,61 +471,6 @@ struct TokenUsageModuleView: View {
         if confidences.contains(.low) { return .low }
         if confidences.contains(.medium) { return .medium }
         return .high
-    }
-
-    private func usageMetric(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title).foregroundStyle(.tertiary)
-            Text(value)
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-        }
-        .font(.system(size: 9))
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func creditsText(_ summary: DailyUsageSummary?) -> String {
-        guard let credits = summary?.totalCredits else {
-            return appModel.settings.rateCardMode == .automatic
-                ? "待确认费率制度"
-                : "数据不完整"
-        }
-        return "\(creditPrefix(summary?.creditPrecision))\(formatCredits(credits))"
-    }
-
-    private var accountUsedText: String {
-        let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
-            Date() < $0.resetsAt
-        }
-        guard !windows.isEmpty else { return "暂无" }
-        return windows.map { "\($0.displayName) \(formatPercent($0.usedPercent))" }
-            .joined(separator: " / ")
-    }
-
-    private var taskEstimateStatus: String {
-        let values = appModel.taskQuotaEstimatesByDuration.values.flatMap(\.values)
-        guard !values.isEmpty else { return "样本不足" }
-        if values.contains(where: \.hasConcurrentInterference) {
-            return "≈ · 外部/并发"
-        }
-        let confidence = combinedConfidence(values.map(\.confidence))
-        return "≈ · \(confidence.displayName)置信"
-    }
-
-    private func creditPrefix(_ precision: CreditEstimatePrecision?) -> String {
-        switch precision {
-        case .exact: ""
-        case .upperBound: "≤"
-        case .lowerBound: "≥"
-        case .approximate, nil: "≈"
-        }
-    }
-
-    private func formatCredits(_ value: Double) -> String {
-        if value < 0.01, value > 0 { return "<0.01" }
-        return String(format: "%.2f", value)
     }
 
     private func formatPercent(_ value: Double) -> String {
@@ -651,6 +568,10 @@ struct TokenUsageModuleView: View {
         default: return "\(value)"
         }
     }
+}
+
+private enum TaskHeaderControlMetrics {
+    static let height: CGFloat = 26
 }
 
 private struct TokenTrendPoint: Identifiable {

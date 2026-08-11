@@ -59,10 +59,12 @@ struct RankRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(2)
                     .help(ranked.benchmark.label)
-                Text(statusText)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if ranked.metric != .overall {
+                    Text(statusText)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
@@ -109,11 +111,18 @@ struct RankRow: View {
     }
 
     private var valueText: some View {
-        Text(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))
+        Text(
+            MetricFormatter.detailValue(
+                ranked.value,
+                metric: ranked.metric,
+                overallMode: effectiveOverallMode
+            )
+        )
             .font(.system(size: presentation == .compact ? 10 : 11, weight: .bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(ranked.metric.tint)
             .lineLimit(1)
+            .minimumScaleFactor(0.68)
     }
 
     private var medalColor: Color {
@@ -126,11 +135,6 @@ struct RankRow: View {
     }
 
     private var statusText: String {
-        if ranked.metric == .overall {
-            return effectiveOverallMode == .localWeighted
-                ? "本地加权百分位"
-                : "Radar 费用+耗时指数 · 越低越好"
-        }
         guard let latest = ranked.benchmark.latest else { return "暂无详细数据" }
         if let passed = latest.passed, let tasks = latest.tasks {
             return "\(passed)/\(tasks) 项通过"
@@ -185,7 +189,7 @@ struct RankRow: View {
     }
 
     private var accessibilityDescription: String {
-        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric))"
+        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric, overallMode: effectiveOverallMode))"
         guard shouldShowExpandedMetrics else { return primary }
         return "\(primary)，其他指标：\(expandedMetricSummary)"
     }

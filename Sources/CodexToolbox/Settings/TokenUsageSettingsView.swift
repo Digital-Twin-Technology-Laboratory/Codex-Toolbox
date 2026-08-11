@@ -15,6 +15,13 @@ struct TokenUsageSettingsView: View {
                 }
             }
 
+            Section("当前用量概览") {
+                usageDetail("本机 Token", value: currentTokenText)
+                usageDetail("本机 Credits", value: currentCreditsText)
+                usageDetail("账户已用", value: accountUsedText)
+                usageDetail("估算置信度", value: estimateConfidenceText)
+            }
+
             Section("官方费率与 Credits") {
                 Toggle("自动更新官方费率", isOn: automaticRateUpdatesBinding)
                 Picker("费率制度", selection: rateCardModeBinding) {
@@ -138,6 +145,77 @@ struct TokenUsageSettingsView: View {
         case .cached: return "上次有效缓存"
         case .remote: return "已从项目托管清单校验"
         }
+    }
+
+    private func usageDetail(_ title: String, value: String) -> some View {
+        LabeledContent(title) {
+            Text(value)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .textSelection(.enabled)
+        }
+    }
+
+    private var todaySummary: DailyUsageSummary? {
+        appModel.usageHistory?.summary(for: dayKey(Date()))
+    }
+
+    private var currentTokenText: String {
+        todaySummary?.totalTokens.formatted(.number.grouping(.automatic)) ?? "--"
+    }
+
+    private var currentCreditsText: String {
+        guard let summary = todaySummary, let credits = summary.totalCredits else { return "--" }
+        let value = credits > 0 && credits < 0.01
+            ? "<0.01"
+            : String(format: "%.2f", credits)
+        return "\(creditPrefix(summary.creditPrecision))\(value) Cr"
+    }
+
+    private var accountUsedText: String {
+        let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
+            Date() < $0.resetsAt
+        }
+        guard !windows.isEmpty else { return "--" }
+        return windows.map {
+            "\($0.displayName) \(String(format: "%.1f%%", $0.usedPercent))"
+        }
+        .joined(separator: " / ")
+    }
+
+    private var estimateConfidenceText: String {
+        let estimates = appModel.taskQuotaEstimatesByDuration.values.flatMap(\.values)
+        guard !estimates.isEmpty else { return "--" }
+        let confidence: QuotaEstimateConfidence
+        if estimates.contains(where: { $0.confidence == .low }) {
+            confidence = .low
+        } else if estimates.contains(where: { $0.confidence == .medium }) {
+            confidence = .medium
+        } else {
+            confidence = .high
+        }
+        return estimates.contains(where: \.hasConcurrentInterference)
+            ? "\(confidence.displayName) · 并发干扰"
+            : confidence.displayName
+    }
+
+    private func creditPrefix(_ precision: CreditEstimatePrecision?) -> String {
+        switch precision {
+        case .exact: ""
+        case .upperBound: "≤"
+        case .lowerBound: "≥"
+        case .approximate, nil: "≈"
+        }
+    }
+
+    private func dayKey(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 0,
+            components.month ?? 0,
+            components.day ?? 0
+        )
     }
 
 }

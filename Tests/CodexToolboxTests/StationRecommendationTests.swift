@@ -47,6 +47,10 @@ final class StationRecommendationTests: XCTestCase {
         XCTAssertEqual(snapshot.scenarios.map(\.key), StationRecommendationScenarioKey.allCases)
         XCTAssertEqual(snapshot.scenario(for: .hardProblems)?.items.count, 2)
         XCTAssertEqual(snapshot.scenario(for: .hardProblems)?.items.first?.averageCostUSD, 21.73)
+        XCTAssertEqual(
+            StationRecommendationScenarioKey.allCases.map(\.shortTitle),
+            ["日常", "困难", "后台", "龙虾"]
+        )
     }
 
     func testSanitizesInvalidMetricsWithoutDroppingRecommendation() throws {

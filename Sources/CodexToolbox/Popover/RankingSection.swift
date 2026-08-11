@@ -50,6 +50,15 @@ struct RankingSection: View {
         } label: {
             GroupBox {
                 VStack(spacing: contentSpacing) {
+                    if let overallExplanation {
+                        Text(overallExplanation)
+                            .font(.system(size: 8.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     if showsMetricTable {
                         metricTableHeader
                         Divider()
@@ -94,7 +103,7 @@ struct RankingSection: View {
             }
         }
         .help(presentation == .expanded ? "点击收起“\(rankingTitle)”榜单" : "点击展开“\(rankingTitle)”榜单")
-        .accessibilityLabel("\(rankingTitle)，\(presentation == .expanded ? "已展开" : "点击展开")")
+        .accessibilityLabel(sectionAccessibilityLabel)
         .accessibilityHint(presentation == .expanded ? "按下可恢复四宫格" : "按下可查看前五名")
     }
 
@@ -171,6 +180,26 @@ struct RankingSection: View {
         metric.rankingTitle(overallMode: overallMode)
     }
 
+    private var overallExplanation: String? {
+        guard metric == .overall, presentation != .compact else { return nil }
+        switch overallMode {
+        case .localWeighted:
+            return "本地 IQ / 费用 / 耗时加权 · 越高越好"
+        case .radarCostEfficiency:
+            return "Radar 费用 + 耗时指数 · 越低越好"
+        }
+    }
+
+    private var sectionAccessibilityLabel: String {
+        [
+            rankingTitle,
+            overallExplanation,
+            presentation == .expanded ? "已展开" : "点击展开"
+        ]
+        .compactMap { $0 }
+        .joined(separator: "，")
+    }
+
     private var emptyStateText: String {
         metric == .overall && overallMode == .radarCostEfficiency
             ? "Radar 成本效率字段不可用"
@@ -195,11 +224,12 @@ private struct RankingGroupBoxStyle: GroupBoxStyle {
             configuration.content
         }
         .padding(11)
-        .adaptiveGlassCard(tint: tint, id: id, namespace: namespace)
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(tint.opacity(isHovered ? 0.42 : 0.12), lineWidth: isHovered ? 1.25 : 0.75)
-        }
-        .shadow(color: tint.opacity(isHovered ? 0.11 : 0.04), radius: isHovered ? 10 : 5, y: 3)
+        .adaptiveGlassCard(
+            tint: tint,
+            id: id,
+            namespace: namespace,
+            isInteractive: true
+        )
+        .adaptiveInteractiveCardFeedback(tint: tint, isHovered: isHovered)
     }
 }

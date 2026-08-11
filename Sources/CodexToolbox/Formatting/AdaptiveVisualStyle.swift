@@ -6,7 +6,7 @@ extension View {
         tint: Color,
         id: String,
         namespace: Namespace.ID,
-        isInteractive: Bool = true
+        isInteractive: Bool = false
     ) -> some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
@@ -35,6 +35,20 @@ extension View {
         }
     }
 
+    func adaptiveInteractiveCardFeedback(
+        tint: Color,
+        isHovered: Bool,
+        isEnabled: Bool = true
+    ) -> some View {
+        modifier(
+            AdaptiveInteractiveCardFeedbackModifier(
+                tint: tint,
+                isHovered: isHovered,
+                isEnabled: isEnabled
+            )
+        )
+    }
+
     @ViewBuilder
     func adaptiveGlassControlStyle() -> some View {
         if #available(macOS 26.0, *) {
@@ -51,5 +65,41 @@ extension View {
         } else {
             self.buttonStyle(.plain)
         }
+    }
+}
+
+private struct AdaptiveInteractiveCardFeedbackModifier: ViewModifier {
+    let tint: Color
+    let isHovered: Bool
+    let isEnabled: Bool
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            content
+                .overlay {
+                    shape.stroke(
+                        tint.opacity(strokeOpacity),
+                        lineWidth: isHovered ? 1.25 : 0.75
+                    )
+                }
+                .shadow(
+                    color: reduceTransparency ? .clear : tint.opacity(isHovered ? 0.11 : 0.04),
+                    radius: isHovered ? 10 : 5,
+                    y: 3
+                )
+        } else {
+            content
+        }
+    }
+
+    private var strokeOpacity: Double {
+        if reduceTransparency {
+            return isHovered ? 0.52 : 0.22
+        }
+        return isHovered ? 0.42 : 0.12
     }
 }
