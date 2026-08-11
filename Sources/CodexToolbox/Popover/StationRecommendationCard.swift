@@ -5,23 +5,49 @@ struct StationRecommendationCard: View {
     @Bindable var appModel: AppModel
     let namespace: Namespace.ID
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
+    @State private var isExpanded = false
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-            HStack(alignment: .top, spacing: 6) {
-                ForEach(Array(StationRecommendationScenarioKey.allCases.enumerated()), id: \.element) { index, key in
-                    if index > 0 {
-                        Divider()
+    var body: some View {
+        Button {
+            withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
+                isExpanded.toggle()
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                header
+
+                HStack(alignment: .top, spacing: 6) {
+                    ForEach(Array(StationRecommendationScenarioKey.allCases.enumerated()), id: \.element) { index, key in
+                        if index > 0 {
+                            Divider()
+                        }
+                        scenarioColumn(key)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    scenarioColumn(key)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
+            .padding(11)
+            .adaptiveGlassCard(
+                tint: .teal,
+                id: "station-recommendations",
+                namespace: namespace,
+                isInteractive: true
+            )
+            .adaptiveInteractiveCardFeedback(tint: .teal, isHovered: isHovered)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .contain)
         }
-        .padding(11)
-        .adaptiveGlassCard(tint: .teal, id: "station-recommendations", namespace: namespace)
-        .accessibilityElement(children: .contain)
+        .buttonStyle(ToolboxPressButtonStyle())
+        .onHover { hovering in
+            withAnimation(reduceMotion ? .easeOut(duration: 0.20) : .easeOut(duration: 0.16)) {
+                isHovered = hovering
+            }
+        }
+        .help(isExpanded ? "点击折叠站长推荐详情" : "点击展开站长推荐详情")
+        .accessibilityValue(isExpanded ? "已展开" : "已折叠")
+        .accessibilityHint(isExpanded ? "按下可隐藏 IQ、费用和耗时" : "按下可显示 IQ、费用和耗时")
     }
 
     private var header: some View {
@@ -43,11 +69,17 @@ struct StationRecommendationCard: View {
                     .accessibilityLabel("正在刷新站长推荐")
             }
 
-            if let date = dataDate {
+            if isExpanded, let date = dataDate {
                 Text(date)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
+
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 16, height: 16)
+                .accessibilityHidden(true)
         }
     }
 
@@ -77,20 +109,23 @@ struct StationRecommendationCard: View {
                 .minimumScaleFactor(0.72)
                 .truncationMode(.middle)
 
-            HStack(spacing: 3) {
-                Text(item?.iq.map { String(format: "%.1f", $0) } ?? "--")
-                Text(item?.averageCostUSD.map { String(format: "$%.2f", $0) } ?? "--")
-                Text(item?.averageDurationMinutes.map { String(format: "%.0f分", $0) } ?? "--")
+            if isExpanded {
+                HStack(spacing: 3) {
+                    Text(item?.iq.map { String(format: "%.1f", $0) } ?? "--")
+                    Text(item?.averageCostUSD.map { String(format: "$%.2f", $0) } ?? "--")
+                    Text(item?.averageDurationMinutes.map { String(format: "%.0f分", $0) } ?? "--")
+                }
+                .font(.system(size: 7.5, design: .rounded))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+                .transition(ToolboxMotion.dashboardContentTransition(reduceMotion: reduceMotion))
             }
-            .font(.system(size: 7.5, design: .rounded))
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.62)
         }
-        .frame(maxWidth: .infinity, minHeight: 25, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: isExpanded ? 25 : 12, alignment: .topLeading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.map(accessibilityDescription) ?? "暂无推荐")
+        .accessibilityLabel(item.map(recommendationAccessibilityDescription) ?? "暂无推荐")
     }
 
     private func compactLabel(_ item: StationRecommendationItem) -> String {
@@ -102,6 +137,10 @@ struct StationRecommendationCard: View {
         let cost = item.averageCostUSD.map { String(format: "%.2f 美元", $0) } ?? "不可用"
         let duration = item.averageDurationMinutes.map { String(format: "%.0f 分钟", $0) } ?? "不可用"
         return "\(compactLabel(item))，IQ \(iq)，费用 \(cost)，耗时 \(duration)"
+    }
+
+    private func recommendationAccessibilityDescription(_ item: StationRecommendationItem) -> String {
+        isExpanded ? accessibilityDescription(item) : compactLabel(item)
     }
 
     private var dataDate: String? {

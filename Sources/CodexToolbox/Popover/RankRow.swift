@@ -59,12 +59,10 @@ struct RankRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(2)
                     .help(ranked.benchmark.label)
-                if ranked.metric != .overall {
-                    Text(statusText)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(statusText)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)

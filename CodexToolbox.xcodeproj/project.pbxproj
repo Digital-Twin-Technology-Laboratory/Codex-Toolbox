@@ -73,6 +73,7 @@
 		C00D74D9DAE6BC5F0E4BE4B6 /* ResetCreditsCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D48424F5006528572F33B /* ResetCreditsCacheStore.swift */; };
 		CA8F96599061F25E39CCA1E0 /* RankingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C5D72A2EFFAC0416B689C2 /* RankingEngineTests.swift */; };
 		CB55FB93796809B7F68CD6BE /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB9676956C6080A3FF503E4 /* AppSettingsTests.swift */; };
+		D0143D954E73F435887BF1DF /* AdaptiveGlassSegmentedPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5915AF8DD07212DAF0459A95 /* AdaptiveGlassSegmentedPicker.swift */; };
 		D19D824A91248A611C52C7C1 /* LocalCodexUsageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16C1B3CA7232D08D609BB769 /* LocalCodexUsageReader.swift */; };
 		D659846CEAC33450CA465EB9 /* RefreshSchedulerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C07A01BD3E6DE1284D15032 /* RefreshSchedulerTests.swift */; };
 		D8D6BC5D1CEB579EB8C61BBE /* SnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65872EFA2F09D0FC3D79D8C9 /* SnapshotStore.swift */; };
@@ -154,6 +155,7 @@
 		5359EDB1706D855FE9E9E59F /* TokenUsageModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageModuleView.swift; sourceTree = "<group>"; };
 		58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatterTests.swift; sourceTree = "<group>"; };
 		58FAFAA5A5425AA046088F30 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		5915AF8DD07212DAF0459A95 /* AdaptiveGlassSegmentedPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveGlassSegmentedPicker.swift; sourceTree = "<group>"; };
 		5A07D23FF9C86034D7082DA8 /* StationRecommendationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRecommendationTests.swift; sourceTree = "<group>"; };
 		65872EFA2F09D0FC3D79D8C9 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
 		667B732144948E89B9D4F62F /* libCodexToolboxCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCodexToolboxCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -299,6 +301,7 @@
 			isa = PBXGroup;
 			children = (
 				10018E85736ECBFD621036BD /* AboutView.swift */,
+				5915AF8DD07212DAF0459A95 /* AdaptiveGlassSegmentedPicker.swift */,
 				E92010C87A159F47696CE3F9 /* DashboardSettingsView.swift */,
 				FD060F9540D6D4A7C34625D3 /* GeneralDashboardSettingsView.swift */,
 				FC02D97B94F259DAE4D90032 /* GeneralSettingsView.swift */,
@@ -650,6 +653,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A3A4CFC00534491BF10A8C1D /* AboutView.swift in Sources */,
+				D0143D954E73F435887BF1DF /* AdaptiveGlassSegmentedPicker.swift in Sources */,
 				7DC2CABC10F0C3B70F3F46F8 /* AdaptiveVisualStyle.swift in Sources */,
 				9B4CB28F5338EA453CFA0D7E /* AppModel.swift in Sources */,
 				E894868BB9D5A669797190EF /* AppUpdateManager.swift in Sources */,

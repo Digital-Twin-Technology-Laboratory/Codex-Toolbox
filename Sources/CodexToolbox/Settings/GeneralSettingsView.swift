@@ -18,16 +18,13 @@ struct ModelRadarSettingsView: View {
     var body: some View {
         Form {
             Section("菜单栏") {
-                Picker("默认展示", selection: menuBarMetricBinding) {
-                    ForEach(RankingMetric.allCases) { metric in
-                        Label(
-                            metric.displayName(overallMode: appModel.settings.overallRankingMode),
-                            systemImage: metric.systemImage
-                        )
-                            .tag(metric)
-                    }
+                AdaptiveGlassSegmentedPicker(
+                    "默认展示",
+                    selection: menuBarMetricBinding,
+                    options: RankingMetric.allCases
+                ) { metric in
+                    Text(metric.displayName(overallMode: appModel.settings.overallRankingMode))
                 }
-                .pickerStyle(.segmented)
 
                 Picker("排名序号", selection: menuBarRankStyleBinding) {
                     ForEach(MenuBarRankStyle.allCases) { style in

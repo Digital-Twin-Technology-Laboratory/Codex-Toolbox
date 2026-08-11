@@ -50,8 +50,8 @@ struct RankingSection: View {
         } label: {
             GroupBox {
                 VStack(spacing: contentSpacing) {
-                    if let overallExplanation {
-                        Text(overallExplanation)
+                    if let metricExplanation {
+                        Text(metricExplanation)
                             .font(.system(size: 8.5, weight: .medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -180,20 +180,29 @@ struct RankingSection: View {
         metric.rankingTitle(overallMode: overallMode)
     }
 
-    private var overallExplanation: String? {
-        guard metric == .overall, presentation != .compact else { return nil }
-        switch overallMode {
-        case .localWeighted:
-            return "本地 IQ / 费用 / 耗时加权 · 越高越好"
-        case .radarCostEfficiency:
-            return "Radar 费用 + 耗时指数 · 越低越好"
+    private var metricExplanation: String? {
+        guard presentation != .compact else { return nil }
+        switch metric {
+        case .iq:
+            return "Radar IQ 分数 · 越高越好"
+        case .cost:
+            return "平均费用 · 越低越好"
+        case .duration:
+            return "平均耗时 · 越低越好"
+        case .overall:
+            switch overallMode {
+            case .localWeighted:
+                return "本地 IQ / 费用 / 耗时加权 · 越高越好"
+            case .radarCostEfficiency:
+                return "Radar 费用 + 耗时指数 · 越低越好"
+            }
         }
     }
 
     private var sectionAccessibilityLabel: String {
         [
             rankingTitle,
-            overallExplanation,
+            metricExplanation,
             presentation == .expanded ? "已展开" : "点击展开"
         ]
         .compactMap { $0 }
