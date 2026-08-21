@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-21
+
 ### Added
 
 - 新增默认关闭的“站长推荐”，支持四类任务场景、上/下位置和独立离线缓存。
@@ -27,6 +29,7 @@
 - 静态卡片不再启用交互式玻璃光晕；可展开榜单与 Token 任务卡统一使用同一种轻量悬停和按压反馈。
 - 模型目录扩展为提供商与家族两级结构，统一驱动榜单、趋势、站长推荐、菜单栏简称和可见性设置；未知模型仍保持可读。
 - 模型 IQ 趋势按当前数据自适应纵轴范围，不再强制包含零点而压扁相近曲线。
+- 模型趋势同时使用颜色、线型和点型区分系列，提高低色觉与灰阶环境下的辨识度。
 - 本地测试 PKG 与正式构建统一要求 Developer ID 嵌套签名链和真实启动烟雾测试；GitHub Actions 升级到当前 Node 24 运行时版本。
 - OpenAI Help Center 当前阻止 GitHub Runner 自动抓取 Credits 费率，相关维护工作流暂改为手动审计；应用仍每 6 小时检查项目托管的最后有效清单并保留内置回退。
 
@@ -38,6 +41,7 @@
 - 四项榜单的指标说明仅在展开时统一显示一次，四宫格收起态保持紧凑。
 - 修复四宫格因说明和副标题结构不同而出现卡片高度不一致；综合榜单不再显示无关的任务通过率，所有常规排名行保持一致高度。
 - 榜单展开动画只匹配卡片材质，文字内容改为交叉淡化，避免自适应模型名称在展开和收起时拉伸、重排和顿挫。
+- 模型简称编辑器改为按提供商和家族管理，修复输入内部空格时的布局与保存体验。
 - 在线 Codex 费率和 API 价格检查失败时改为明确说明继续使用本地版本，不再误报为泛化的“数据服务器”或 CodexRadar 故障。
 - 修复 API 价格抓取器仅因抓取日期变化就追加相同价格版本、导致历史清单每天膨胀的问题。
 
@@ -272,7 +276,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.0.0...v1.1.0
