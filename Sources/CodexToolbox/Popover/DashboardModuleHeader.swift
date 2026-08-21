@@ -10,6 +10,8 @@ struct DashboardModuleHeader: View {
     let refresh: () -> Void
     let toggleCollapsed: () -> Void
 
+    @Environment(\.dashboardTheme) private var dashboardTheme
+
     var body: some View {
         ZStack(alignment: .trailing) {
             Button(action: toggleCollapsed) {
@@ -77,11 +79,7 @@ struct DashboardModuleHeader: View {
     }
 
     private var tint: Color {
-        switch module {
-        case .modelRadar: .blue
-        case .tokenUsage: .indigo
-        case .resetCredits: .teal
-        }
+        dashboardTheme.palette.accent(for: module)
     }
 
     private var toggleAccessibilityLabel: String {

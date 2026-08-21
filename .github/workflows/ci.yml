@@ -10,7 +10,7 @@ jobs:
     # macOS 14 deployment target and provides runtime fallbacks there.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Toolchain
         run: |
@@ -26,6 +26,7 @@ jobs:
       - name: Verify core
         run: |
           python3 -m unittest discover -s Tests/RateCardScriptTests -v
+          python3 -m unittest discover -s Tests/APIPriceScriptTests -v
           swift test
           swift run CoreVerification
 

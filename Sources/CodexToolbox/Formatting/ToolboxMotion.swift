@@ -25,12 +25,18 @@ enum ToolboxMotion {
 }
 
 struct ToolboxPressButtonStyle: ButtonStyle {
+    var isEnabled = true
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.97 : 1))
-            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(
+                reduceMotion || !isEnabled
+                    ? 1
+                    : (configuration.isPressed ? 0.97 : 1)
+            )
+            .opacity(isEnabled && configuration.isPressed ? 0.82 : 1)
             .animation(
                 reduceMotion
                     ? .easeOut(duration: 0.14)

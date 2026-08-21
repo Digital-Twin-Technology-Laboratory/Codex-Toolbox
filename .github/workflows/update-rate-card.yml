@@ -1,8 +1,9 @@
 name: Update Codex rate card
 
+# OpenAI Help Center currently challenges non-browser GitHub runners with HTTP
+# 403. Keep this verifier manual until an authoritative machine-readable source
+# is available; do not silently replace it with a third-party proxy.
 on:
-  schedule:
-    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -16,11 +17,11 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 

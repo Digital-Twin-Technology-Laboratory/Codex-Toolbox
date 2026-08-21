@@ -316,6 +316,45 @@ final class TrendPointTests: XCTestCase {
         XCTAssertTrue(saved.hasDrawableSeries)
     }
 
+    func testAdaptiveYDomainSeparatesNearbyIQCurvesWithoutIncludingZero() {
+        let models = [
+            trendModel(id: "a", effort: "low", values: [101, 103]),
+            trendModel(id: "b", effort: "high", values: [104, 106])
+        ]
+        let data = TrendSeriesBuilder.build(
+            benchmarks: models,
+            costHistory: [],
+            rankedModelIDs: ["b", "a"],
+            metric: .iq,
+            savedModelIDs: [],
+            days: 7,
+            now: date(2026, 8, 2, hour: 12),
+            calendar: utcCalendar
+        )
+
+        XCTAssertTrue(data.adaptiveYDomain.contains(101))
+        XCTAssertTrue(data.adaptiveYDomain.contains(106))
+        XCTAssertGreaterThan(data.adaptiveYDomain.lowerBound, 90)
+        XCTAssertLessThan(data.adaptiveYDomain.upperBound, 115)
+    }
+
+    func testAdaptiveYDomainPadsAnExactlyFlatSeries() {
+        let model = trendModel(id: "flat", effort: "high", values: [100, 100])
+        let data = TrendSeriesBuilder.build(
+            benchmarks: [model],
+            costHistory: [],
+            rankedModelIDs: ["flat"],
+            metric: .iq,
+            savedModelIDs: [],
+            days: 7,
+            now: date(2026, 8, 2, hour: 12),
+            calendar: utcCalendar
+        )
+
+        XCTAssertLessThan(data.adaptiveYDomain.lowerBound, 100)
+        XCTAssertGreaterThan(data.adaptiveYDomain.upperBound, 100)
+    }
+
     func testShortDateLabelFormatsPublishedISOTimestamp() {
         XCTAssertEqual(
             TrendPointBuilder.shortDateLabel("2026-08-02T13:23:26+08:00"),

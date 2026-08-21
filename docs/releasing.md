@@ -11,13 +11,13 @@ Codex Toolbox 使用 Semantic Versioning 和 `v<版本号>` 注释标签。v1.0.
 - `CURRENT_PROJECT_VERSION`：单调递增的正整数构建号。
 - `SPARKLE_PUBLIC_ED_KEY`：可公开提交的 Sparkle Ed25519 公钥；对应私钥只保存在发布者钥匙串或离线备份中。
 
-v1.2.1 附件固定为：
+v1.3.0 附件固定为：
 
 ```text
-Codex-Toolbox-1.2.1-universal.pkg
-Codex-Toolbox-1.2.1-universal.pkg.sha256
-Codex-Toolbox-1.2.1-universal.dmg
-Codex-Toolbox-1.2.1-universal.dmg.sha256
+Codex-Toolbox-1.3.0-universal.pkg
+Codex-Toolbox-1.3.0-universal.pkg.sha256
+Codex-Toolbox-1.3.0-universal.dmg
+Codex-Toolbox-1.3.0-universal.dmg.sha256
 appcast.xml
 ```
 
@@ -34,9 +34,10 @@ appcast.xml
 - PKG 和 DMG 的 Apple 公证均成功，ticket 已 staple，对应 Gatekeeper 检查通过。
 - `appcast.xml` 使用项目专用 Ed25519 密钥签署，下载 URL 指向当前不可变版本的 GitHub Release DMG。
 - PKG 实际验证了 Bundle ID、版本、双架构、签名、安装脚本与 SHA-256。
+- `codex-rate-card-v1.json` 与 `api-price-card-v1.json` 必须先随源码到达远端 `main`，两个 GitHub Raw 地址返回 200 且内容与发布提交一致。
 - 从最后一个 Show Codex IQ beta 升级后，只留下一个 Codex Toolbox，设置、榜单缓存与登录启动正常继承。
 - DMG 背景、内附说明和 Release Notes 均明确要求升级用户先删除 `Show Codex IQ.app`。
-- README、CHANGELOG、真实截图和 `docs/releases/v1.2.1.md` 与产物一致。
+- README、CHANGELOG、真实截图和 `docs/releases/v1.3.0.md` 与产物一致。
 - GitHub 仓库名为 `Digital-Twin-Technology-Laboratory/Codex-Toolbox`，本地 `origin` 指向新 URL。
 
 ## 构建与测试
@@ -47,7 +48,7 @@ bash scripts/test_all.sh
 
 该入口固定在 `/private/tmp` 内生成 SwiftPM 与 Xcode 测试产物，并在退出时终止、注销和删除临时 Debug 应用，避免 Spotlight 或 LaunchServices 把它暴露为第二个 Codex Toolbox。需要真实界面验收时，必须安装本轮 PKG 替换 `/Applications/Codex Toolbox.app`，不得直接运行 `DerivedData/Build/Products` 中的 `.app`。
 
-没有证书时可运行 `bash scripts/build_pkg.sh` 和 `bash scripts/build_dmg.sh` 生成本地测试产物。它们使用 ad-hoc 应用签名，PKG 安装器也未签名，仅用于验证打包结构，不能作为 Release 附件。
+本地真实安装验收使用 `bash scripts/build_local_test_pkg.sh`。该入口强制 Developer ID Application/Installer 签名、嵌套 Team ID 一致性校验和包内应用启动烟雾测试；不执行公证、staple、appcast 或发布。`build_pkg.sh` 不再自动退回 ad-hoc 签名，避免 Hardened Runtime 下的 Sparkle Team ID 不匹配产物通过静态校验。
 
 ## Developer ID 签名、公证与 staple
 
@@ -62,13 +63,13 @@ APP_SIGN_IDENTITY='Developer ID Application: Team Name (TEAMID)' \
 bash scripts/build_dmg.sh
 
 REQUIRE_DISTRIBUTION_SIGNATURE=1 \
-bash scripts/verify_pkg.sh dist/Codex-Toolbox-1.2.1-universal.pkg
+bash scripts/verify_pkg.sh dist/Codex-Toolbox-1.3.0-universal.pkg
 
 NOTARY_PROFILE='codex-toolbox-notary' \
-bash scripts/notarize_pkg.sh dist/Codex-Toolbox-1.2.1-universal.pkg
+bash scripts/notarize_pkg.sh dist/Codex-Toolbox-1.3.0-universal.pkg
 
 NOTARY_PROFILE='codex-toolbox-notary' \
-bash scripts/notarize_dmg.sh dist/Codex-Toolbox-1.2.1-universal.dmg
+bash scripts/notarize_dmg.sh dist/Codex-Toolbox-1.3.0-universal.dmg
 ```
 
 `notarize_pkg.sh` 和 `notarize_dmg.sh` 会分别等待公证结果、staple ticket、验证 ticket、运行对应 `spctl` 检查，然后重新生成 SHA-256。任一步失败即终止。
@@ -90,7 +91,7 @@ SPARKLE_BIN=/path/to/Sparkle/bin
 
 ```bash
 bash scripts/generate_appcast.sh \
-  dist/Codex-Toolbox-1.2.1-universal.dmg
+  dist/Codex-Toolbox-1.3.0-universal.dmg
 ```
 
 正式的 `release_github.sh` 会自动执行这一步，并把 `appcast.xml` 与 PKG、DMG、SHA-256 一起上传。应用固定读取 `releases/latest/download/appcast.xml`，appcast 内的 DMG 地址则固定到 `releases/download/v<版本>/...`，已发布附件不得覆盖。
@@ -104,6 +105,6 @@ bash scripts/generate_appcast.sh \
    ALLOW_GITHUB_RELEASE=YES bash scripts/release_github.sh
    ```
 
-3. 脚本会重新执行 PKG 与 DMG 的签名、staple 和 Gatekeeper 门禁，生成 Ed25519 签名 appcast，确认本地 `main` 与 `origin/main` 没有分叉，推送 `main`，创建签名注释标签 `v1.2.1`，并上传两种格式、各自校验和与 `appcast.xml`，创建不带 `--prerelease` 的普通 GitHub Release。
+3. 脚本会重新执行 PKG 与 DMG 的签名、staple 和 Gatekeeper 门禁，生成 Ed25519 签名 appcast，确认本地 `main` 与 `origin/main` 没有分叉，推送 `main`，验证两个远端价格清单已可读取且与本地一致，再创建签名注释标签 `v1.3.0`，并上传两种格式、各自校验和与 `appcast.xml`，创建不带 `--prerelease` 的普通 GitHub Release。
 
 已发布的标签与附件不得覆盖；任何修复使用新版本号。

@@ -10,24 +10,12 @@ fi
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT_DIR/scripts/version.sh"
 
-if pgrep -f '/Codex Toolbox.app/Contents/MacOS/Codex Toolbox' >/dev/null 2>&1; then
-    echo "Codex Toolbox is already running. Quit every installed, test, and demo copy before DMG launch verification." >&2
-    echo "This prevents multiple menu-bar instances with the same Bundle ID from being mistaken for the build under test." >&2
-    exit 1
-fi
-
 DMG_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 MOUNT_POINT="$(mktemp -d "${TMPDIR%/}/CodexToolbox-verify-mount.XXXXXX")"
-SMOKE_DIR="$(mktemp -d "${TMPDIR%/}/CodexToolbox-launch-smoke.XXXXXX")"
-SMOKE_PID=""
 
 cleanup() {
-    if [[ -n "$SMOKE_PID" ]] && kill -0 "$SMOKE_PID" >/dev/null 2>&1; then
-        kill "$SMOKE_PID" >/dev/null 2>&1 || true
-        wait "$SMOKE_PID" >/dev/null 2>&1 || true
-    fi
     hdiutil detach "$MOUNT_POINT" >/dev/null 2>&1 || true
-    rm -rf "$MOUNT_POINT" "$SMOKE_DIR" >/dev/null 2>&1 || true
+    rm -rf "$MOUNT_POINT" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -88,35 +76,7 @@ if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then
     fi
 fi
 
-mkdir -p "$SMOKE_DIR/home"
-run_launch_smoke_test() {
-    local label="$1"
-    local shows_trend_chart="$2"
-    local stdout_log="$SMOKE_DIR/$label-stdout.log"
-    local stderr_log="$SMOKE_DIR/$label-stderr.log"
-
-    CFFIXED_USER_HOME="$SMOKE_DIR/home" \
-        "$EXECUTABLE" \
-        -showsTrendChart "$shows_trend_chart" \
-        >"$stdout_log" \
-        2>"$stderr_log" &
-    SMOKE_PID=$!
-    sleep 3
-
-    if ! kill -0 "$SMOKE_PID" >/dev/null 2>&1; then
-        wait "$SMOKE_PID" >/dev/null 2>&1 || true
-        echo "App exited during the $label launch smoke test" >&2
-        sed -n '1,120p' "$stderr_log" >&2
-        exit 1
-    fi
-
-    kill "$SMOKE_PID" >/dev/null 2>&1 || true
-    wait "$SMOKE_PID" >/dev/null 2>&1 || true
-    SMOKE_PID=""
-}
-
-run_launch_smoke_test "trend-visible" true
-run_launch_smoke_test "trend-hidden" false
+"$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
 
 if [[ -f "$DMG_PATH.sha256" ]]; then
     (cd "$(dirname "$DMG_PATH")" && shasum -a 256 -c "$(basename "$DMG_PATH").sha256")
@@ -125,4 +85,3 @@ fi
 echo "DMG verified: $(basename "$DMG_PATH")"
 echo "Architectures: $ARCHITECTURES"
 echo "Installer layout: background, Applications shortcut, and upgrade guide present"
-echo "Launch smoke tests: passed"

@@ -28,15 +28,15 @@ struct AboutView: View {
                 Link("Codex 雷达", destination: AppMetadata.radarURL)
             }
 
-            GroupBox("数据与隐私") {
+            GroupBox("数据、隐私与高级选项") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("模型与可选站长推荐数据来自 Codex Radar；费率来自项目托管的 OpenAI 公开费率版本。应用不调用模型、不上传任务或 Token，也不包含分析 SDK。")
+                    Text("模型与可选站长推荐数据来自 Codex Radar；Credits 费率与 API 等值价格来自项目托管的版本化清单。应用不调用模型、不上传任务或 Token，也不包含分析 SDK。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Button(action: onOpenPrivacyDetails) {
                         HStack {
-                            Label("查看数据与隐私详情", systemImage: "hand.raised")
+                            Label("查看数据、隐私与高级选项", systemImage: "hand.raised")
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
@@ -56,6 +56,7 @@ struct AboutView: View {
 }
 
 struct AboutPrivacySettingsView: View {
+    @Bindable var appModel: AppModel
     let onBack: () -> Void
 
     var body: some View {
@@ -73,14 +74,14 @@ struct AboutPrivacySettingsView: View {
 
                 Section("Token 用量") {
                     Label("只读本机 Codex 数据", systemImage: "externaldrive.badge.checkmark")
-                    Text("账本保存原始 Token 分项、执行上下文和脱敏账户窗口，用于按历史费率计算 Credits 与校准任务估算；不上传任务内容。")
+                    Text("账本保存原始 Token 分项、执行上下文和脱敏账户窗口，用于按历史价格派生 API 等值成本、计算 Credits 与校准任务估算；不上传任务内容。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("费率更新") {
+                Section("费率与 API 价格更新") {
                     Label("只读取项目托管的版本化 JSON", systemImage: "dollarsign.arrow.circlepath")
-                    Text("只发送 GET/ETag，不携带账户、任务、Token 或设备信息；无效远程数据不会覆盖上次有效版本。")
+                    Text("OpenAI 价格优先采用官方 API 定价，其他供应商采用构建时同步的 models.dev 快照；客户端只请求项目托管清单。GET/ETag 不携带账户、任务、Token 或设备信息，无效远程数据不会覆盖上次有效版本。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -98,6 +99,19 @@ struct AboutPrivacySettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("高级显示") {
+                    Toggle(
+                        "显示实验性功能入口",
+                        isOn: Binding(
+                            get: { appModel.settings.showsExperimentalFeaturesEntry },
+                            set: { appModel.settings.showsExperimentalFeaturesEntry = $0 }
+                        )
+                    )
+                    Text("仅控制设置首页是否显示入口，不会关闭已经启用的实验功能。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
             .padding(8)
@@ -106,7 +120,7 @@ struct AboutPrivacySettingsView: View {
 
     private var header: some View {
         ZStack {
-            Text("数据与隐私详情")
+            Text("数据、隐私与高级选项")
                 .font(.headline)
 
             HStack {

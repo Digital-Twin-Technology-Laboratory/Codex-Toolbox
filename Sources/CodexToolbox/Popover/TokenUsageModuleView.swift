@@ -11,7 +11,9 @@ struct TokenUsageModuleView: View {
     @State private var isTaskCardHovered = false
     @State private var hoveredDateKey: String?
     @State private var selectedDateKey: String?
+    @State private var trendMetric: UsageTrendMetric = .tokens
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -49,6 +51,9 @@ struct TokenUsageModuleView: View {
         .onDisappear {
             resetDateSelection()
         }
+        .onChange(of: appModel.settings.showsAPICostEstimatesInMenuBar) { _, isEnabled in
+            if !isEnabled { trendMetric = .tokens }
+        }
     }
 
     @ViewBuilder
@@ -78,14 +83,14 @@ struct TokenUsageModuleView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 58)
         .padding(11)
-        .adaptiveGlassCard(tint: .indigo, id: "token-loading", namespace: glassNamespace)
+        .adaptiveGlassCard(tint: tint, id: "token-loading", namespace: glassNamespace)
     }
 
     private var taskBreakdown: some View {
         Button(action: toggleTaskList) {
             taskBreakdownContent
         }
-        .buttonStyle(ToolboxPressButtonStyle())
+        .buttonStyle(ToolboxPressButtonStyle(isEnabled: hasAdditionalTasks))
         .accessibilityLabel("\(selectedPeriodName) Token Top \(currentTaskLimit) 任务榜单")
         .accessibilityHint(taskCardHelp)
         .overlay(alignment: .topTrailing) {
@@ -93,9 +98,9 @@ struct TokenUsageModuleView: View {
                 Button(action: returnToToday) {
                     Label("返回今日", systemImage: "arrow.uturn.backward")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.indigo)
+                        .foregroundStyle(tint)
                         .frame(width: 78, height: TaskHeaderControlMetrics.height)
-                        .background(.indigo.opacity(0.10), in: Capsule())
+                        .background(tint.opacity(0.10), in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 11)
@@ -105,13 +110,12 @@ struct TokenUsageModuleView: View {
             }
         }
         .adaptiveGlassCard(
-            tint: .indigo,
+            tint: tint,
             id: "token-tasks",
-            namespace: glassNamespace,
-            isInteractive: hasAdditionalTasks
+            namespace: glassNamespace
         )
         .adaptiveInteractiveCardFeedback(
-            tint: .indigo,
+            tint: tint,
             isHovered: isTaskCardHovered,
             isEnabled: hasAdditionalTasks
         )
@@ -140,19 +144,21 @@ struct TokenUsageModuleView: View {
                 }
 
                 if remainingTokens > 0 {
-                    HStack {
+                    HStack(spacing: 8) {
                         Text("其余任务")
                         Spacer()
                         Text(
-                            usageAndQuotaText(
+                            usageMetadataText(
                                 tokens: remainingTokens,
-                                taskIDs: remainingTaskIDs
+                                taskIDs: remainingTaskIDs,
+                                costUSD: remainingCostUSD,
+                                costPrecision: remainingCostPrecision
                             )
                         )
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.78)
-                            .help(quotaEstimateHelp(taskIDs: remainingTaskIDs))
+                            .help(usageMetadataHelp(taskIDs: remainingTaskIDs))
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -169,7 +175,7 @@ struct TokenUsageModuleView: View {
             HStack(alignment: .center, spacing: 8) {
                 Label("\(selectedPeriodName) Top \(currentTaskLimit) 任务", systemImage: "list.number")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(tint)
                     .lineLimit(1)
 
                 Spacer()
@@ -200,13 +206,28 @@ struct TokenUsageModuleView: View {
             }
             .padding(.trailing, isViewingToday ? 0 : 78 + 8)
 
-            Text(format(selectedSummary?.totalTokens ?? 0))
-                .font(.system(size: 25, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.64)
-                .allowsTightening(true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(format(selectedSummary?.totalTokens ?? 0))
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.64)
+                    .allowsTightening(true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if showsCostEstimates {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(costText(selectedSummary))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        Text("API 等值成本估算")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .fixedSize()
+                }
+            }
 
             Text(isViewingToday ? "今日本机原始 Token" : "当日本机原始 Token")
                 .font(.caption2)
@@ -229,68 +250,89 @@ struct TokenUsageModuleView: View {
                 }
                 Spacer()
                 Text(
-                    usageAndQuotaText(
+                    usageMetadataText(
                         tokens: task.tokens,
-                        taskIDs: [task.id]
+                        taskIDs: [task.id],
+                        costUSD: task.costUSD,
+                        costPrecision: task.costPrecision
                     )
                 )
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .help(quotaEstimateHelp(taskIDs: [task.id]))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .help(usageMetadataHelp(taskIDs: [task.id], task: task))
             }
             ProgressView(value: Double(task.tokens), total: Double(max(1, selectedSummary?.totalTokens ?? 0)))
-                .tint(.indigo)
+                .tint(tint)
                 .accessibilityLabel(task.title)
                 .accessibilityValue(
-                    usageAndQuotaText(tokens: task.tokens, taskIDs: [task.id])
+                    usageMetadataText(
+                        tokens: task.tokens,
+                        taskIDs: [task.id],
+                        costUSD: task.costUSD,
+                        costPrecision: task.costPrecision
+                    )
                 )
         }
     }
 
     private var trendChart: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Label("每日用量趋势", systemImage: "chart.bar.xaxis")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.indigo)
+                    .foregroundStyle(tint)
 
                 Spacer()
 
-                Text(trendSummary)
-                    .font(.caption2.weight(hasTrendEmphasis ? .semibold : .regular))
-                    .foregroundStyle(hasTrendEmphasis ? Color.indigo : Color.gray)
-                    .monospacedDigit()
-                    .lineLimit(1)
+                if showsCostEstimates {
+                    Picker("趋势指标", selection: $trendMetric) {
+                        ForEach(UsageTrendMetric.allCases) { metric in
+                            Text(metric.title).tag(metric)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 112)
+                } else {
+                    trendSummaryLabel
+                }
             }
-            .frame(minHeight: 16)
+            .frame(minHeight: showsCostEstimates ? 24 : 16)
+
+            if showsCostEstimates {
+                trendSummaryLabel
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
 
             Chart {
                 ForEach(trendPoints) { point in
-                    BarMark(
-                        x: .value("日期", point.date, unit: .day),
-                        y: .value("Token", point.tokens)
-                    )
+                    if let value = trendValue(point) {
+                        BarMark(
+                            x: .value("日期", point.date, unit: .day),
+                            y: .value(trendMetric.title, value)
+                        )
                     .foregroundStyle(
                         point.dateKey == selectedDateKey
-                            ? Color.indigo
+                            ? tint
                             : point.dateKey == hoveredDateKey
-                                ? Color.indigo.opacity(0.86)
-                                : Color.indigo.opacity(0.66)
+                                ? tint.opacity(0.86)
+                                : tint.opacity(0.66)
                     )
                     .cornerRadius(3)
+                    }
                 }
 
                 if let selectedPoint {
                     RuleMark(x: .value("已选日期", selectedPoint.date, unit: .day))
-                        .foregroundStyle(.indigo.opacity(0.60))
+                        .foregroundStyle(tint.opacity(0.60))
                         .lineStyle(StrokeStyle(lineWidth: 1.25))
                 }
 
                 if let hoveredPoint {
                     RuleMark(x: .value("选中日期", hoveredPoint.date, unit: .day))
-                        .foregroundStyle(.indigo.opacity(0.35))
+                        .foregroundStyle(tint.opacity(0.35))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 }
             }
@@ -307,8 +349,8 @@ struct TokenUsageModuleView: View {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
                     AxisGridLine().foregroundStyle(.secondary.opacity(0.12))
                     AxisValueLabel {
-                        if let tokens = value.as(Int64.self) {
-                            Text(compact(tokens)).font(.system(size: 8))
+                        if let raw = value.as(Double.self) {
+                            Text(trendAxisLabel(raw)).font(.system(size: 8))
                         }
                     }
                 }
@@ -352,11 +394,11 @@ struct TokenUsageModuleView: View {
                 }
             }
             .frame(height: 124)
-            .accessibilityLabel("每日本机原始 Token 趋势")
+            .accessibilityLabel("每日\(trendMetric.title)趋势")
             .accessibilityHint("点击柱形查看该日任务明细")
         }
         .padding(11)
-        .adaptiveGlassCard(tint: .indigo, id: "token-trend", namespace: glassNamespace)
+        .adaptiveGlassCard(tint: tint, id: "token-trend", namespace: glassNamespace)
     }
 
     private var todayDateKey: String {
@@ -410,6 +452,24 @@ struct TokenUsageModuleView: View {
         return Set(tasks.dropFirst(currentTaskLimit).map(\.id))
     }
 
+    private var remainingTasks: ArraySlice<DailyTaskUsage> {
+        selectedSummary?.tasks.dropFirst(currentTaskLimit) ?? []
+    }
+
+    private var remainingCostUSD: Decimal? {
+        let values = remainingTasks.compactMap(\.costUSD)
+        return values.isEmpty ? nil : values.reduce(0, +)
+    }
+
+    private var remainingCostPrecision: CostEstimatePrecision? {
+        let priced = remainingTasks.reduce(0) { $0 + $1.pricedTokens }
+        if priced > 0, priced < remainingTokens { return .lowerBound }
+        if remainingTasks.contains(where: { $0.costPrecision == .approximate }) {
+            return .approximate
+        }
+        return remainingTasks.compactMap(\.costPrecision).first
+    }
+
     private var taskCardHelp: String {
         if !hasAdditionalTasks {
             return "\(selectedPeriodName)仅有 \(taskCount) 个根任务，没有更多可展开项"
@@ -419,17 +479,32 @@ struct TokenUsageModuleView: View {
             : "点击展开为 \(appModel.settings.usageExpandedTaskLimit.displayName)"
     }
 
-    private func usageAndQuotaText(
+    private func usageMetadataText(
         tokens: Int64,
-        taskIDs: Set<String>
+        taskIDs: Set<String>,
+        costUSD: Decimal?,
+        costPrecision: CostEstimatePrecision?
     ) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
-        let base = format(tokens)
-        guard !estimates.isEmpty else { return base }
-        let quota = estimates.map {
+        var components = [format(tokens)]
+        components.append(contentsOf: estimates.map {
             "\($0.window.displayName)≈\(formatPercent($0.percent))"
-        }.joined(separator: " / ")
-        return "\(base) · \(quota)"
+        })
+        if showsCostEstimates {
+            components.append(MetricFormatter.apiCost(costUSD, precision: costPrecision))
+        }
+        return components.joined(separator: " · ")
+    }
+
+    private func usageMetadataHelp(
+        taskIDs: Set<String>,
+        task: DailyTaskUsage? = nil
+    ) -> String {
+        var details = [quotaEstimateHelp(taskIDs: taskIDs)]
+        if showsCostEstimates {
+            details.append(task.map(costHelp) ?? "按输入、输出与缓存分项估算其余任务成本，并非订阅账单")
+        }
+        return details.joined(separator: "；")
     }
 
     private func quotaEstimateHelp(taskIDs: Set<String>) -> String {
@@ -463,6 +538,7 @@ struct TokenUsageModuleView: View {
                 hasConcurrentInterference: estimates.contains { $0.hasConcurrentInterference }
             )
         }
+        .sorted { $0.window.durationMinutes > $1.window.durationMinutes }
     }
 
     private func combinedConfidence(
@@ -487,7 +563,11 @@ struct TokenUsageModuleView: View {
             return TokenTrendPoint(
                 date: date,
                 dateKey: key,
-                tokens: appModel.usageHistory?.summary(for: key)?.totalTokens ?? 0
+                tokens: appModel.usageHistory?.summary(for: key)?.totalTokens ?? 0,
+                costUSD: appModel.usageHistory?.summary(for: key)?.totalCostUSD.map {
+                    NSDecimalNumber(decimal: $0).doubleValue
+                },
+                costPrecision: appModel.usageHistory?.summary(for: key)?.costPrecision
             )
         }
     }
@@ -508,10 +588,10 @@ struct TokenUsageModuleView: View {
 
     private var trendSummary: String {
         if let point = hoveredPoint {
-            return "\(localizedDate(point.dateKey)) · \(format(point.tokens)) Token"
+            return "\(localizedDate(point.dateKey)) · \(trendPointLabel(point))"
         }
         if let point = selectedPoint {
-            return "\(localizedDate(point.dateKey)) · \(format(point.tokens)) Token · 已选"
+            return "\(localizedDate(point.dateKey)) · \(trendPointLabel(point)) · 已选"
         }
         return "最近 \(appModel.settings.usageTrendRange.rawValue) 天 · 点击柱形查看"
     }
@@ -568,6 +648,60 @@ struct TokenUsageModuleView: View {
         default: return "\(value)"
         }
     }
+
+    private func costText(_ summary: DailyUsageSummary?) -> String {
+        MetricFormatter.apiCost(summary?.totalCostUSD, precision: summary?.costPrecision)
+    }
+
+    private var trendSummaryLabel: some View {
+        Text(trendSummary)
+            .font(.caption2.weight(hasTrendEmphasis ? .semibold : .regular))
+            .foregroundStyle(hasTrendEmphasis ? tint : Color.secondary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.88)
+            .help(trendSummary)
+    }
+
+    private func costHelp(_ task: DailyTaskUsage) -> String {
+        guard task.costUSD != nil else { return "当前模型或 Token 分项未定价" }
+        return "按输入、输出与缓存分项估算；已定价 Token 覆盖率 \(String(format: "%.1f%%", task.costCoverage * 100))，并非订阅账单"
+    }
+
+    private func trendValue(_ point: TokenTrendPoint) -> Double? {
+        switch trendMetric {
+        case .tokens: return Double(point.tokens)
+        case .cost: return point.costUSD
+        }
+    }
+
+    private func trendAxisLabel(_ value: Double) -> String {
+        switch trendMetric {
+        case .tokens: return compact(Int64(value))
+        case .cost:
+            if value < 0.01 { return String(format: "$%.3f", value) }
+            return String(format: "$%.2f", value)
+        }
+    }
+
+    private func trendPointLabel(_ point: TokenTrendPoint) -> String {
+        switch trendMetric {
+        case .tokens: return "\(format(point.tokens)) Token"
+        case .cost:
+            return MetricFormatter.apiCost(
+                point.costUSD.map { Decimal($0) },
+                precision: point.costPrecision
+            )
+        }
+    }
+
+    private var tint: Color {
+        dashboardTheme.palette.accent(for: .tokenUsage)
+    }
+
+    private var showsCostEstimates: Bool {
+        appModel.settings.showsAPICostEstimatesInMenuBar
+    }
 }
 
 private enum TaskHeaderControlMetrics {
@@ -578,7 +712,17 @@ private struct TokenTrendPoint: Identifiable {
     let date: Date
     let dateKey: String
     let tokens: Int64
+    let costUSD: Double?
+    let costPrecision: CostEstimatePrecision?
     var id: String { dateKey }
+}
+
+private enum UsageTrendMetric: String, CaseIterable, Identifiable {
+    case tokens
+    case cost
+
+    var id: String { rawValue }
+    var title: String { self == .tokens ? "Token" : "成本" }
 }
 
 struct InlineModuleNotice: View {

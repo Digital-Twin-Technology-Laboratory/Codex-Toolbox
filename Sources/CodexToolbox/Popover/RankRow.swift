@@ -30,6 +30,9 @@ struct RankRow: View {
     let presentation: RankingSectionPresentation
     let showsExpandedMetrics: Bool
     let overallMode: OverallRankingMode
+    let compactModelName: String
+
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     var body: some View {
         Group {
@@ -50,12 +53,11 @@ struct RankRow: View {
                 .frame(width: RankingTableLayout.medalWidth, height: RankingTableLayout.medalWidth)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(ranked.benchmark.label)
+                Text(presentation == .expanded ? ranked.benchmark.label : compactModelName)
                     .font(.system(size: presentation == .expanded ? 12 : 11, weight: .semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(presentation == .standard ? 0.82 : 1)
-                    .allowsTightening(presentation == .standard)
-                    .truncationMode(.middle)
+                    .minimumScaleFactor(0.82)
+                    .allowsTightening(true)
                     .layoutPriority(2)
                     .help(ranked.benchmark.label)
                 if let statusText {
@@ -89,10 +91,11 @@ struct RankRow: View {
             HStack(spacing: 5) {
                 medal
                     .frame(width: 18, height: 18)
-                Text(MetricFormatter.compactModelName(ranked.benchmark.label))
+                Text(compactModelName)
                     .font(.system(size: 9, weight: .semibold))
                     .lineLimit(1)
-                    .truncationMode(.middle)
+                    .minimumScaleFactor(0.78)
+                    .allowsTightening(true)
                     .help(ranked.benchmark.label)
             }
             valueText
@@ -120,7 +123,7 @@ struct RankRow: View {
         )
             .font(.system(size: presentation == .compact ? 10 : 11, weight: .bold, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(ranked.metric.tint)
+            .foregroundStyle(dashboardTheme.palette.accent(for: ranked.metric))
             .lineLimit(1)
             .minimumScaleFactor(0.68)
     }

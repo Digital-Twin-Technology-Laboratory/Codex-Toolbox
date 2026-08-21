@@ -15,15 +15,24 @@ struct TokenUsageSettingsView: View {
                 }
             }
 
+            Section("菜单栏显示") {
+                Toggle("显示估算成本", isOn: costEstimatesInMenuBarBinding)
+                Text("仅控制展开菜单栏中的成本数字和 Token／成本趋势切换；设置页仍会计算并显示成本。新用户默认关闭。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("当前用量概览") {
                 usageDetail("本机 Token", value: currentTokenText)
+                usageDetail("API 等值成本（估算）", value: currentCostText)
+                usageDetail("定价覆盖率", value: costCoverageText)
                 usageDetail("本机 Credits", value: currentCreditsText)
                 usageDetail("账户已用", value: accountUsedText)
                 usageDetail("估算置信度", value: estimateConfidenceText)
             }
 
             Section("官方费率与 Credits") {
-                Toggle("自动更新官方费率", isOn: automaticRateUpdatesBinding)
+                Toggle("自动更新费率与价格", isOn: automaticRateUpdatesBinding)
                 Picker("费率制度", selection: rateCardModeBinding) {
                     ForEach(RateCardMode.allCases) { mode in
                         Text(mode.displayName).tag(mode)
@@ -48,6 +57,36 @@ struct TokenUsageSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let errorMessage = appModel.rateCardState.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            Section("API 等值成本明细") {
+                usageDetail("新输入", value: componentCostText(\.freshInputUSD))
+                usageDetail("缓存读取", value: componentCostText(\.cachedInputUSD))
+                usageDetail("缓存写入", value: componentCostText(\.cacheWriteUSD))
+                usageDetail("输出（含推理）", value: componentCostText(\.outputUSD))
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("价格版本 \(appModel.apiPriceCardState.manifest.currentVersion)")
+                        Text(apiPriceStatus)
+                            .foregroundStyle(appModel.isAPIPriceCardStale ? .orange : .secondary)
+                    }
+                    .font(.caption)
+                    Spacer()
+                    Button("立即检查") {
+                        Task { await appModel.refreshRateCard() }
+                    }
+                    .disabled(appModel.isRefreshingRateCard || appModel.isRefreshingAPIPriceCard)
+                }
+
+                Text("OpenAI 使用官方 API 价格，其他供应商使用 models.dev；金额是 API 等值估算，并非 ChatGPT/Codex 订阅账单。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let errorMessage = appModel.apiPriceCardState.errorMessage {
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundStyle(.orange)
@@ -111,6 +150,13 @@ struct TokenUsageSettingsView: View {
         )
     }
 
+    private var costEstimatesInMenuBarBinding: Binding<Bool> {
+        Binding(
+            get: { appModel.settings.showsAPICostEstimatesInMenuBar },
+            set: { appModel.settings.showsAPICostEstimatesInMenuBar = $0 }
+        )
+    }
+
     private var expandedTaskLimitBinding: Binding<UsageExpandedTaskLimit> {
         Binding(
             get: { appModel.settings.usageExpandedTaskLimit },
@@ -170,6 +216,30 @@ struct TokenUsageSettingsView: View {
             ? "<0.01"
             : String(format: "%.2f", credits)
         return "\(creditPrefix(summary.creditPrecision))\(value) Cr"
+    }
+
+    private var currentCostText: String {
+        guard let summary = todaySummary else { return "--" }
+        return MetricFormatter.apiCost(summary.totalCostUSD, precision: summary.costPrecision)
+    }
+
+    private var costCoverageText: String {
+        guard let summary = todaySummary, summary.totalTokens > 0 else { return "--" }
+        return String(format: "%.1f%%", summary.costCoverage * 100)
+    }
+
+    private func componentCostText(_ keyPath: KeyPath<APICostBreakdown, Decimal>) -> String {
+        guard let breakdown = todaySummary?.costBreakdown else { return "--" }
+        return MetricFormatter.apiCost(breakdown[keyPath: keyPath])
+    }
+
+    private var apiPriceStatus: String {
+        if appModel.isAPIPriceCardStale { return "价格来源可能过期" }
+        switch appModel.apiPriceCardState.source {
+        case .bundled: return "内置 OpenAI + models.dev 快照"
+        case .cached: return "上次有效缓存"
+        case .remote: return "已从项目托管清单校验"
+        }
     }
 
     private var accountUsedText: String {

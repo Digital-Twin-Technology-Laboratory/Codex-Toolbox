@@ -7,14 +7,15 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnap
         now: Date,
         calendar: Calendar,
         rateCard: RateCardManifest?,
-        rateCardMode: RateCardMode
+        rateCardMode: RateCardMode,
+        apiPriceCard: APIPriceManifest?
     ) async throws -> UsageHistory {
         let totals: [Int64] = [182_400, 296_800, 241_100, 418_600, 387_900, 512_300, 684_200]
         let days = totals.enumerated().compactMap { index, total -> DailyUsageSummary? in
             guard let date = calendar.date(byAdding: .day, value: index - 6, to: now) else { return nil }
             let key = dayKey(date, calendar: calendar)
             if index == totals.count - 1 {
-                return DailyUsageSummary(
+                let summary = DailyUsageSummary(
                     dateKey: key,
                     totalTokens: total,
                     tasks: [
@@ -91,11 +92,12 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnap
                     ],
                     isComplete: true
                 )
+                return withDemoCost(summary)
             }
             let researchTokens = total * 52 / 100
             let implementationTokens = total * 31 / 100
             let verificationTokens = total - researchTokens - implementationTokens
-            return DailyUsageSummary(
+            let summary = DailyUsageSummary(
                 dateKey: key,
                 totalTokens: total,
                 tasks: [
@@ -123,6 +125,7 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnap
                 ],
                 isComplete: true
             )
+            return withDemoCost(summary)
         }
         return UsageHistory(
             generatedAt: now,
@@ -147,6 +150,51 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnap
             components.year ?? 0,
             components.month ?? 0,
             components.day ?? 0
+        )
+    }
+
+    private func withDemoCost(_ summary: DailyUsageSummary) -> DailyUsageSummary {
+        let tasks = summary.tasks.map(costedDemoTask)
+        let breakdowns = tasks.compactMap(\.costBreakdown)
+        let breakdown = APICostBreakdown(
+            freshInputUSD: breakdowns.reduce(0) { $0 + $1.freshInputUSD },
+            cachedInputUSD: breakdowns.reduce(0) { $0 + $1.cachedInputUSD },
+            cacheWriteUSD: breakdowns.reduce(0) { $0 + $1.cacheWriteUSD },
+            outputUSD: breakdowns.reduce(0) { $0 + $1.outputUSD }
+        )
+        let pricedTokens = tasks.reduce(Int64(0)) { $0 + $1.pricedTokens }
+        return DailyUsageSummary(
+            dateKey: summary.dateKey,
+            totalTokens: summary.totalTokens,
+            totalCostUSD: breakdown.totalUSD,
+            costPrecision: pricedTokens < summary.totalTokens ? .lowerBound : .approximate,
+            pricedTokens: pricedTokens,
+            costBreakdown: breakdown,
+            tasks: tasks,
+            isComplete: summary.isComplete
+        )
+    }
+
+    private func costedDemoTask(_ task: DailyTaskUsage) -> DailyTaskUsage {
+        let hasPartialCoverage = task.rootTaskID == "usage"
+        let pricedTokens = hasPartialCoverage ? task.tokens * 72 / 100 : task.tokens
+        let units = Decimal(pricedTokens) / Decimal(1_000_000)
+        let breakdown = APICostBreakdown(
+            freshInputUSD: units * Decimal(string: "1.20")!,
+            cachedInputUSD: units * Decimal(string: "0.08")!,
+            cacheWriteUSD: units * Decimal(string: "0.22")!,
+            outputUSD: units * Decimal(string: "6.40")!
+        )
+        return DailyTaskUsage(
+            dateKey: task.dateKey,
+            rootTaskID: task.rootTaskID,
+            title: task.title,
+            tokens: task.tokens,
+            costUSD: breakdown.totalUSD,
+            costPrecision: hasPartialCoverage ? .lowerBound : .approximate,
+            pricedTokens: pricedTokens,
+            costBreakdown: breakdown,
+            descendantCount: task.descendantCount
         )
     }
 

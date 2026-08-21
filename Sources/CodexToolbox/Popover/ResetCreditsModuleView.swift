@@ -4,6 +4,7 @@ import SwiftUI
 struct ResetCreditsModuleView: View {
     @Bindable var appModel: AppModel
     @Namespace private var glassNamespace
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
@@ -62,7 +63,7 @@ struct ResetCreditsModuleView: View {
             }
         }
         .padding(12)
-        .adaptiveGlassCard(tint: .teal, id: "reset-credits", namespace: glassNamespace)
+        .adaptiveGlassCard(tint: tint, id: "reset-credits", namespace: glassNamespace)
         .accessibilityElement(children: .contain)
     }
 
@@ -78,7 +79,7 @@ struct ResetCreditsModuleView: View {
                 ForEach(Array(snapshot.credits.enumerated()), id: \.element.id) { index, credit in
                     HStack(alignment: .top, spacing: 9) {
                         Image(systemName: "clock")
-                            .foregroundStyle(.teal)
+                            .foregroundStyle(tint)
                             .frame(width: 16)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("重置卡 \(index + 1)")
@@ -126,5 +127,9 @@ struct ResetCreditsModuleView: View {
         formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
         formatter.dateFormat = "yyyy年M月d日 HH:mm"
         return formatter.string(from: date)
+    }
+
+    private var tint: Color {
+        dashboardTheme.palette.accent(for: .resetCredits)
     }
 }

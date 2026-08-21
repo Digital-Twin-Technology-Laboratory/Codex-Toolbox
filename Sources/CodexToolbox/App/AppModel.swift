@@ -12,6 +12,7 @@ final class AppModel {
     private let repository: RadarRepository
     private let stationRepository: StationRecommendationRepository
     private let rateCardRepository: RateCardRepository
+    private let apiPriceCardRepository: APIPriceCardRepository
     private let radarScheduler: RefreshScheduler
     private let usageScheduler: RefreshScheduler
     private let resetCreditsScheduler: RefreshScheduler
@@ -25,9 +26,11 @@ final class AppModel {
     var repositoryState: RadarRepositoryState = .empty
     var stationRecommendationState: StationRecommendationRepositoryState = .empty
     var rateCardState: RateCardRepositoryState
+    var apiPriceCardState: APIPriceCardRepositoryState
     var isRefreshing = false
     var isRefreshingStationRecommendations = false
     var isRefreshingRateCard = false
+    var isRefreshingAPIPriceCard = false
     var hasLoadedCache = false
     var usageHistory: UsageHistory?
     var taskQuotaEstimatesByDuration: [Int: [String: TaskQuotaEstimate]] = [:]
@@ -45,6 +48,7 @@ final class AppModel {
         ),
         stationRepository: StationRecommendationRepository = StationRecommendationRepository(),
         rateCardRepository: RateCardRepository? = nil,
+        apiPriceCardRepository: APIPriceCardRepository? = nil,
         radarScheduler: RefreshScheduler = RefreshScheduler(),
         usageScheduler: RefreshScheduler = RefreshScheduler(),
         resetCreditsScheduler: RefreshScheduler = RefreshScheduler(),
@@ -61,10 +65,20 @@ final class AppModel {
         self.repository = repository
         self.stationRepository = stationRepository
         let bundledRateCard = Self.loadBundledRateCard()
+        let bundledAPIPriceCard = Self.loadBundledAPIPriceCard()
         self.rateCardRepository = rateCardRepository
             ?? RateCardRepository(bundledManifest: bundledRateCard)
         rateCardState = RateCardRepositoryState(
             manifest: bundledRateCard,
+            source: .bundled,
+            fetchedAt: nil,
+            validators: CacheValidators(),
+            errorMessage: nil
+        )
+        self.apiPriceCardRepository = apiPriceCardRepository
+            ?? APIPriceCardRepository(bundledManifest: bundledAPIPriceCard)
+        apiPriceCardState = APIPriceCardRepositoryState(
+            manifest: bundledAPIPriceCard,
             source: .bundled,
             fetchedAt: nil,
             validators: CacheValidators(),
@@ -105,9 +119,14 @@ final class AppModel {
     }
 
     var isRateCardStale: Bool { rateCardState.isStale(now: Date()) }
+    var isAPIPriceCardStale: Bool { apiPriceCardState.isStale(now: Date()) }
 
     var availableModels: [ModelBenchmark] {
         ModelCatalog.sorted(snapshot?.benchmarks ?? [])
+    }
+
+    var visibleModels: [ModelBenchmark] {
+        availableModels.filter(settings.isModelVisible)
     }
 
     var menuBarRanking: [RankedModel] {
@@ -116,7 +135,7 @@ final class AppModel {
 
     func rankings(for metric: RankingMetric) -> [RankedModel] {
         RankingEngine.rank(
-            snapshot?.benchmarks ?? [],
+            visibleModels,
             by: metric,
             weights: settings.rankingWeights,
             overallMode: settings.overallRankingMode
@@ -127,7 +146,9 @@ final class AppModel {
         guard !didStart else { return }
         didStart = true
         repositoryState = await repository.loadCached()
+        settings.migrateLegacyModelAliases(using: availableModels)
         rateCardState = await rateCardRepository.loadCached()
+        apiPriceCardState = await apiPriceCardRepository.loadCached()
         if settings.showsStationRecommendations {
             stationRecommendationState = await stationRepository.loadCached()
         }
@@ -154,7 +175,14 @@ final class AppModel {
         } else {
             repositoryState = await repository.refresh()
         }
+        settings.migrateLegacyModelAliases(using: availableModels)
         isRefreshing = false
+    }
+
+    func isModelVisible(model: String, reasoningEffort: String) -> Bool {
+        settings.isModelVisible(
+            ModelCatalog.entry(model: model, reasoningEffort: reasoningEffort)
+        )
     }
 
     func refreshStationRecommendations() async {
@@ -169,7 +197,12 @@ final class AppModel {
         guard !isRefreshingRateCard else { return }
         isRefreshingRateCard = true
         defer { isRefreshingRateCard = false }
-        rateCardState = await rateCardRepository.refresh()
+        isRefreshingAPIPriceCard = true
+        async let creditCard = rateCardRepository.refresh()
+        async let priceCard = apiPriceCardRepository.refresh()
+        rateCardState = await creditCard
+        apiPriceCardState = await priceCard
+        isRefreshingAPIPriceCard = false
         await refreshUsage()
     }
 
@@ -193,7 +226,8 @@ final class AppModel {
                 now: Date(),
                 calendar: .current,
                 rateCard: rateCardState.manifest,
-                rateCardMode: settings.rateCardMode
+                rateCardMode: settings.rateCardMode,
+                apiPriceCard: apiPriceCardState.manifest
             )
             recalculateTaskQuotaEstimates()
             usageErrorMessage = nil
@@ -318,6 +352,19 @@ final class AppModel {
         let manifest = try? JSONDecoder().decode(RateCardManifest.self, from: data),
         let validated = try? manifest.validated() else {
             preconditionFailure("缺少或无法读取内置 Codex 费率清单。")
+        }
+        return validated
+    }
+
+    private static func loadBundledAPIPriceCard() -> APIPriceManifest {
+        guard let url = Bundle.main.url(
+            forResource: "api-price-card-v1",
+            withExtension: "json"
+        ),
+        let data = try? Data(contentsOf: url),
+        let manifest = try? JSONDecoder().decode(APIPriceManifest.self, from: data),
+        let validated = try? manifest.validated() else {
+            preconditionFailure("缺少或无法读取内置 API 价格清单。")
         }
         return validated
     }

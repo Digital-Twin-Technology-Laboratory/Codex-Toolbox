@@ -1,0 +1,45 @@
+name: Update API price card
+
+on:
+  schedule:
+    - cron: "43 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-api-price-card
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Test strict price normalization
+        run: python -m unittest discover -s Tests/APIPriceScriptTests -v
+
+      - name: Fetch and validate API prices
+        run: python scripts/update_api_price_card.py --write
+
+      - name: Commit changed manifest only
+        shell: bash
+        run: |
+          manifest="Sources/CodexToolbox/Resources/api-price-card-v1.json"
+          if git diff --quiet -- "$manifest"; then
+            echo "API prices are unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$manifest"
+          git commit -m "chore: update API price card"
+          git push origin HEAD:main

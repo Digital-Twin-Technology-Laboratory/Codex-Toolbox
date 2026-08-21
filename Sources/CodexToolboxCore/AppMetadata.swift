@@ -16,6 +16,9 @@ public enum AppMetadata {
     public static let rateCardManifestURL = URL(
         string: "https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/Sources/CodexToolbox/Resources/codex-rate-card-v1.json"
     )!
+    public static let apiPriceManifestURL = URL(
+        string: "https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/Sources/CodexToolbox/Resources/api-price-card-v1.json"
+    )!
     public static let releasesURL = repositoryURL.appendingPathComponent("releases")
     public static let latestReleasePageURL = releasesURL.appendingPathComponent("latest")
     public static let latestReleaseAPIURL = URL(

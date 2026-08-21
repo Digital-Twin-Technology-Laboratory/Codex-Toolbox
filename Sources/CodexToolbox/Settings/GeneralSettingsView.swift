@@ -4,19 +4,40 @@ import SwiftUI
 struct ModelRadarSettingsView: View {
     @Bindable var appModel: AppModel
     @StateObject private var weights: WeightDraft
+    let onOpenModelVisibility: () -> Void
     let onOpenMenuBarAliases: () -> Void
 
     init(
         appModel: AppModel,
+        onOpenModelVisibility: @escaping () -> Void = {},
         onOpenMenuBarAliases: @escaping () -> Void = {}
     ) {
         self.appModel = appModel
+        self.onOpenModelVisibility = onOpenModelVisibility
         self.onOpenMenuBarAliases = onOpenMenuBarAliases
         _weights = StateObject(wrappedValue: WeightDraft(weights: appModel.settings.rankingWeights))
     }
 
     var body: some View {
         Form {
+            Section("模型显示与名称") {
+                settingsNavigationRow(
+                    title: "显示的模型",
+                    summary: visibleModelSummary,
+                    accessibilityHint: "打开模型厂商和基础模型筛选",
+                    action: onOpenModelVisibility
+                )
+                settingsNavigationRow(
+                    title: "模型名称简称",
+                    summary: configuredAliasSummary,
+                    accessibilityHint: "打开全局模型简称设置",
+                    action: onOpenMenuBarAliases
+                )
+                Text("默认仅显示 GPT 系列；筛选和简称会统一应用于榜单、菜单栏、趋势和推荐。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("菜单栏") {
                 Picker("默认展示", selection: menuBarMetricBinding) {
                     ForEach(RankingMetric.allCases) { metric in
@@ -38,21 +59,6 @@ struct ModelRadarSettingsView: View {
                 Toggle("显示左侧图标", isOn: showsMenuBarIconBinding)
                 Toggle("显示后方详细数值", isOn: showsMenuBarDetailsBinding)
 
-                Button(action: onOpenMenuBarAliases) {
-                    HStack {
-                        Text("模型名称简称")
-                        Spacer()
-                        Text(configuredAliasSummary)
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .contentShape(Rectangle())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("打开模型名称简称设置")
             }
 
             Section("榜单") {
@@ -261,8 +267,40 @@ struct ModelRadarSettingsView: View {
     }
 
     private var configuredAliasSummary: String {
-        let count = appModel.settings.menuBarModelAliases.count
+        let count = appModel.settings.modelFamilyAliases.count
         return count == 0 ? "未设置" : "已设置 \(count) 个"
+    }
+
+    private var visibleModelSummary: String {
+        let families = ModelCatalog.grouped(appModel.availableModels)
+        let visible = families.filter { family in
+            family.models.first.map(appModel.settings.isModelVisible) ?? false
+        }.count
+        return "\(visible) / \(families.count)"
+    }
+
+    private func settingsNavigationRow(
+        title: String,
+        summary: String,
+        accessibilityHint: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(summary)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(accessibilityHint)
     }
 }
 

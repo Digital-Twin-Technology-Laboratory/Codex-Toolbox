@@ -14,13 +14,7 @@ struct DashboardView: View {
     @State private var scrollIndicatorDebounceTask: Task<Void, Never>?
     @Namespace private var rankingNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let onPreferredHeightChange: (CGFloat) -> Void
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 10, alignment: .top),
-        GridItem(.flexible(), spacing: 10, alignment: .top)
-    ]
 
     init(
         appModel: AppModel,
@@ -83,19 +77,9 @@ struct DashboardView: View {
         }
         .frame(width: DashboardLayout.width, height: resolvedHeight)
         .background {
-            ZStack {
-                if reduceTransparency {
-                    Color(nsColor: .windowBackgroundColor)
-                } else {
-                    Rectangle().fill(.ultraThinMaterial)
-                    LinearGradient(
-                        colors: [.blue.opacity(0.045), .purple.opacity(0.035), .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                }
-            }
+            DashboardRootBackground()
         }
+        .environment(\.dashboardTheme, appModel.settings.effectiveDashboardTheme)
         .task { await appModel.start() }
         .onAppear {
             scheduleScrollIndicatorUpdate()
@@ -174,7 +158,7 @@ struct DashboardView: View {
         HStack(spacing: 9) {
             Image(systemName: "wrench.and.screwdriver.fill")
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(appModel.settings.effectiveDashboardTheme.palette.brandAccent)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 7) {
                     Text("Codex Toolbox")
@@ -238,6 +222,23 @@ struct DashboardView: View {
         if appModel.snapshot == nil, !appModel.isInitialLoading {
             RadarEmptyStateView(appModel: appModel)
                 .frame(maxWidth: .infinity, minHeight: 150)
+        } else if appModel.snapshot != nil, appModel.visibleModels.isEmpty {
+            VStack(spacing: 9) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("当前筛选下没有可显示的模型")
+                    .font(.subheadline.weight(.semibold))
+                Text("不会自动重新开启模型；可在“智商显示 → 显示的模型”中调整。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                SettingsLink {
+                    Label("打开设置", systemImage: "gearshape")
+                }
+                .controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, minHeight: 150)
         } else {
             VStack(spacing: 10) {
                 StatusHeaderView(appModel: appModel)
@@ -325,26 +326,24 @@ struct DashboardView: View {
         }
     }
 
-    @ViewBuilder
     private var rankingLayout: some View {
-        if let expandedMetric = interaction.expandedMetric {
-            VStack(spacing: 10) {
-                rankingSection(for: expandedMetric, presentation: .expanded)
-
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(RankingMetric.allCases.filter { $0 != expandedMetric }) { metric in
-                        rankingSection(for: metric, presentation: .compact)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-        } else {
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(RankingMetric.allCases) { metric in
-                    rankingSection(for: metric, presentation: .standard)
-                }
+        RankingCardsLayout(expandedMetric: interaction.expandedMetric) {
+            ForEach(RankingMetric.allCases) { metric in
+                rankingSection(
+                    for: metric,
+                    presentation: rankingPresentation(for: metric)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .accessibilitySortPriority(metric == interaction.expandedMetric ? 1 : 0)
             }
         }
+    }
+
+    private func rankingPresentation(
+        for metric: RankingMetric
+    ) -> RankingSectionPresentation {
+        guard let expandedMetric = interaction.expandedMetric else { return .standard }
+        return metric == expandedMetric ? .expanded : .compact
     }
 
     private func rankingSection(
@@ -357,6 +356,9 @@ struct DashboardView: View {
             presentation: presentation,
             showsExpandedMetrics: appModel.settings.showsExpandedRankingMetrics,
             overallMode: appModel.settings.overallRankingMode,
+            compactModelName: { benchmark in
+                appModel.settings.compactModelName(for: benchmark)
+            },
             namespace: rankingNamespace,
             onExpand: {
                 setExpandedMetric(metric)
@@ -395,7 +397,12 @@ struct DashboardView: View {
                 return "今日 0"
             }
             let suffix = summary.isComplete ? "" : " · 不完整"
-            return "今日 \(summary.totalTokens.formatted(.number.grouping(.automatic)))\(suffix)"
+            let cost = appModel.settings.showsAPICostEstimatesInMenuBar
+                ? summary.totalCostUSD.map {
+                    " · \(MetricFormatter.apiCost($0, precision: summary.costPrecision))"
+                } ?? ""
+                : ""
+            return "今日 \(summary.totalTokens.formatted(.number.grouping(.automatic)))\(cost)\(suffix)"
         case .resetCredits:
             if appModel.isResetCreditsInitialLoading { return "正在读取…" }
             guard let snapshot = appModel.resetCreditsSnapshot else { return "暂无数据" }
@@ -468,6 +475,158 @@ struct DashboardView: View {
             .controlSize(.small)
             .help("退出 Codex Toolbox")
         }
+    }
+}
+
+/// Keeps all four ranking cards in one stable view hierarchy while their
+/// frames move between the two-by-two grid and the expanded presentation.
+/// Replacing the complete grid with a different stack makes SwiftUI treat the
+/// cards as removals and insertions, so the first card can appear to jump while
+/// the remaining cards animate from unrelated positions.
+private struct RankingCardsLayout: Layout {
+    let expandedMetric: RankingMetric?
+    var spacing: CGFloat = 10
+    var compactSpacing: CGFloat = 8
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let width = resolvedWidth(for: proposal, subviews: subviews)
+        let result = layoutResult(width: width, subviews: subviews)
+        return CGSize(width: width, height: result.height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let result = layoutResult(width: bounds.width, subviews: subviews)
+        for index in subviews.indices {
+            let frame = result.frames[index]
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: frame.width, height: frame.height)
+            )
+        }
+    }
+
+    private func resolvedWidth(
+        for proposal: ProposedViewSize,
+        subviews: Subviews
+    ) -> CGFloat {
+        if let proposedWidth = proposal.width, proposedWidth.isFinite {
+            return max(0, proposedWidth)
+        }
+
+        let widestIdealSubview = subviews
+            .map { $0.sizeThatFits(.unspecified).width }
+            .max() ?? 0
+        return expandedMetric == nil
+            ? widestIdealSubview * 2 + spacing
+            : widestIdealSubview
+    }
+
+    private func layoutResult(
+        width: CGFloat,
+        subviews: Subviews
+    ) -> (frames: [CGRect], height: CGFloat) {
+        guard !subviews.isEmpty else { return ([], 0) }
+        if let expandedIndex, subviews.indices.contains(expandedIndex) {
+            return expandedResult(
+                width: width,
+                expandedIndex: expandedIndex,
+                subviews: subviews
+            )
+        }
+        return gridResult(width: width, subviews: subviews)
+    }
+
+    private var expandedIndex: Int? {
+        guard let expandedMetric else { return nil }
+        return RankingMetric.allCases.firstIndex(of: expandedMetric)
+    }
+
+    private func gridResult(
+        width: CGFloat,
+        subviews: Subviews
+    ) -> (frames: [CGRect], height: CGFloat) {
+        let columnWidth = max(0, (width - spacing) / 2)
+        var frames = Array(repeating: CGRect.zero, count: subviews.count)
+        var y: CGFloat = 0
+
+        for rowStart in stride(from: 0, to: subviews.count, by: 2) {
+            let rowIndices = rowStart..<min(rowStart + 2, subviews.count)
+            let rowHeight = rowIndices.map { index in
+                subviews[index].sizeThatFits(
+                    ProposedViewSize(width: columnWidth, height: nil)
+                ).height
+            }.max() ?? 0
+
+            for index in rowIndices {
+                let column = index - rowStart
+                frames[index] = CGRect(
+                    x: CGFloat(column) * (columnWidth + spacing),
+                    y: y,
+                    width: columnWidth,
+                    height: rowHeight
+                )
+            }
+
+            y += rowHeight
+            if rowStart + 2 < subviews.count {
+                y += spacing
+            }
+        }
+
+        return (frames, y)
+    }
+
+    private func expandedResult(
+        width: CGFloat,
+        expandedIndex: Int,
+        subviews: Subviews
+    ) -> (frames: [CGRect], height: CGFloat) {
+        var frames = Array(repeating: CGRect.zero, count: subviews.count)
+        let expandedHeight = subviews[expandedIndex].sizeThatFits(
+            ProposedViewSize(width: width, height: nil)
+        ).height
+        frames[expandedIndex] = CGRect(
+            x: 0,
+            y: 0,
+            width: width,
+            height: expandedHeight
+        )
+
+        let compactIndices = subviews.indices.filter { $0 != expandedIndex }
+        guard !compactIndices.isEmpty else { return (frames, expandedHeight) }
+
+        let totalCompactSpacing = compactSpacing * CGFloat(compactIndices.count - 1)
+        let compactWidth = max(
+            0,
+            (width - totalCompactSpacing) / CGFloat(compactIndices.count)
+        )
+        let compactHeight = compactIndices.map { index in
+            subviews[index].sizeThatFits(
+                ProposedViewSize(width: compactWidth, height: nil)
+            ).height
+        }.max() ?? 0
+        let compactY = expandedHeight + spacing
+
+        for (column, index) in compactIndices.enumerated() {
+            frames[index] = CGRect(
+                x: CGFloat(column) * (compactWidth + compactSpacing),
+                y: compactY,
+                width: compactWidth,
+                height: compactHeight
+            )
+        }
+
+        return (frames, compactY + compactHeight)
     }
 }
 

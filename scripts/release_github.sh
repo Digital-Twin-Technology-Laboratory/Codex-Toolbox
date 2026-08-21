@@ -11,6 +11,29 @@ DMG_PATH="$ROOT_DIR/dist/Codex-Toolbox-$RELEASE_VERSION-universal.dmg"
 DMG_CHECKSUM_PATH="$DMG_PATH.sha256"
 APPCAST_PATH="$ROOT_DIR/dist/appcast.xml"
 
+verify_remote_manifest() {
+    local relative_path="$1"
+    local local_path="$ROOT_DIR/$relative_path"
+    local remote_url="https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/$relative_path"
+    local downloaded
+    downloaded="$(mktemp "${TMPDIR%/}/CodexToolbox-remote-manifest.XXXXXX")"
+
+    for attempt in 1 2 3 4; do
+        if curl --fail --silent --show-error --location \
+            --connect-timeout 10 --max-time 30 \
+            "$remote_url" -o "$downloaded" \
+            && cmp -s "$local_path" "$downloaded"; then
+            rm -f "$downloaded"
+            return 0
+        fi
+        sleep 3
+    done
+
+    rm -f "$downloaded"
+    echo "Remote manifest is missing or differs from the release commit: $remote_url" >&2
+    return 1
+}
+
 : "${ALLOW_GITHUB_RELEASE:?Set ALLOW_GITHUB_RELEASE=YES only after signing and notarization are complete}"
 if [[ "$ALLOW_GITHUB_RELEASE" != "YES" ]]; then
     echo "ALLOW_GITHUB_RELEASE must equal YES" >&2
@@ -43,6 +66,8 @@ if ! git -C "$ROOT_DIR" merge-base --is-ancestor origin/main HEAD; then
 fi
 
 git -C "$ROOT_DIR" push origin main
+verify_remote_manifest "Sources/CodexToolbox/Resources/codex-rate-card-v1.json"
+verify_remote_manifest "Sources/CodexToolbox/Resources/api-price-card-v1.json"
 git -C "$ROOT_DIR" tag -a "v$RELEASE_VERSION" -m "Codex Toolbox v$RELEASE_VERSION"
 git -C "$ROOT_DIR" push origin "v$RELEASE_VERSION"
 gh release create "v$RELEASE_VERSION" \

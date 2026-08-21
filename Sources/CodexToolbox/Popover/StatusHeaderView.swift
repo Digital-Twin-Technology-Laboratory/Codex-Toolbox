@@ -3,12 +3,13 @@ import SwiftUI
 
 struct StatusHeaderView: View {
     @Bindable var appModel: AppModel
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     var body: some View {
         HStack(spacing: 9) {
                 Image(systemName: "calendar")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(tint)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Codex 雷达数据日期")
@@ -35,10 +36,10 @@ struct StatusHeaderView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(.blue.opacity(0.09), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(.blue.opacity(0.18), lineWidth: 1)
-        }
+        .adaptiveDashboardInsetSurface(tint: .blue)
+    }
+
+    private var tint: Color {
+        dashboardTheme.palette.decorativeAccent(.blue)
     }
 }

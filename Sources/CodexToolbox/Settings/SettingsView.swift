@@ -15,8 +15,16 @@ struct SettingsView: View {
                     appModel: appModel,
                     onBack: { page = .root }
                 )
+            case .modelVisibility:
+                ModelVisibilitySettingsView(
+                    appModel: appModel,
+                    onBack: { page = .root }
+                )
             case .privacyDetails:
-                AboutPrivacySettingsView(onBack: { page = .root })
+                AboutPrivacySettingsView(
+                    appModel: appModel,
+                    onBack: { page = .root }
+                )
             }
         }
         .frame(width: 640, height: 580)
@@ -39,6 +47,7 @@ struct SettingsView: View {
 
             ModelRadarSettingsView(
                 appModel: appModel,
+                onOpenModelVisibility: { page = .modelVisibility },
                 onOpenMenuBarAliases: { page = .menuBarAliases }
             )
             .tabItem {
@@ -58,11 +67,24 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.resetCredits)
 
+            if appModel.settings.showsExperimentalFeaturesEntry {
+                ExperimentalFeaturesSettingsView(appModel: appModel)
+                    .tabItem {
+                        Label("实验性功能", systemImage: "flask")
+                    }
+                    .tag(SettingsTab.experimentalFeatures)
+            }
+
             AboutView(onOpenPrivacyDetails: { page = .privacyDetails })
                 .tabItem {
                     Label("关于", systemImage: "info.circle")
                 }
                 .tag(SettingsTab.about)
+        }
+        .onChange(of: appModel.settings.showsExperimentalFeaturesEntry) { _, showsEntry in
+            if !showsEntry, selectedTab == .experimentalFeatures {
+                selectedTab = .about
+            }
         }
     }
 }
@@ -87,6 +109,7 @@ private struct UpdateBadgedIcon: View {
 
 private enum SettingsPage {
     case root
+    case modelVisibility
     case menuBarAliases
     case privacyDetails
 }
@@ -96,5 +119,6 @@ private enum SettingsTab: Hashable {
     case modelRadar
     case tokenUsage
     case resetCredits
+    case experimentalFeatures
     case about
 }

@@ -114,9 +114,37 @@ public enum ResetExpiryWarning: Int, Codable, CaseIterable, Identifiable, Sendab
     public var displayName: String { self == .disabled ? "关闭" : "\(rawValue) 天内" }
 }
 
+public enum ModelVisibilityDefaultMode: String, Codable, CaseIterable, Sendable {
+    case gptOnly
+    case all
+}
+
 @MainActor
 @Observable
 public final class AppSettings {
+    public var showsExperimentalFeaturesEntry: Bool {
+        didSet {
+            defaults.set(showsExperimentalFeaturesEntry, forKey: Keys.showsExperimentalFeaturesEntry)
+        }
+    }
+
+    public var experimentalDashboardThemesEnabled: Bool {
+        didSet {
+            defaults.set(
+                experimentalDashboardThemesEnabled,
+                forKey: Keys.experimentalDashboardThemesEnabled
+            )
+        }
+    }
+
+    public var dashboardTheme: DashboardTheme {
+        didSet { defaults.set(dashboardTheme.rawValue, forKey: Keys.dashboardTheme) }
+    }
+
+    public var effectiveDashboardTheme: DashboardTheme {
+        experimentalDashboardThemesEnabled ? dashboardTheme : .colorfulGlass
+    }
+
     public private(set) var dashboardModuleOrder: [ToolboxModule] {
         didSet { defaults.set(dashboardModuleOrder.map(\.rawValue), forKey: Keys.dashboardModuleOrder) }
     }
@@ -139,6 +167,15 @@ public final class AppSettings {
 
     public var usageExpandedTaskLimit: UsageExpandedTaskLimit {
         didSet { defaults.set(usageExpandedTaskLimit.rawValue, forKey: Keys.usageExpandedTaskLimit) }
+    }
+
+    public var showsAPICostEstimatesInMenuBar: Bool {
+        didSet {
+            defaults.set(
+                showsAPICostEstimatesInMenuBar,
+                forKey: Keys.showsAPICostEstimatesInMenuBar
+            )
+        }
     }
 
     public var automaticRateCardUpdatesEnabled: Bool {
@@ -185,6 +222,22 @@ public final class AppSettings {
 
     public private(set) var menuBarModelAliases: [String: String] {
         didSet { defaults.set(menuBarModelAliases, forKey: Keys.menuBarModelAliases) }
+    }
+
+    public private(set) var modelFamilyAliases: [String: String] {
+        didSet { defaults.set(modelFamilyAliases, forKey: Keys.modelFamilyAliases) }
+    }
+
+    public private(set) var modelVisibilityDefaultMode: ModelVisibilityDefaultMode {
+        didSet { defaults.set(modelVisibilityDefaultMode.rawValue, forKey: Keys.modelVisibilityDefaultMode) }
+    }
+
+    public private(set) var modelProviderVisibilityOverrides: [String: Bool] {
+        didSet { defaults.set(modelProviderVisibilityOverrides, forKey: Keys.modelProviderVisibilityOverrides) }
+    }
+
+    public private(set) var modelFamilyVisibilityOverrides: [String: Bool] {
+        didSet { defaults.set(modelFamilyVisibilityOverrides, forKey: Keys.modelFamilyVisibilityOverrides) }
     }
 
     public var showsTrendChart: Bool {
@@ -263,6 +316,15 @@ public final class AppSettings {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        showsExperimentalFeaturesEntry = defaults.bool(
+            forKey: Keys.showsExperimentalFeaturesEntry
+        )
+        experimentalDashboardThemesEnabled = defaults.bool(
+            forKey: Keys.experimentalDashboardThemesEnabled
+        )
+        dashboardTheme = DashboardTheme(
+            rawValue: defaults.string(forKey: Keys.dashboardTheme) ?? ""
+        ) ?? .colorfulGlass
         dashboardModuleOrder = Self.normalizedModuleOrder(
             defaults.stringArray(forKey: Keys.dashboardModuleOrder) ?? []
         )
@@ -282,6 +344,13 @@ public final class AppSettings {
         usageExpandedTaskLimit = UsageExpandedTaskLimit(
             rawValue: defaults.integer(forKey: Keys.usageExpandedTaskLimit)
         ) ?? .topFive
+        if defaults.object(forKey: Keys.showsAPICostEstimatesInMenuBar) == nil {
+            showsAPICostEstimatesInMenuBar = false
+        } else {
+            showsAPICostEstimatesInMenuBar = defaults.bool(
+                forKey: Keys.showsAPICostEstimatesInMenuBar
+            )
+        }
         if defaults.object(forKey: Keys.automaticRateCardUpdatesEnabled) == nil {
             automaticRateCardUpdatesEnabled = true
         } else {
@@ -319,6 +388,18 @@ public final class AppSettings {
             .compactMapValues { $0 as? String } ?? [:]
         menuBarModelAliases = Self.sanitizedAliases(
             storedAliases
+        )
+        let storedFamilyAliases = defaults.dictionary(forKey: Keys.modelFamilyAliases)?
+            .compactMapValues { $0 as? String } ?? [:]
+        modelFamilyAliases = Self.sanitizedAliases(storedFamilyAliases)
+        modelVisibilityDefaultMode = ModelVisibilityDefaultMode(
+            rawValue: defaults.string(forKey: Keys.modelVisibilityDefaultMode) ?? ""
+        ) ?? .gptOnly
+        modelProviderVisibilityOverrides = Self.sanitizedBooleanOverrides(
+            defaults.dictionary(forKey: Keys.modelProviderVisibilityOverrides) ?? [:]
+        )
+        modelFamilyVisibilityOverrides = Self.sanitizedBooleanOverrides(
+            defaults.dictionary(forKey: Keys.modelFamilyVisibilityOverrides) ?? [:]
         )
 
         if defaults.object(forKey: Keys.showsTrendChart) == nil {
@@ -493,6 +574,128 @@ public final class AppSettings {
             ?? MetricFormatter.compactModelName(fullName)
     }
 
+    public func isModelVisible(_ benchmark: ModelBenchmark) -> Bool {
+        isModelVisible(benchmark.catalogEntry)
+    }
+
+    public func isModelVisible(_ entry: ModelCatalogEntry) -> Bool {
+        if let override = modelFamilyVisibilityOverrides[entry.familyID] {
+            return override
+        }
+        if let override = modelProviderVisibilityOverrides[entry.providerID] {
+            return override
+        }
+        switch modelVisibilityDefaultMode {
+        case .gptOnly:
+            return ModelCatalog.isDefaultGPT(entry)
+        case .all:
+            return true
+        }
+    }
+
+    public func setModelFamily(_ familyID: String, isVisible: Bool) {
+        let id = familyID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return }
+        var overrides = modelFamilyVisibilityOverrides
+        overrides[id] = isVisible
+        modelFamilyVisibilityOverrides = overrides
+    }
+
+    public func setModelProvider(
+        _ providerID: String,
+        isVisible: Bool,
+        knownFamilyIDs: [String]
+    ) {
+        let id = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { return }
+        var providerOverrides = modelProviderVisibilityOverrides
+        providerOverrides[id] = isVisible
+        modelProviderVisibilityOverrides = providerOverrides
+
+        var familyOverrides = modelFamilyVisibilityOverrides
+        for familyID in knownFamilyIDs { familyOverrides.removeValue(forKey: familyID) }
+        modelFamilyVisibilityOverrides = familyOverrides
+    }
+
+    public func resetModelVisibilityToGPTOnly() {
+        modelVisibilityDefaultMode = .gptOnly
+        modelProviderVisibilityOverrides = [:]
+        modelFamilyVisibilityOverrides = [:]
+    }
+
+    public func showAllModels() {
+        modelVisibilityDefaultMode = .all
+        modelProviderVisibilityOverrides = [:]
+        modelFamilyVisibilityOverrides = [:]
+    }
+
+    public func modelFamilyAlias(for familyID: String) -> String {
+        modelFamilyAliases[familyID] ?? ""
+    }
+
+    @discardableResult
+    public func setModelFamilyAlias(_ alias: String, for familyID: String) -> Bool {
+        let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count <= 16 else { return false }
+        var aliases = modelFamilyAliases
+        if trimmed.isEmpty {
+            aliases.removeValue(forKey: familyID)
+        } else {
+            aliases[familyID] = trimmed
+        }
+        modelFamilyAliases = aliases
+        return true
+    }
+
+    public func compactModelName(for benchmark: ModelBenchmark) -> String {
+        compactModelName(entry: benchmark.catalogEntry, legacyModelID: benchmark.id)
+    }
+
+    public func compactModelName(
+        model: String,
+        reasoningEffort: String,
+        legacyModelID: String? = nil
+    ) -> String {
+        compactModelName(
+            entry: ModelCatalog.entry(model: model, reasoningEffort: reasoningEffort),
+            legacyModelID: legacyModelID
+        )
+    }
+
+    public func migrateLegacyModelAliases(using benchmarks: [ModelBenchmark]) {
+        let families = Dictionary(grouping: benchmarks, by: \.catalogEntry.familyID)
+        var migrated = modelFamilyAliases
+
+        for (familyID, models) in families where migrated[familyID] == nil {
+            let candidates = models.compactMap { model -> String? in
+                guard let alias = menuBarModelAliases[model.id] else { return nil }
+                return Self.removingEffortSuffix(alias, effort: model.reasoningEffort)
+            }
+            guard !candidates.isEmpty,
+                  Set(candidates.map { $0.lowercased() }).count == 1,
+                  let candidate = candidates.first,
+                  candidate.count <= 16 else { continue }
+            migrated[familyID] = candidate
+        }
+        modelFamilyAliases = migrated
+    }
+
+    private func compactModelName(
+        entry: ModelCatalogEntry,
+        legacyModelID: String?
+    ) -> String {
+        let effort = ModelCatalog.compactEffortLabel(entry.reasoningEffort)
+        if let alias = modelFamilyAliases[entry.familyID] {
+            return "\(alias) \(effort)"
+        }
+        if let legacyModelID,
+           let legacy = menuBarModelAliases[legacyModelID]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !legacy.isEmpty {
+            return legacy
+        }
+        return entry.compactLabel
+    }
+
     private static func sanitizedAliases(_ aliases: [String: String]) -> [String: String] {
         aliases.reduce(into: [:]) { result, entry in
             let trimmed = entry.value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -500,6 +703,31 @@ public final class AppSettings {
                 result[entry.key] = trimmed
             }
         }
+    }
+
+    private static func sanitizedBooleanOverrides(_ values: [String: Any]) -> [String: Bool] {
+        values.reduce(into: [:]) { result, entry in
+            let key = entry.key.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else { return }
+            if let value = entry.value as? Bool {
+                result[key] = value
+            } else if let value = entry.value as? NSNumber {
+                result[key] = value.boolValue
+            }
+        }
+    }
+
+    private static func removingEffortSuffix(_ alias: String, effort: String) -> String {
+        let trimmed = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawEffort = effort.trimmingCharacters(in: .whitespacesAndNewlines)
+        let compactEffort = ModelCatalog.compactEffortLabel(rawEffort)
+        for suffix in [rawEffort, compactEffort] where !suffix.isEmpty {
+            if trimmed.lowercased().hasSuffix(" \(suffix.lowercased())") {
+                return String(trimmed.dropLast(suffix.count + 1))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return trimmed
     }
 
     private static func supportsModelTrendSelection(_ metric: RankingMetric) -> Bool {
@@ -551,12 +779,17 @@ public final class AppSettings {
     }
 
     private enum Keys {
+        static let showsExperimentalFeaturesEntry = "showsExperimentalFeaturesEntry"
+        static let experimentalDashboardThemesEnabled = "experimentalDashboardThemesEnabled"
+        static let dashboardTheme = "dashboardTheme"
         static let dashboardModuleOrder = "dashboardModuleOrder"
         static let hiddenDashboardModules = "hiddenDashboardModules"
         static let collapsedDashboardModules = "collapsedDashboardModules"
         static let usageRefreshInterval = "usageRefreshIntervalMinutes"
         static let usageTrendRange = "usageTrendRangeDays"
         static let usageExpandedTaskLimit = "usageExpandedTaskLimit"
+        // Keep the Build 47 key so an already chosen menu-bar visibility state survives.
+        static let showsAPICostEstimatesInMenuBar = "showsAPICostEstimates"
         static let automaticRateCardUpdatesEnabled = "automaticRateCardUpdatesEnabled"
         static let rateCardMode = "rateCardMode"
         static let anonymizesTaskTitles = "anonymizesTaskTitles"
@@ -567,6 +800,10 @@ public final class AppSettings {
         static let showsMenuBarIcon = "showsMenuBarIcon"
         static let showsMenuBarDetails = "showsMenuBarDetails"
         static let menuBarModelAliases = "menuBarModelAliases"
+        static let modelFamilyAliases = "modelFamilyAliases"
+        static let modelVisibilityDefaultMode = "modelVisibilityDefaultMode"
+        static let modelProviderVisibilityOverrides = "modelProviderVisibilityOverrides"
+        static let modelFamilyVisibilityOverrides = "modelFamilyVisibilityOverrides"
         static let showsTrendChart = "showsTrendChart"
         static let expandsTrendChartByDefault = "expandsTrendChartByDefault"
         static let modelTrendRange = "modelTrendRangeDays"

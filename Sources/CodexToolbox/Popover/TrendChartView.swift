@@ -84,6 +84,7 @@ struct TrendChartView: View {
 
     @StateObject private var state = TrendChartState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     private let availableMetrics: [RankingMetric] = [.iq, .cost, .duration]
     private let seriesColors: [Color] = [.blue, .green, .orange, .purple, .pink]
@@ -109,7 +110,7 @@ struct TrendChartView: View {
         }
         .padding(12)
         .adaptiveGlassCard(
-            tint: .indigo,
+            tint: dashboardTheme.palette.decorativeAccent(.indigo),
             id: "model-trend",
             namespace: namespace,
             isInteractive: false
@@ -147,7 +148,7 @@ struct TrendChartView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ToolboxPressButtonStyle())
         .accessibilityLabel("模型变化趋势")
         .accessibilityValue(isExpanded ? "已展开" : "已折叠")
         .accessibilityHint(isExpanded ? "按下可收起趋势图" : "按下可展开趋势图")
@@ -187,7 +188,6 @@ struct TrendChartView: View {
                         seriesColors: seriesColors
                     )
                         .frame(height: 185)
-                        .padding(.top, 32)
                 } else {
                     emptyState
                 }
@@ -358,7 +358,7 @@ struct TrendChartView: View {
 
     private var trendSourceRevision: TrendChartSourceRevision {
         let snapshot = appModel.snapshot
-        let benchmarks = snapshot?.benchmarks ?? []
+        let benchmarks = appModel.visibleModels
         let costHistory = appModel.costHistory
         let calendar = Calendar.current
         return TrendChartSourceRevision(
@@ -374,7 +374,7 @@ struct TrendChartView: View {
 
     private var trendLoadInput: TrendChartLoadInput {
         TrendChartLoadInput(
-            benchmarks: appModel.snapshot?.benchmarks ?? [],
+            benchmarks: appModel.visibleModels,
             costHistory: appModel.costHistory,
             rankedModelIDs: appModel.rankings(for: state.metric).map(\.id),
             metric: state.metric,
@@ -466,7 +466,7 @@ struct TrendChartView: View {
 
     private func compactModelName(for modelID: String, data: TrendSeriesData) -> String {
         guard let model = model(for: modelID, data: data) else { return modelID }
-        return model.catalogEntry.compactLabel
+        return appModel.settings.compactModelName(for: model)
     }
 
     private func fullModelName(for modelID: String, data: TrendSeriesData) -> String {
@@ -546,12 +546,14 @@ private struct TrendPlotView: View {
         Chart {
             ForEach(data.chartPoints) { point in
                 if let day = point.day {
+                    let seriesIndex = data.selectedModelIDs.firstIndex(of: point.modelID) ?? 0
                     LineMark(
                         x: .value("日期", day),
                         y: .value(metric.displayName, point.value),
                         series: .value("模型", point.modelID)
                     )
                     .foregroundStyle(by: .value("模型", point.modelID))
+                    .lineStyle(seriesLineStyle(at: seriesIndex))
                     .interpolationMethod(.catmullRom)
 
                     PointMark(
@@ -559,7 +561,8 @@ private struct TrendPlotView: View {
                         y: .value(metric.displayName, point.value)
                     )
                     .foregroundStyle(by: .value("模型", point.modelID))
-                    .symbolSize(20)
+                    .symbol(by: .value("模型", point.modelID))
+                    .symbolSize(24)
                 }
             }
 
@@ -582,6 +585,7 @@ private struct TrendPlotView: View {
             domain: data.selectedModelIDs,
             range: data.selectedModelIDs.indices.map { seriesColor(at: $0) }
         )
+        .chartYScale(domain: data.adaptiveYDomain)
         .chartLegend(.hidden)
         .chartXAxis {
             AxisMarks(values: data.axisDays) { value in
@@ -659,6 +663,16 @@ private struct TrendPlotView: View {
         seriesColors[index % seriesColors.count]
     }
 
+    private func seriesLineStyle(at index: Int) -> StrokeStyle {
+        switch index % seriesColors.count {
+        case 1: StrokeStyle(lineWidth: 2, dash: [6, 3])
+        case 2: StrokeStyle(lineWidth: 2, dash: [2, 2])
+        case 3: StrokeStyle(lineWidth: 2, dash: [8, 2, 2, 2])
+        case 4: StrokeStyle(lineWidth: 2, dash: [1, 2])
+        default: StrokeStyle(lineWidth: 2)
+        }
+    }
+
     @ViewBuilder
     private func hoverCard(for day: Date) -> some View {
         let values = data.pointsByDay[day] ?? []
@@ -697,6 +711,6 @@ private struct TrendPlotView: View {
         }
         .frame(width: cardWidth, alignment: .leading)
         .padding(7)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .adaptiveDashboardFloatingSurface()
     }
 }

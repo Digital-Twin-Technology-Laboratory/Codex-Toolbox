@@ -7,7 +7,6 @@ TARGET_PREFIX="${TARGET_VOLUME%/}"
 OLD_APP="$TARGET_PREFIX/Applications/Show Codex IQ.app"
 NEW_APP="$TARGET_PREFIX/Applications/Codex Toolbox.app"
 BUNDLE_ID="io.github.zzzzzzjw.ShowCodexIQ"
-RELAUNCH_MARKER="$TARGET_PREFIX/private/var/run/io.github.zzzzzzjw.CodexToolbox.relaunch-after-install"
 
 bundle_id_at_path() {
     /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true
@@ -37,21 +36,18 @@ if [[ -d "$OLD_APP" && ! -L "$OLD_APP" && "$(bundle_id_at_path "$OLD_APP")" == "
     /bin/rm -rf -- "$OLD_APP"
 fi
 
-if [[ -f "$RELAUNCH_MARKER" && ! -L "$RELAUNCH_MARKER" ]]; then
-    /bin/rm -f -- "$RELAUNCH_MARKER"
-
-    # Package domains limit this installer to the active system volume. Keep
-    # the guard explicit so script validation against a temporary target can
-    # never open the user's installed app.
-    if [[ "$TARGET_VOLUME" == "/" ]]; then
-        CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
-        if [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" && "$CONSOLE_USER" != "loginwindow" ]]; then
-            CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
-            if ! /bin/launchctl asuser "$CONSOLE_UID" \
-                /usr/bin/sudo -u "$CONSOLE_USER" \
-                /usr/bin/open "$NEW_APP" >/dev/null 2>&1; then
-                echo "Codex Toolbox installer: installation succeeded, but the app could not be reopened automatically." >&2
-            fi
+# Package domains limit this installer to the active system volume. Keep the
+# guard explicit so script validation against a temporary target can never open
+# the user's installed app. A successful interactive install always launches
+# Codex Toolbox, regardless of whether an older copy happened to be running.
+if [[ "$TARGET_VOLUME" == "/" ]]; then
+    CONSOLE_USER="$(/usr/bin/stat -f '%Su' /dev/console)"
+    if [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" && "$CONSOLE_USER" != "loginwindow" ]]; then
+        CONSOLE_UID="$(/usr/bin/id -u "$CONSOLE_USER")"
+        if ! /bin/launchctl asuser "$CONSOLE_UID" \
+            /usr/bin/sudo -u "$CONSOLE_USER" \
+            /usr/bin/open "$NEW_APP" >/dev/null 2>&1; then
+            echo "Codex Toolbox installer: installation succeeded, but the app could not be opened automatically." >&2
         fi
     fi
 fi

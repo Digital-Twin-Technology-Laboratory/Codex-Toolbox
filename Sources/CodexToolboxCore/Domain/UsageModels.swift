@@ -7,6 +7,10 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
     public let tokens: Int64
     public let credits: Double?
     public let creditPrecision: CreditEstimatePrecision?
+    public let costUSD: Decimal?
+    public let costPrecision: CostEstimatePrecision?
+    public let pricedTokens: Int64
+    public let costBreakdown: APICostBreakdown?
     public let descendantCount: Int
 
     public var id: String { "\(dateKey)|\(rootTaskID)" }
@@ -18,6 +22,10 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
         tokens: Int64,
         credits: Double? = nil,
         creditPrecision: CreditEstimatePrecision? = nil,
+        costUSD: Decimal? = nil,
+        costPrecision: CostEstimatePrecision? = nil,
+        pricedTokens: Int64 = 0,
+        costBreakdown: APICostBreakdown? = nil,
         descendantCount: Int
     ) {
         self.dateKey = dateKey
@@ -26,7 +34,56 @@ public struct DailyTaskUsage: Codable, Hashable, Identifiable, Sendable {
         self.tokens = tokens
         self.credits = credits.flatMap { $0.isFinite ? max(0, $0) : nil }
         self.creditPrecision = creditPrecision
+        self.costUSD = costUSD.map { max(0, $0) }
+        self.costPrecision = costPrecision
+        self.pricedTokens = max(0, min(tokens, pricedTokens))
+        self.costBreakdown = costBreakdown
         self.descendantCount = descendantCount
+    }
+
+    public var costCoverage: Double {
+        guard tokens > 0 else { return costUSD == nil ? 0 : 1 }
+        return min(1, max(0, Double(pricedTokens) / Double(tokens)))
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case dateKey
+        case rootTaskID
+        case title
+        case tokens
+        case credits
+        case creditPrecision
+        case costUSD
+        case costPrecision
+        case pricedTokens
+        case costBreakdown
+        case descendantCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            dateKey: try container.decode(String.self, forKey: .dateKey),
+            rootTaskID: try container.decode(String.self, forKey: .rootTaskID),
+            title: try container.decode(String.self, forKey: .title),
+            tokens: try container.decode(Int64.self, forKey: .tokens),
+            credits: try container.decodeIfPresent(Double.self, forKey: .credits),
+            creditPrecision: try container.decodeIfPresent(
+                CreditEstimatePrecision.self,
+                forKey: .creditPrecision
+            ),
+            costUSD: try container.decodeIfPresent(Decimal.self, forKey: .costUSD),
+            costPrecision: try container.decodeIfPresent(
+                CostEstimatePrecision.self,
+                forKey: .costPrecision
+            ),
+            pricedTokens: try container.decodeIfPresent(Int64.self, forKey: .pricedTokens) ?? 0,
+            costBreakdown: try container.decodeIfPresent(
+                APICostBreakdown.self,
+                forKey: .costBreakdown
+            ),
+            descendantCount: try container.decode(Int.self, forKey: .descendantCount)
+        )
     }
 }
 
@@ -35,6 +92,10 @@ public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
     public let totalTokens: Int64
     public let totalCredits: Double?
     public let creditPrecision: CreditEstimatePrecision?
+    public let totalCostUSD: Decimal?
+    public let costPrecision: CostEstimatePrecision?
+    public let pricedTokens: Int64
+    public let costBreakdown: APICostBreakdown?
     public let tasks: [DailyTaskUsage]
     public let isComplete: Bool
 
@@ -45,6 +106,10 @@ public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
         totalTokens: Int64,
         totalCredits: Double? = nil,
         creditPrecision: CreditEstimatePrecision? = nil,
+        totalCostUSD: Decimal? = nil,
+        costPrecision: CostEstimatePrecision? = nil,
+        pricedTokens: Int64 = 0,
+        costBreakdown: APICostBreakdown? = nil,
         tasks: [DailyTaskUsage],
         isComplete: Bool
     ) {
@@ -52,11 +117,20 @@ public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
         self.totalTokens = totalTokens
         self.totalCredits = totalCredits.flatMap { $0.isFinite ? max(0, $0) : nil }
         self.creditPrecision = creditPrecision
+        self.totalCostUSD = totalCostUSD.map { max(0, $0) }
+        self.costPrecision = costPrecision
+        self.pricedTokens = max(0, min(totalTokens, pricedTokens))
+        self.costBreakdown = costBreakdown
         self.tasks = tasks.sorted {
             if $0.tokens != $1.tokens { return $0.tokens > $1.tokens }
             return $0.rootTaskID < $1.rootTaskID
         }
         self.isComplete = isComplete
+    }
+
+    public var costCoverage: Double {
+        guard totalTokens > 0 else { return totalCostUSD == nil ? 0 : 1 }
+        return min(1, max(0, Double(pricedTokens) / Double(totalTokens)))
     }
 
     public func topTasks(limit: Int = 3) -> [DailyTaskUsage] {
@@ -65,6 +139,44 @@ public struct DailyUsageSummary: Codable, Hashable, Identifiable, Sendable {
 
     public func remainingTokens(afterTop limit: Int = 3) -> Int64 {
         max(0, totalTokens - topTasks(limit: limit).reduce(0) { $0 + $1.tokens })
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case dateKey
+        case totalTokens
+        case totalCredits
+        case creditPrecision
+        case totalCostUSD
+        case costPrecision
+        case pricedTokens
+        case costBreakdown
+        case tasks
+        case isComplete
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            dateKey: try container.decode(String.self, forKey: .dateKey),
+            totalTokens: try container.decode(Int64.self, forKey: .totalTokens),
+            totalCredits: try container.decodeIfPresent(Double.self, forKey: .totalCredits),
+            creditPrecision: try container.decodeIfPresent(
+                CreditEstimatePrecision.self,
+                forKey: .creditPrecision
+            ),
+            totalCostUSD: try container.decodeIfPresent(Decimal.self, forKey: .totalCostUSD),
+            costPrecision: try container.decodeIfPresent(
+                CostEstimatePrecision.self,
+                forKey: .costPrecision
+            ),
+            pricedTokens: try container.decodeIfPresent(Int64.self, forKey: .pricedTokens) ?? 0,
+            costBreakdown: try container.decodeIfPresent(
+                APICostBreakdown.self,
+                forKey: .costBreakdown
+            ),
+            tasks: try container.decode([DailyTaskUsage].self, forKey: .tasks),
+            isComplete: try container.decode(Bool.self, forKey: .isComplete)
+        )
     }
 }
 
@@ -599,7 +711,8 @@ public protocol CodexUsageReading: Sendable {
         now: Date,
         calendar: Calendar,
         rateCard: RateCardManifest?,
-        rateCardMode: RateCardMode
+        rateCardMode: RateCardMode,
+        apiPriceCard: APIPriceManifest?
     ) async throws -> UsageHistory
 }
 
@@ -612,7 +725,8 @@ public extension CodexUsageReading {
             now: now,
             calendar: calendar,
             rateCard: nil,
-            rateCardMode: .automatic
+            rateCardMode: .automatic,
+            apiPriceCard: nil
         )
     }
 }

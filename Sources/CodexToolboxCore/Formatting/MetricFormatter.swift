@@ -94,6 +94,26 @@ public enum MetricFormatter {
             .replacingOccurrences(of: " max", with: " max")
     }
 
+    public static func apiCost(
+        _ amount: Decimal?,
+        precision: CostEstimatePrecision? = nil
+    ) -> String {
+        guard let amount else { return "—" }
+        let value = NSDecimalNumber(decimal: amount).doubleValue
+        let digits = value > 0 && value < 0.01 ? 4 : 2
+        let prefix: String
+        switch precision {
+        case .lowerBound: prefix = "≥"
+        case .approximate: prefix = "≈"
+        case .exact, nil: prefix = ""
+        }
+        return prefix + "$" + formatNumber(
+            value,
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits
+        )
+    }
+
     private static func detailDuration(_ seconds: Double) -> String {
         if seconds < 60 {
             return "\(Int(seconds.rounded())) 秒"

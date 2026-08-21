@@ -13,6 +13,7 @@
 		08EC6CB86D6CA8C481C0E381 /* StatusHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD77601E10336AD2BAD9314 /* StatusHeaderView.swift */; };
 		0CFC759E1F6FEB74BE1F0E50 /* libCodexToolboxCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 667B732144948E89B9D4F62F /* libCodexToolboxCore.a */; };
 		0FA4755DF589AA28E722F033 /* RankingSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A2A9E70DF72107B54ECE83 /* RankingSection.swift */; };
+		0FE2510D8CB02A3ACE22FB27 /* APIPriceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253A0B279BF4C3C091999067 /* APIPriceCard.swift */; };
 		11EC903049EB4B5280121B01 /* RadarResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA07FF9D7BE329F469617AFA /* RadarResponse.swift */; };
 		12C88B915E9B0BD8EBAF011E /* ResetCreditsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A725A51BAF23C75B09EF87 /* ResetCreditsSettingsView.swift */; };
 		1FA396F8B95DECEAA4EC9E60 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC02D97B94F259DAE4D90032 /* GeneralSettingsView.swift */; };
@@ -40,6 +41,7 @@
 		685DB2AAFC6EE1872025FE41 /* ToolboxMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9810FFCE8A254A8AFBD20B8E /* ToolboxMotion.swift */; };
 		68810094454930AF081CBF3A /* TrendPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87CC8EBE3F4C8055A08287AF /* TrendPoint.swift */; };
 		69C12EFFED18A1DCE2F223A8 /* RankingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446BF33A5C31169BC5B8F6AA /* RankingEngine.swift */; };
+		6A2952D1AB233EF03A693FF6 /* api-price-card-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F9124FA061A7B59A28C8E48 /* api-price-card-v1.json */; };
 		6B8E5522FE4CBD354AE6D7DC /* ModelRadarPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6FB33C022CCEB8BE655947 /* ModelRadarPreferences.swift */; };
 		6CBF9D1C2B9AC1CEBEFF2C4A /* ResetCreditsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4764E357F2ABD8BAD8D2BF4E /* ResetCreditsClient.swift */; };
 		746809FDC1D27E1893C412D7 /* DashboardSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92010C87A159F47696CE3F9 /* DashboardSettingsView.swift */; };
@@ -57,8 +59,10 @@
 		95FD5D5496776AB41B8DD239 /* DashboardModuleHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2EC0DBB4ED3C5B6ECA46F5 /* DashboardModuleHeader.swift */; };
 		9ADC39D62A171E52ED0C91D6 /* RadarClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04DB88CA844CD8A51F16DA6 /* RadarClient.swift */; };
 		9B4CB28F5338EA453CFA0D7E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A68445038C1E8DA0C8B7C00 /* AppModel.swift */; };
+		9DFF94FDF6C9DD86CB3B42EA /* DashboardThemeStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914FB122CF0E680FB934CDB8 /* DashboardThemeStyle.swift */; };
 		9E35589F10CDD30264FB0A77 /* ResetCreditsClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE8BEE46ECE7C46A22341C /* ResetCreditsClientTests.swift */; };
 		A1B9E780B880C120E463D255 /* libCodexToolboxCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 667B732144948E89B9D4F62F /* libCodexToolboxCore.a */; };
+		A23A102EA93047D219E5C9F4 /* ModelVisibilitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEAFC43E8A6755A48695D16 /* ModelVisibilitySettingsView.swift */; };
 		A2769C18638A21BA92F36A63 /* ApplicationSupportLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */; };
 		A3A4CFC00534491BF10A8C1D /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10018E85736ECBFD621036BD /* AboutView.swift */; };
 		A90DF021E432AEADD3A89981 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66923E26C70902341D912CF9 /* ModelCatalog.swift */; };
@@ -66,11 +70,13 @@
 		AAE127A5ED9B0DE0FFF1FF36 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F4ADCE477B9F83955279115 /* UsageModels.swift */; };
 		AE1609777F6D594577A314A0 /* StationRecommendationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105CFCE44A4D6BF3B006DEC3 /* StationRecommendationClient.swift */; };
 		AEC9A8B9B56DEFC48B34D923 /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4478996E62316B4427B4EC9E /* MenuBarLabel.swift */; };
+		B8629DD40119B6BF297C6F4E /* APIPriceCardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941BA2903DB71C9EC8BCB73 /* APIPriceCardRepository.swift */; };
 		B97E7D8EE911D3F784CA2C48 /* ResetCreditModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2747616944418EB798D60AD5 /* ResetCreditModels.swift */; };
 		BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */; };
 		BE0EAD146806BE7130F518FA /* MetricStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0794040B0BD566A42042F2E8 /* MetricStyle.swift */; };
 		BF250487B8C204462A4A28CE /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C408D76051917E2D8297CB8 /* StatusItemController.swift */; };
 		C00D74D9DAE6BC5F0E4BE4B6 /* ResetCreditsCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D48424F5006528572F33B /* ResetCreditsCacheStore.swift */; };
+		C9FDD9914432057DF00368C3 /* ExperimentalFeaturesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C855EABA233A7B6C981081E /* ExperimentalFeaturesSettingsView.swift */; };
 		CA8F96599061F25E39CCA1E0 /* RankingEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C5D72A2EFFAC0416B689C2 /* RankingEngineTests.swift */; };
 		CB55FB93796809B7F68CD6BE /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB9676956C6080A3FF503E4 /* AppSettingsTests.swift */; };
 		D19D824A91248A611C52C7C1 /* LocalCodexUsageReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16C1B3CA7232D08D609BB769 /* LocalCodexUsageReader.swift */; };
@@ -82,12 +88,14 @@
 		E148BF5F2CF218F01A0D9636 /* MenuBarAliasesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD985C53FDC6200A51F6C4F /* MenuBarAliasesSettingsView.swift */; };
 		E28F8E84845220C1382677C0 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE6CEB2A8BE1A0638D07F8B /* SmokeTests.swift */; };
 		E346708A70B9482FEF3BF82D /* RadarRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19A40743771F2B607DF7D4C1 /* RadarRepository.swift */; };
+		E61E28BB4A36C717E409F8AD /* DashboardTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25C4F3A9DA27568B5FC764E9 /* DashboardTheme.swift */; };
 		E894868BB9D5A669797190EF /* AppUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B099078A533B7CFC11096D88 /* AppUpdateManager.swift */; };
 		E96343D911373FD220D1A382 /* URLSessionRadarClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED51E8E78FFAF1E01DFB3D56 /* URLSessionRadarClient.swift */; };
 		E9893C68B80222DAF08D9C4B /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 90059B07BC5709431977FA8E /* Sparkle */; };
 		ECDBBBD1F961B79E0A3CD3AF /* GitHubReleaseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DA66CDA764BB4552BEF9CB /* GitHubReleaseClient.swift */; };
 		ECE2C1359C9360A6E1A52C71 /* RateCardRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C969445CAE259343D31A8B41 /* RateCardRepositoryTests.swift */; };
 		ED6620A695EB97CCD5712AE3 /* DashboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9635D86E92D16A7A338F698 /* DashboardLayout.swift */; };
+		ED905A03E9005BF65D27CD8A /* APIPriceCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16A80F6F768137E6FCE64FF9 /* APIPriceCardTests.swift */; };
 		F3151CE8CE14562126927CAD /* DemoDashboardData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4673DF703E6893B5280FA6BA /* DemoDashboardData.swift */; };
 		FC50893FDABEEA4E1AFF9601 /* RadarRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A1884B2AFF7073E74C3A1B /* RadarRepositoryTests.swift */; };
 		FC6D30030ABC9D7E1F6FFF86 /* ModelCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FFA0CD9B77F733909463932 /* ModelCatalogTests.swift */; };
@@ -126,14 +134,19 @@
 		10018E85736ECBFD621036BD /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		105CFCE44A4D6BF3B006DEC3 /* StationRecommendationClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRecommendationClient.swift; sourceTree = "<group>"; };
 		13EDC540F158180EC57F0B87 /* StationRecommendationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRecommendationRepository.swift; sourceTree = "<group>"; };
+		16A80F6F768137E6FCE64FF9 /* APIPriceCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIPriceCardTests.swift; sourceTree = "<group>"; };
 		16C1B3CA7232D08D609BB769 /* LocalCodexUsageReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCodexUsageReader.swift; sourceTree = "<group>"; };
 		19A40743771F2B607DF7D4C1 /* RadarRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarRepository.swift; sourceTree = "<group>"; };
 		2140304FE2F8A1A2BE96B461 /* CodexToolboxIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = CodexToolboxIcon.icon; sourceTree = "<group>"; };
 		2171DF25233B6149DB40E960 /* UsageLedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLedgerStore.swift; sourceTree = "<group>"; };
 		2261FB337803F7F9BC3234ED /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		253A0B279BF4C3C091999067 /* APIPriceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIPriceCard.swift; sourceTree = "<group>"; };
+		25C4F3A9DA27568B5FC764E9 /* DashboardTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardTheme.swift; sourceTree = "<group>"; };
 		266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseClientTests.swift; sourceTree = "<group>"; };
 		2747616944418EB798D60AD5 /* ResetCreditModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditModels.swift; sourceTree = "<group>"; };
+		2941BA2903DB71C9EC8BCB73 /* APIPriceCardRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIPriceCardRepository.swift; sourceTree = "<group>"; };
 		2C2EC0DBB4ED3C5B6ECA46F5 /* DashboardModuleHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardModuleHeader.swift; sourceTree = "<group>"; };
+		2C855EABA233A7B6C981081E /* ExperimentalFeaturesSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperimentalFeaturesSettingsView.swift; sourceTree = "<group>"; };
 		2FEFD7E69074A8E8985A80EB /* MetricFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricFormatter.swift; sourceTree = "<group>"; };
 		331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "intelligence-efficiency-v2.json"; sourceTree = "<group>"; };
 		3A68445038C1E8DA0C8B7C00 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -164,10 +177,12 @@
 		774108B48713EA34CEA3816D /* RadarDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarDecodingTests.swift; sourceTree = "<group>"; };
 		78DA66CDA764BB4552BEF9CB /* GitHubReleaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseClient.swift; sourceTree = "<group>"; };
 		7C408D76051917E2D8297CB8 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		7F9124FA061A7B59A28C8E48 /* api-price-card-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "api-price-card-v1.json"; sourceTree = "<group>"; };
 		83A725A51BAF23C75B09EF87 /* ResetCreditsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsSettingsView.swift; sourceTree = "<group>"; };
 		87CC8EBE3F4C8055A08287AF /* TrendPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendPoint.swift; sourceTree = "<group>"; };
 		8D0916F97C8C1593FAF3585D /* ModelBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelBenchmark.swift; sourceTree = "<group>"; };
 		90120F894D7D3D575570C42F /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		914FB122CF0E680FB934CDB8 /* DashboardThemeStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardThemeStyle.swift; sourceTree = "<group>"; };
 		94B8D7D6275AC1CC4C173B60 /* TrendPointTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendPointTests.swift; sourceTree = "<group>"; };
 		95AE8BEE46ECE7C46A22341C /* ResetCreditsClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsClientTests.swift; sourceTree = "<group>"; };
 		9810FFCE8A254A8AFBD20B8E /* ToolboxMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolboxMotion.swift; sourceTree = "<group>"; };
@@ -184,6 +199,7 @@
 		B7FE8CAFD70220B4AEBA166B /* TokenUsageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageSettingsView.swift; sourceTree = "<group>"; };
 		BB3865488B60F9F651D24132 /* RateCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateCardTests.swift; sourceTree = "<group>"; };
 		BDB7DD73DDF26CDC4CEC946C /* ResetCreditsModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsModuleView.swift; sourceTree = "<group>"; };
+		BDEAFC43E8A6755A48695D16 /* ModelVisibilitySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelVisibilitySettingsView.swift; sourceTree = "<group>"; };
 		BF6D48424F5006528572F33B /* ResetCreditsCacheStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsCacheStore.swift; sourceTree = "<group>"; };
 		C48FC71B7DB39ECD68CAF0B1 /* GeneralSystemSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSystemSettingsView.swift; sourceTree = "<group>"; };
 		C969445CAE259343D31A8B41 /* RateCardRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateCardRepositoryTests.swift; sourceTree = "<group>"; };
@@ -237,6 +253,7 @@
 		29DAFC2EA6074175A61EF34F /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				7F9124FA061A7B59A28C8E48 /* api-price-card-v1.json */,
 				0E66722D8BAAD7AFB3CC18F2 /* Assets.xcassets */,
 				A536364143A356355F6B5116 /* codex-rate-card-v1.json */,
 				2140304FE2F8A1A2BE96B461 /* CodexToolboxIcon.icon */,
@@ -300,11 +317,13 @@
 			children = (
 				10018E85736ECBFD621036BD /* AboutView.swift */,
 				E92010C87A159F47696CE3F9 /* DashboardSettingsView.swift */,
+				2C855EABA233A7B6C981081E /* ExperimentalFeaturesSettingsView.swift */,
 				FD060F9540D6D4A7C34625D3 /* GeneralDashboardSettingsView.swift */,
 				FC02D97B94F259DAE4D90032 /* GeneralSettingsView.swift */,
 				C48FC71B7DB39ECD68CAF0B1 /* GeneralSystemSettingsView.swift */,
 				4F405F9CA1CF7D7A00BF96ED /* LaunchAtLoginController.swift */,
 				DDD985C53FDC6200A51F6C4F /* MenuBarAliasesSettingsView.swift */,
+				BDEAFC43E8A6755A48695D16 /* ModelVisibilitySettingsView.swift */,
 				83A725A51BAF23C75B09EF87 /* ResetCreditsSettingsView.swift */,
 				DEE638A90E31E549778A0026 /* SettingsView.swift */,
 				B7FE8CAFD70220B4AEBA166B /* TokenUsageSettingsView.swift */,
@@ -317,6 +336,7 @@
 		638052CCD0743EC3E74AC5EE /* Data */ = {
 			isa = PBXGroup;
 			children = (
+				2941BA2903DB71C9EC8BCB73 /* APIPriceCardRepository.swift */,
 				675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */,
 				A04DB88CA844CD8A51F16DA6 /* RadarClient.swift */,
 				19A40743771F2B607DF7D4C1 /* RadarRepository.swift */,
@@ -358,6 +378,7 @@
 			isa = PBXGroup;
 			children = (
 				3DDB76A3B7BA7C292E387DE7 /* AdaptiveVisualStyle.swift */,
+				914FB122CF0E680FB934CDB8 /* DashboardThemeStyle.swift */,
 				0794040B0BD566A42042F2E8 /* MetricStyle.swift */,
 				9810FFCE8A254A8AFBD20B8E /* ToolboxMotion.swift */,
 			);
@@ -375,6 +396,8 @@
 		90484F742A7E459C9D95F1B2 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
+				253A0B279BF4C3C091999067 /* APIPriceCard.swift */,
+				25C4F3A9DA27568B5FC764E9 /* DashboardTheme.swift */,
 				8D0916F97C8C1593FAF3585D /* ModelBenchmark.swift */,
 				66923E26C70902341D912CF9 /* ModelCatalog.swift */,
 				EE6FB33C022CCEB8BE655947 /* ModelRadarPreferences.swift */,
@@ -452,6 +475,7 @@
 		D98D23D0A333146F39A11FD3 /* CodexToolboxTests */ = {
 			isa = PBXGroup;
 			children = (
+				16A80F6F768137E6FCE64FF9 /* APIPriceCardTests.swift */,
 				ACB9676956C6080A3FF503E4 /* AppSettingsTests.swift */,
 				266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */,
 				0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */,
@@ -610,6 +634,7 @@
 			files = (
 				81C271E0BC21138453E5D472 /* Assets.xcassets in Resources */,
 				2149FA0F776BE01A311E44C1 /* CodexToolboxIcon.icon in Resources */,
+				6A2952D1AB233EF03A693FF6 /* api-price-card-v1.json in Resources */,
 				413164CE8090F8528E8C7F5D /* codex-rate-card-v1.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -657,9 +682,11 @@
 				ED6620A695EB97CCD5712AE3 /* DashboardLayout.swift in Sources */,
 				95FD5D5496776AB41B8DD239 /* DashboardModuleHeader.swift in Sources */,
 				746809FDC1D27E1893C412D7 /* DashboardSettingsView.swift in Sources */,
+				9DFF94FDF6C9DD86CB3B42EA /* DashboardThemeStyle.swift in Sources */,
 				5ECF0AAF93F6577EA99C8212 /* DashboardView.swift in Sources */,
 				F3151CE8CE14562126927CAD /* DemoDashboardData.swift in Sources */,
 				2CB605E7F0B3C4B86271642C /* EmptyStateView.swift in Sources */,
+				C9FDD9914432057DF00368C3 /* ExperimentalFeaturesSettingsView.swift in Sources */,
 				3366326C3F7FBD1E01FB2841 /* GeneralDashboardSettingsView.swift in Sources */,
 				1FA396F8B95DECEAA4EC9E60 /* GeneralSettingsView.swift in Sources */,
 				532FF70B365B0195BF3BA59C /* GeneralSystemSettingsView.swift in Sources */,
@@ -667,6 +694,7 @@
 				E148BF5F2CF218F01A0D9636 /* MenuBarAliasesSettingsView.swift in Sources */,
 				AEC9A8B9B56DEFC48B34D923 /* MenuBarLabel.swift in Sources */,
 				BE0EAD146806BE7130F518FA /* MetricStyle.swift in Sources */,
+				A23A102EA93047D219E5C9F4 /* ModelVisibilitySettingsView.swift in Sources */,
 				8D14578AE1E4B6BD5CF3AEDB /* RankRow.swift in Sources */,
 				0FA4755DF589AA28E722F033 /* RankingSection.swift in Sources */,
 				2C49FBFA0A23B54797FDF36B /* ResetCreditsModuleView.swift in Sources */,
@@ -688,6 +716,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ED905A03E9005BF65D27CD8A /* APIPriceCardTests.swift in Sources */,
 				CB55FB93796809B7F68CD6BE /* AppSettingsTests.swift in Sources */,
 				9334398A3C124A7D92848BF9 /* GitHubReleaseClientTests.swift in Sources */,
 				BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */,
@@ -713,9 +742,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0FE2510D8CB02A3ACE22FB27 /* APIPriceCard.swift in Sources */,
+				B8629DD40119B6BF297C6F4E /* APIPriceCardRepository.swift in Sources */,
 				FEF21C43BEF422DDA7C4C1AD /* AppMetadata.swift in Sources */,
 				88DC6598275B899370898D44 /* AppSettings.swift in Sources */,
 				A2769C18638A21BA92F36A63 /* ApplicationSupportLayout.swift in Sources */,
+				E61E28BB4A36C717E409F8AD /* DashboardTheme.swift in Sources */,
 				ECDBBBD1F961B79E0A3CD3AF /* GitHubReleaseClient.swift in Sources */,
 				D19D824A91248A611C52C7C1 /* LocalCodexUsageReader.swift in Sources */,
 				8FC846ACD5A8539504C82CE6 /* MetricFormatter.swift in Sources */,

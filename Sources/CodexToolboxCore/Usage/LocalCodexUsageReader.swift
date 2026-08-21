@@ -568,7 +568,8 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         now: Date,
         calendar: Calendar,
         rateCard: RateCardManifest?,
-        rateCardMode: RateCardMode
+        rateCardMode: RateCardMode,
+        apiPriceCard: APIPriceManifest?
     ) async throws -> UsageHistory {
         let timezoneIdentifier = calendar.timeZone.identifier
         var ledger = try ledgerStore.load(timezoneIdentifier: timezoneIdentifier)
@@ -649,7 +650,8 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             from: ledger,
             now: now,
             rateCard: rateCard,
-            rateCardMode: rateCardMode
+            rateCardMode: rateCardMode,
+            apiPriceCard: apiPriceCard
         )
         try ledgerStore.save(ledger)
         return history
@@ -696,7 +698,8 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         from ledger: VersionedUsageLedger,
         now: Date,
         rateCard: RateCardManifest?,
-        rateCardMode: RateCardMode
+        rateCardMode: RateCardMode,
+        apiPriceCard: APIPriceManifest?
     ) -> UsageHistory {
         struct Aggregate {
             var tokens: Int64 = 0
@@ -704,6 +707,15 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             var credits: Double = 0
             var creditPrecision: CreditEstimatePrecision?
             var hasUnpricedObservation = false
+            var costUSD: Decimal = 0
+            var costPrecision: CostEstimatePrecision?
+            var pricedTokens: Int64 = 0
+            var costBreakdown = APICostBreakdown(
+                freshInputUSD: 0,
+                cachedInputUSD: 0,
+                cacheWriteUSD: 0,
+                outputUSD: 0
+            )
             var memberIDs: Set<String> = []
             var complete = true
         }
@@ -725,6 +737,15 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                         )
                     }
                 } ?? observation.creditEstimate
+                let costEstimate = observation.tokenBreakdown.flatMap { breakdown in
+                    observation.executionContext.flatMap { context in
+                        apiPriceCard?.cost(
+                            for: breakdown,
+                            context: context,
+                            at: observation.timestamp
+                        )
+                    }
+                }
                 quotaObservations.append(
                     LocalQuotaUsageObservation(
                         timestamp: observation.timestamp,
@@ -749,6 +770,21 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                 } else if observation.tokenIncrement > 0 {
                     aggregate.hasUnpricedObservation = true
                 }
+                if let costEstimate {
+                    aggregate.costUSD += costEstimate.amountUSD
+                    aggregate.pricedTokens += min(
+                        observation.tokenIncrement,
+                        costEstimate.pricedTokens
+                    )
+                    aggregate.costPrecision = Self.mergedCostPrecision(
+                        aggregate.costPrecision,
+                        costEstimate.precision
+                    )
+                    aggregate.costBreakdown = Self.adding(
+                        aggregate.costBreakdown,
+                        costEstimate.breakdown
+                    )
+                }
                 byDayAndRoot[day, default: [:]][entry.rootTaskID] = aggregate
             }
             for (day, tokens) in entry.dailyTokens {
@@ -772,17 +808,40 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                         || aggregate.observedTokens < aggregate.tokens
                         ? nil : aggregate.credits,
                     creditPrecision: aggregate.creditPrecision,
+                    costUSD: aggregate.pricedTokens > 0 ? aggregate.costUSD : nil,
+                    costPrecision: aggregate.pricedTokens < aggregate.tokens
+                        ? .lowerBound
+                        : aggregate.costPrecision,
+                    pricedTokens: aggregate.pricedTokens,
+                    costBreakdown: aggregate.pricedTokens > 0
+                        ? aggregate.costBreakdown
+                        : nil,
                     descendantCount: max(0, (memberCountByRoot[rootID] ?? aggregate.memberIDs.count) - 1)
                 )
             }
+            let totalTokens = tasks.reduce(0) { $0 + $1.tokens }
+            let pricedTokens = tasks.reduce(0) { $0 + $1.pricedTokens }
+            let mergedCostPrecision = tasks.reduce(nil) { partial, task in
+                Self.mergedCostPrecision(partial, task.costPrecision)
+            }
             return DailyUsageSummary(
                 dateKey: day,
-                totalTokens: tasks.reduce(0) { $0 + $1.tokens },
+                totalTokens: totalTokens,
                 totalCredits: tasks.allSatisfy { $0.credits != nil }
                     ? tasks.compactMap(\.credits).reduce(0, +)
                     : nil,
                 creditPrecision: tasks.compactMap(\.creditPrecision).reduce(nil) {
                     Self.mergedPrecision($0, $1)
+                },
+                totalCostUSD: tasks.compactMap(\.costUSD).isEmpty
+                    ? nil
+                    : tasks.compactMap(\.costUSD).reduce(0, +),
+                costPrecision: pricedTokens < totalTokens && pricedTokens > 0
+                    ? .lowerBound
+                    : mergedCostPrecision,
+                pricedTokens: pricedTokens,
+                costBreakdown: tasks.compactMap(\.costBreakdown).reduce(nil) { partial, value in
+                    Self.adding(partial, value)
                 },
                 tasks: tasks,
                 isComplete: roots.values.allSatisfy(\.complete)
@@ -874,5 +933,29 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             }
         }
         return result
+    }
+
+    private static func mergedCostPrecision(
+        _ lhs: CostEstimatePrecision?,
+        _ rhs: CostEstimatePrecision?
+    ) -> CostEstimatePrecision? {
+        guard let rhs else { return lhs }
+        guard let lhs else { return rhs }
+        if lhs == .lowerBound || rhs == .lowerBound { return .lowerBound }
+        if lhs == .approximate || rhs == .approximate { return .approximate }
+        return .exact
+    }
+
+    private static func adding(
+        _ lhs: APICostBreakdown?,
+        _ rhs: APICostBreakdown
+    ) -> APICostBreakdown {
+        guard let lhs else { return rhs }
+        return APICostBreakdown(
+            freshInputUSD: lhs.freshInputUSD + rhs.freshInputUSD,
+            cachedInputUSD: lhs.cachedInputUSD + rhs.cachedInputUSD,
+            cacheWriteUSD: lhs.cacheWriteUSD + rhs.cacheWriteUSD,
+            outputUSD: lhs.outputUSD + rhs.outputUSD
+        )
     }
 }

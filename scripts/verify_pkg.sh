@@ -72,8 +72,12 @@ fi
 
 test -x "$EXPANDED"/*/Scripts/preinstall
 test -x "$EXPANDED"/*/Scripts/postinstall
-grep -q 'CodexToolbox.relaunch-after-install' "$EXPANDED"/*/Scripts/preinstall
 grep -q 'launchctl asuser' "$EXPANDED"/*/Scripts/postinstall
+grep -q 'successful interactive install always launches' "$EXPANDED"/*/Scripts/postinstall
+if grep -q 'RELAUNCH_MARKER' "$EXPANDED"/*/Scripts/postinstall; then
+    echo "The installer must launch after every successful interactive install" >&2
+    exit 1
+fi
 
 SIGNATURE_OUTPUT="$(pkgutil --check-signature "$PKG_PATH" 2>&1 || true)"
 if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then
@@ -86,14 +90,60 @@ if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then
         echo "A Developer ID Application signature is required" >&2
         exit 1
     fi
+
+    signature_team_id() {
+        codesign -dvv "$1" 2>&1 | awk -F= '/^TeamIdentifier=/ { print $2; exit }'
+    }
+
+    APP_TEAM_ID="$(signature_team_id "$APP_PATH")"
+    if [[ ! "$APP_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+        echo "The app must have a valid signing Team ID, found: ${APP_TEAM_ID:-none}" >&2
+        exit 1
+    fi
+
+    SPARKLE_VERSION_DIR="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
+    SIGNED_TARGETS=(
+        "$SPARKLE_VERSION_DIR/XPCServices/Installer.xpc"
+        "$SPARKLE_VERSION_DIR/XPCServices/Downloader.xpc"
+        "$SPARKLE_VERSION_DIR/Autoupdate"
+        "$SPARKLE_VERSION_DIR/Updater.app"
+        "$APP_PATH/Contents/Frameworks/Sparkle.framework"
+    )
+    for signed_target in "${SIGNED_TARGETS[@]}"; do
+        TARGET_TEAM_ID="$(signature_team_id "$signed_target")"
+        if [[ "$TARGET_TEAM_ID" != "$APP_TEAM_ID" ]]; then
+            echo "Signing Team ID mismatch: $signed_target uses ${TARGET_TEAM_ID:-none}, app uses $APP_TEAM_ID" >&2
+            exit 1
+        fi
+    done
+    for embedded_dylib in "$APP_PATH"/Contents/MacOS/*.dylib; do
+        if [[ -f "$embedded_dylib" && "$(signature_team_id "$embedded_dylib")" != "$APP_TEAM_ID" ]]; then
+            echo "Signing Team ID mismatch: $embedded_dylib" >&2
+            exit 1
+        fi
+    done
+
+    INSTALLER_TEAM_ID="$(
+        grep -m1 'Developer ID Installer:' <<<"$SIGNATURE_OUTPUT" \
+            | sed -E 's/.*\(([A-Z0-9]{10})\).*/\1/'
+    )"
+    if [[ "$INSTALLER_TEAM_ID" != "$APP_TEAM_ID" ]]; then
+        echo "Installer Team ID $INSTALLER_TEAM_ID does not match app Team ID $APP_TEAM_ID" >&2
+        exit 1
+    fi
 fi
 
 if [[ -f "$PKG_PATH.sha256" ]]; then
     (cd "$(dirname "$PKG_PATH")" && shasum -a 256 -c "$(basename "$PKG_PATH").sha256")
 fi
 
+"$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
+
 echo "PKG verified: $(basename "$PKG_PATH")"
 echo "Architectures: $ARCHITECTURES"
+if [[ -n "${APP_TEAM_ID:-}" ]]; then
+    echo "Signing Team ID: $APP_TEAM_ID"
+fi
 if grep -q 'Developer ID Installer' <<<"$SIGNATURE_OUTPUT"; then
     echo "Installer signature: Developer ID Installer"
 else

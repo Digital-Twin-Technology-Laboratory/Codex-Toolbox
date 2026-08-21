@@ -232,6 +232,83 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(ledgerText.contains("prolite"))
     }
 
+    func testAggregatesAPIEquivalentCostFromRawEventTimeComponents() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("priced.jsonl")
+        let lines = [
+            turnContextLine(
+                model: "gpt-5.6-terra",
+                serviceTier: "standard",
+                provider: "openai"
+            ),
+            pricedTokenLine(timestamp: "2026-08-20T06:00:00Z")
+        ].joined(separator: "\n") + "\n"
+        try Data(lines.utf8).write(to: rollout)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        try createDatabase(
+            at: database,
+            threads: [("priced", "Priced task", rollout.path, 1_300_000, 1)],
+            edges: []
+        )
+        let priceCard = try APIPriceManifest(
+            schema: 1,
+            currentVersion: "current",
+            generatedAt: "2026-08-20T00:00:00Z",
+            sources: ["fixture"],
+            versions: [
+                APIPriceVersion(
+                    id: "current",
+                    effectiveAt: "2026-08-01T00:00:00Z",
+                    models: [
+                        APIModelPrice(
+                            id: "openai-gpt-5.6-terra",
+                            providerID: "openai",
+                            aliases: ["gpt-5.6-terra"],
+                            source: .openAIOfficial,
+                            sourceUpdatedAt: "2026-08-20",
+                            standard: APITokenPrice(
+                                inputUSDPerMillion: 2,
+                                cachedInputUSDPerMillion: 0.2,
+                                cacheWriteUSDPerMillion: 2.5,
+                                outputUSDPerMillion: 12
+                            ),
+                            priority: nil,
+                            contextTiers: []
+                        )
+                    ]
+                )
+            ]
+        ).validated()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let reader = LocalCodexUsageReader(
+            codexHome: workspace,
+            stateDatabaseURL: database,
+            ledgerURL: workspace.appendingPathComponent("ledger.json")
+        )
+
+        let history = try await reader.readUsage(
+            now: Date(timeIntervalSince1970: 1_800_000_000),
+            calendar: calendar,
+            rateCard: nil,
+            rateCardMode: .automatic,
+            apiPriceCard: priceCard
+        )
+        let summary = try XCTUnwrap(history.summary(for: "2026-08-20"))
+
+        XCTAssertEqual(summary.totalCostUSD, Decimal(string: "5.29"))
+        XCTAssertEqual(summary.costPrecision, .exact)
+        XCTAssertEqual(summary.pricedTokens, 1_300_000)
+        XCTAssertEqual(summary.costCoverage, 1)
+        XCTAssertEqual(summary.costBreakdown?.freshInputUSD, Decimal(string: "1.4"))
+        XCTAssertEqual(summary.costBreakdown?.cachedInputUSD, Decimal(string: "0.04"))
+        XCTAssertEqual(summary.costBreakdown?.cacheWriteUSD, Decimal(string: "0.25"))
+        XCTAssertEqual(summary.costBreakdown?.outputUSD, Decimal(string: "3.6"))
+        XCTAssertEqual(summary.tasks.first?.costUSD, Decimal(string: "5.29"))
+    }
+
     func testQuotaUsageWeightingMatchesPublishedCodexRateCard() throws {
         let usage: [String: Any] = [
             "input_tokens": 1_000,
@@ -883,10 +960,41 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         return String(decoding: data, as: UTF8.self)
     }
 
-    private func turnContextLine(model: String) -> String {
+    private func turnContextLine(
+        model: String,
+        serviceTier: String? = nil,
+        provider: String? = nil
+    ) -> String {
+        var payload: [String: Any] = ["model": model]
+        payload["service_tier"] = serviceTier
+        payload["model_provider_id"] = provider
         let event: [String: Any] = [
             "type": "turn_context",
-            "payload": ["model": model]
+            "payload": payload
+        ]
+        let data = try! JSONSerialization.data(withJSONObject: event, options: [.sortedKeys])
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    private func pricedTokenLine(timestamp: String) -> String {
+        let usage: [String: Any] = [
+            "input_tokens": 1_000_000,
+            "cached_input_tokens": 200_000,
+            "cache_write_input_tokens": 100_000,
+            "output_tokens": 300_000,
+            "reasoning_output_tokens": 200_000,
+            "total_tokens": 1_300_000
+        ]
+        let event: [String: Any] = [
+            "timestamp": timestamp,
+            "type": "event_msg",
+            "payload": [
+                "type": "token_count",
+                "info": [
+                    "total_token_usage": usage,
+                    "last_token_usage": usage
+                ]
+            ]
         ]
         let data = try! JSONSerialization.data(withJSONObject: event, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)

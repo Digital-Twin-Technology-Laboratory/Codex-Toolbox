@@ -7,7 +7,6 @@ TARGET_PREFIX="${TARGET_VOLUME%/}"
 OLD_APP="$TARGET_PREFIX/Applications/Show Codex IQ.app"
 NEW_APP="$TARGET_PREFIX/Applications/Codex Toolbox.app"
 BUNDLE_ID="io.github.zzzzzzjw.ShowCodexIQ"
-RELAUNCH_MARKER="$TARGET_PREFIX/private/var/run/io.github.zzzzzzjw.CodexToolbox.relaunch-after-install"
 
 bundle_id_at_path() {
     /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Contents/Info.plist" 2>/dev/null || true
@@ -21,14 +20,9 @@ is_running() {
 OLD_EXECUTABLE="$OLD_APP/Contents/MacOS/Show Codex IQ"
 NEW_EXECUTABLE="$NEW_APP/Contents/MacOS/Codex Toolbox"
 
-# Clear an interrupted install's marker before deciding whether this install
-# should restore the app's previous running state.
-/bin/rm -f -- "$RELAUNCH_MARKER"
-
 if [[ -d "$OLD_APP" && ! -L "$OLD_APP" && "$(bundle_id_at_path "$OLD_APP")" == "$BUNDLE_ID" ]] \
     || [[ -d "$NEW_APP" && ! -L "$NEW_APP" && "$(bundle_id_at_path "$NEW_APP")" == "$BUNDLE_ID" ]]; then
     if is_running "$OLD_EXECUTABLE" || is_running "$NEW_EXECUTABLE"; then
-        /usr/bin/install -m 600 /dev/null "$RELAUNCH_MARKER"
         /usr/bin/osascript -e "tell application id \"$BUNDLE_ID\" to quit" >/dev/null 2>&1 || true
 
         for _ in {1..15}; do

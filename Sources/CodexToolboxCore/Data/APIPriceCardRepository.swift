@@ -1,15 +1,15 @@
 import Foundation
 
-public enum RateCardFetchResult: Sendable {
-    case modified(RateCardManifest, CacheValidators)
+public enum APIPriceCardFetchResult: Sendable {
+    case modified(APIPriceManifest, CacheValidators)
     case notModified(CacheValidators)
 }
 
-public protocol RateCardReading: Sendable {
-    func fetch(cacheValidators: CacheValidators?) async throws -> RateCardFetchResult
+public protocol APIPriceCardReading: Sendable {
+    func fetch(cacheValidators: CacheValidators?) async throws -> APIPriceCardFetchResult
 }
 
-public enum RateCardClientError: Error, LocalizedError, Sendable, Equatable {
+public enum APIPriceCardClientError: Error, LocalizedError, Sendable, Equatable {
     case transport(String)
     case invalidResponse
     case httpStatus(Int)
@@ -18,22 +18,22 @@ public enum RateCardClientError: Error, LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case let .transport(message):
-            "在线 Codex 费率清单连接失败：\(message)；继续使用本地费率。"
+            "在线 API 价格清单连接失败：\(message)；继续使用本地价格。"
         case .invalidResponse:
-            "在线 Codex 费率清单返回了无效响应；继续使用本地费率。"
+            "在线 API 价格清单返回了无效响应；继续使用本地价格。"
         case let .httpStatus(code):
-            "在线 Codex 费率清单检查失败（HTTP \(code)）；继续使用本地费率。"
+            "在线 API 价格清单检查失败（HTTP \(code)）；继续使用本地价格。"
         case let .invalidPayload(message):
-            "在线 Codex 费率清单无法读取：\(message)；继续使用本地费率。"
+            "在线 API 价格清单无法读取：\(message)；继续使用本地价格。"
         }
     }
 }
 
-public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendable {
+public final class URLSessionAPIPriceCardClient: APIPriceCardReading, @unchecked Sendable {
     private let session: URLSession
     private let endpoint: URL
 
-    public convenience init(endpoint: URL = AppMetadata.rateCardManifestURL) {
+    public convenience init(endpoint: URL = AppMetadata.apiPriceManifestURL) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 30
@@ -41,12 +41,12 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         self.init(session: URLSession(configuration: configuration), endpoint: endpoint)
     }
 
-    public init(session: URLSession, endpoint: URL = AppMetadata.rateCardManifestURL) {
+    public init(session: URLSession, endpoint: URL = AppMetadata.apiPriceManifestURL) {
         self.session = session
         self.endpoint = endpoint
     }
 
-    public func fetch(cacheValidators: CacheValidators?) async throws -> RateCardFetchResult {
+    public func fetch(cacheValidators: CacheValidators?) async throws -> APIPriceCardFetchResult {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
         request.timeoutInterval = 15
@@ -69,10 +69,10 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         } catch let error as CancellationError {
             throw error
         } catch {
-            throw RateCardClientError.transport(error.localizedDescription)
+            throw APIPriceCardClientError.transport(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse else {
-            throw RateCardClientError.invalidResponse
+            throw APIPriceCardClientError.invalidResponse
         }
         let validators = CacheValidators(
             etag: http.value(forHTTPHeaderField: "ETag") ?? cacheValidators?.etag,
@@ -80,88 +80,69 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         )
         if http.statusCode == 304 { return .notModified(validators) }
         guard (200...299).contains(http.statusCode) else {
-            throw RateCardClientError.httpStatus(http.statusCode)
+            throw APIPriceCardClientError.httpStatus(http.statusCode)
         }
         do {
-            let manifest = try JSONDecoder().decode(RateCardManifest.self, from: data).validated()
+            let manifest = try JSONDecoder().decode(APIPriceManifest.self, from: data).validated()
             return .modified(manifest, validators)
         } catch {
-            throw RateCardClientError.invalidPayload(error.localizedDescription)
+            throw APIPriceCardClientError.invalidPayload(error.localizedDescription)
         }
     }
 }
 
-public struct StoredRateCard: Codable, Hashable, Sendable {
-    public let manifest: RateCardManifest
+public struct StoredAPIPriceCard: Codable, Hashable, Sendable {
+    public let manifest: APIPriceManifest
     public let validators: CacheValidators
     public let fetchedAt: Date
-
-    public init(manifest: RateCardManifest, validators: CacheValidators, fetchedAt: Date) {
-        self.manifest = manifest
-        self.validators = validators
-        self.fetchedAt = fetchedAt
-    }
 }
 
-public protocol RateCardStoring: Sendable {
-    func load() async throws -> StoredRateCard?
-    func save(_ card: StoredRateCard) async throws
+public protocol APIPriceCardStoring: Sendable {
+    func load() async throws -> StoredAPIPriceCard?
+    func save(_ card: StoredAPIPriceCard) async throws
 }
 
-public actor RateCardStore: RateCardStoring {
+public actor APIPriceCardStore: APIPriceCardStoring {
     private let fileURL: URL
     private let fileManager: FileManager
 
     public init(fileURL: URL? = nil, fileManager: FileManager = .default) {
         self.fileManager = fileManager
-        self.fileURL = fileURL ?? ApplicationSupportLayout(fileManager: fileManager).rateCardCacheURL
+        self.fileURL = fileURL
+            ?? ApplicationSupportLayout(fileManager: fileManager).apiPriceCardCacheURL
     }
 
-    public func load() async throws -> StoredRateCard? {
+    public func load() async throws -> StoredAPIPriceCard? {
         guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
-        let stored = try Self.decoder.decode(StoredRateCard.self, from: Data(contentsOf: fileURL))
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let stored = try decoder.decode(StoredAPIPriceCard.self, from: Data(contentsOf: fileURL))
         _ = try stored.manifest.validated()
         return stored
     }
 
-    public func save(_ card: StoredRateCard) async throws {
+    public func save(_ card: StoredAPIPriceCard) async throws {
         _ = try card.manifest.validated()
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try Self.encoder.encode(card).write(to: fileURL, options: .atomic)
-    }
-
-    private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys]
-        return encoder
-    }()
-
-    private static let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(card).write(to: fileURL, options: .atomic)
+    }
 }
 
-public enum RateCardSource: String, Codable, Hashable, Sendable {
-    case bundled
-    case cached
-    case remote
-}
-
-public struct RateCardRepositoryState: Sendable, Equatable {
-    public let manifest: RateCardManifest
+public struct APIPriceCardRepositoryState: Sendable, Equatable {
+    public let manifest: APIPriceManifest
     public let source: RateCardSource
     public let fetchedAt: Date?
     public let validators: CacheValidators
     public let errorMessage: String?
 
     public init(
-        manifest: RateCardManifest,
+        manifest: APIPriceManifest,
         source: RateCardSource,
         fetchedAt: Date?,
         validators: CacheValidators,
@@ -174,33 +155,32 @@ public struct RateCardRepositoryState: Sendable, Equatable {
         self.errorMessage = errorMessage
     }
 
-    public func isStale(now: Date, threshold: TimeInterval = 7 * 24 * 60 * 60) -> Bool {
-        let reference = fetchedAt
-            ?? (try? Date(manifest.generatedAt, strategy: .iso8601))
+    public func isStale(now: Date, threshold: TimeInterval = 14 * 24 * 60 * 60) -> Bool {
+        let reference = fetchedAt ?? (try? Date(manifest.generatedAt, strategy: .iso8601))
         guard let reference else { return true }
         return now.timeIntervalSince(reference) > threshold
     }
 }
 
-public actor RateCardRepository {
-    private let bundledManifest: RateCardManifest
-    private let client: any RateCardReading
-    private let store: any RateCardStoring
+public actor APIPriceCardRepository {
+    private let bundledManifest: APIPriceManifest
+    private let client: any APIPriceCardReading
+    private let store: any APIPriceCardStoring
     private let now: @Sendable () -> Date
-    private var state: RateCardRepositoryState
-    private var refreshTask: Task<RateCardRepositoryState, Never>?
+    private var state: APIPriceCardRepositoryState
+    private var refreshTask: Task<APIPriceCardRepositoryState, Never>?
 
     public init(
-        bundledManifest: RateCardManifest,
-        client: any RateCardReading = URLSessionRateCardClient(),
-        store: any RateCardStoring = RateCardStore(),
+        bundledManifest: APIPriceManifest,
+        client: any APIPriceCardReading = URLSessionAPIPriceCardClient(),
+        store: any APIPriceCardStoring = APIPriceCardStore(),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.bundledManifest = bundledManifest
         self.client = client
         self.store = store
         self.now = now
-        state = RateCardRepositoryState(
+        state = APIPriceCardRepositoryState(
             manifest: bundledManifest,
             source: .bundled,
             fetchedAt: nil,
@@ -209,14 +189,13 @@ public actor RateCardRepository {
         )
     }
 
-    @discardableResult
-    public func loadCached() async -> RateCardRepositoryState {
+    public func loadCached() async -> APIPriceCardRepositoryState {
         do {
-            guard let cached = try await store.load() else { return state }
-            guard cached.manifest.isHistoryPreservingSuccessor(of: bundledManifest) else {
+            guard let cached = try await store.load(),
+                  cached.manifest.isHistoryPreservingSuccessor(of: bundledManifest) else {
                 return state
             }
-            state = RateCardRepositoryState(
+            state = APIPriceCardRepositoryState(
                 manifest: cached.manifest,
                 source: .cached,
                 fetchedAt: cached.fetchedAt,
@@ -224,50 +203,48 @@ public actor RateCardRepository {
                 errorMessage: nil
             )
         } catch {
-            state = RateCardRepositoryState(
+            state = APIPriceCardRepositoryState(
                 manifest: bundledManifest,
                 source: .bundled,
                 fetchedAt: nil,
                 validators: CacheValidators(),
-                errorMessage: "官方费率缓存无法读取：\(error.localizedDescription)"
+                errorMessage: "API 价格缓存无法读取：\(error.localizedDescription)"
             )
         }
         return state
     }
 
-    public func currentState() -> RateCardRepositoryState { state }
-
-    @discardableResult
-    public func refresh() async -> RateCardRepositoryState {
+    public func refresh() async -> APIPriceCardRepositoryState {
         if let refreshTask { return await refreshTask.value }
         let previous = state
         let client = client
         let store = store
         let now = now
-        let task = Task<RateCardRepositoryState, Never> {
+        let task = Task<APIPriceCardRepositoryState, Never> {
             do {
                 let result = try await client.fetch(cacheValidators: previous.validators)
-                let manifest: RateCardManifest
+                let manifest: APIPriceManifest
                 let validators: CacheValidators
                 switch result {
-                case let .modified(value, newValidators):
+                case let .modified(value, nextValidators):
                     guard value.isHistoryPreservingSuccessor(of: previous.manifest) else {
-                        throw RateCardValidationError.invalidVersions
+                        throw APIPriceValidationError.invalidManifest
                     }
                     manifest = value
-                    validators = newValidators
-                case let .notModified(newValidators):
+                    validators = nextValidators
+                case let .notModified(nextValidators):
                     manifest = previous.manifest
-                    validators = newValidators
+                    validators = nextValidators
                 }
                 let fetchedAt = now()
-                let stored = StoredRateCard(
-                    manifest: manifest,
-                    validators: validators,
-                    fetchedAt: fetchedAt
+                try await store.save(
+                    StoredAPIPriceCard(
+                        manifest: manifest,
+                        validators: validators,
+                        fetchedAt: fetchedAt
+                    )
                 )
-                try await store.save(stored)
-                return RateCardRepositoryState(
+                return APIPriceCardRepositoryState(
                     manifest: manifest,
                     source: .remote,
                     fetchedAt: fetchedAt,
@@ -275,7 +252,7 @@ public actor RateCardRepository {
                     errorMessage: nil
                 )
             } catch {
-                return RateCardRepositoryState(
+                return APIPriceCardRepositoryState(
                     manifest: previous.manifest,
                     source: previous.source,
                     fetchedAt: previous.fetchedAt,

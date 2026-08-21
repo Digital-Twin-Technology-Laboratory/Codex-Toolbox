@@ -14,6 +14,9 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 > [!NOTE]
 > **v1.2.1 已于 2026 年 8 月 10 日正式发布。** 本版修复大数字 Token 总量换行和模型名称过早省略，重新整理设置分组与隐私说明，并对新用户默认展示榜单的其他指标。
 
+> [!TIP]
+> **v1.3.0 正在进行发布前验证，尚未作为正式 Release 发布。** 当前源码新增站长推荐、Radar 成本效率、API 等值成本、模型可见性管理和可选实验主题；正式附件仍以 Releases 页面为准。
+
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
 
@@ -34,6 +37,7 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 - 第四榜单默认是本地 IQ/费用/耗时加权百分位，也可切换为 Codex Radar 发布的“成本效率”（只含费用和耗时，越低越好）；两者不混称。
 - 可选站长推荐默认关闭，开启后支持日常开发、困难任务、后台自动化和龙虾类任务四类场景，并可选择放在四宫格上方或下方。
 - 完整保留四类榜单、前三/前五展开、趋势图与离线快照。模型趋势图默认不显示，可开启并选择 7/14/30/90 天范围。
+- 模型可按提供商或家族显示/隐藏；默认仅显示 GPT，也可显示全部模型。家族简称统一用于菜单栏、榜单、趋势和站长推荐。
 - 菜单栏可切换智商、综合、费用或耗时，并支持序号、图标、详细数值和模型别名。
 - 失败时继续展示最后一次成功数据，不会用空榜单覆盖有用状态。
 
@@ -42,6 +46,7 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 - 只读解析 `~/.codex/state_*.sqlite` 和本机 rollout JSONL，不调用模型，不上传任务内容。
 - Token 内容分为上下两张独立卡片：当日总量与根任务 Top 3、每日用量趋势。点击趋势柱可切换到该日任务明细，并可“返回今日”；每次关闭弹窗都会清除日期选择。任务榜单可按设置展开为 Top 5 或 Top 10，悬停柱子仍可查看精确 Token。
 - Token 卡分别显示本机可读日志的原始 Token、按版本化官方费率计算的 Credits、账户全设备/共享产品权威已用比例，以及逐任务 `≈额度%`。费率数据每 6 小时自动检查，并按事件时间选择历史版本。
+- 可选 API 等值成本按输入、缓存读取、缓存写入与输出分项估算，支持每日成本趋势、任务成本和定价覆盖率；它不是 ChatGPT/Codex 订阅账单，菜单栏默认不显示。
 - 计算会跟踪中途模型、推理强度与 Standard/Fast 切换，区分缓存命中与免费缓存写入，且不重复计算已包含在输出中的 reasoning Token。字段不完时显示近似或上界，API Key 模式不套用 ChatGPT Credits。
 - 活动任务期间会每分钟只读采样账户窗口；其他设备或共享产品消耗、同一分钟并发会被标记并不用于学习换算率。无可用样本时不显示任务百分比。
 - 任务按根任务及全部子任务聚合，标题使用 Codex 在本机保存的具体对话或任务名称；趋势支持 7/14/30/90 天。
@@ -62,7 +67,7 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 
 设置页顺序为“通用与看板”、“智商显示”、“Token 用量”、“重置卡”和“关于”。模型榜单与 Token 选项按功能分组，数据访问说明集中在“关于 → 数据与隐私详情”。通用页可调整模块顺序、登录启动，以及每小时或每天自动检查更新。新版本会在后台下载；准备完成后设置齿轮显示红点，点击“立即更新”即可让应用自动退出、替换并重新打开。
 
-macOS 26+ 使用原生 Liquid Glass，macOS 14–15 回退为系统 Material。动效采用无弹跳的临界阻尼过渡；Reduced Motion 下只保留短交叉淡化。
+macOS 26+ 使用原生 Liquid Glass，macOS 14–15 回退为系统 Material。实验性入口可选彩色玻璃、清透玻璃与扁平中性主题，默认不显示且不改变系统设置窗口。动效采用无弹跳的临界阻尼过渡；Reduced Motion 下只保留短交叉淡化。
 
 ## 安装与从 Show Codex IQ 升级
 
@@ -96,7 +101,7 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录�
 
 ## 数据与隐私
 
-Token 总量仅代表当前 Mac 仍可读取的日志；归档或删除的 rollout、未落盘记录、云端及其他设备都不在其中。Credits 是本机事件按公开费率的计算值；账户已用比例来自账户接口，任务百分比始终是带置信度的估算。
+Token 总量仅代表当前 Mac 仍可读取的日志；归档或删除的 rollout、未落盘记录、云端及其他设备都不在其中。Credits 是本机事件按公开费率的计算值；API 等值成本来自 OpenAI 官方价格与 models.dev 快照；账户已用比例来自账户接口，任务百分比始终是带置信度的估算。
 
 应用级数据存放在：
 
@@ -126,7 +131,15 @@ bash scripts/test_all.sh
 
 ### PKG / DMG 构建、签名与公证
 
-`scripts/build_pkg.sh` 在没有证书时会生成 ad-hoc 应用签名和未签名的本地测试 PKG。正式发布必须使用两类独立证书重建：
+本地安装验收使用与正式包相同的 Developer ID 嵌套签名链，但不执行公证、staple 或发布：
+
+```bash
+bash scripts/build_local_test_pkg.sh
+```
+
+PKG 安装成功后会始终以当前控制台用户自动启动 Codex Toolbox；是否在安装前运行不影响这一行为。
+
+`build_pkg.sh` 缺少 Developer ID Application 或 Developer ID Installer 时会立即失败，防止把不可运行的 ad-hoc Hardened Runtime 产物交给用户。正式发布必须使用两类独立证书显式重建：
 
 ```bash
 APP_SIGN_IDENTITY='Developer ID Application: ...' \

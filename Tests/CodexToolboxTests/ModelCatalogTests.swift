@@ -61,9 +61,46 @@ final class ModelCatalogTests: XCTestCase {
         let unknown = benchmark(id: "future_model_ultra", model: "future-model", effort: "ultra")
         let group = try XCTUnwrap(ModelCatalog.grouped([unknown]).first)
 
-        XCTAssertEqual(group.title, "其他模型")
+        XCTAssertEqual(group.title, "future-model")
+        XCTAssertEqual(group.providerID, "other")
+        XCTAssertEqual(group.providerTitle, "其他")
         XCTAssertEqual(group.models.first?.catalogEntry.displayLabel, "future-model ultra")
         XCTAssertEqual(group.models.first?.catalogEntry.rowTitle, "ultra")
+    }
+
+    func testCurrentElevenFamiliesHaveStableProvidersIncludingIndependentDSH() {
+        let rows = [
+            ("gpt-5.5", "high"),
+            ("gpt-5.6-sol", "high"),
+            ("gpt-5.6-terra", "high"),
+            ("gpt-5.6-luna", "high"),
+            ("grok-4.6", "high"),
+            ("k3", "high"),
+            ("deepseek-v4-flash", "high"),
+            ("deepseek-v4-pro", "high"),
+            ("dsh-deepseek-v4-flash", "high"),
+            ("dsh-deepseek-v4-pro", "high"),
+            ("glm-5.3", "high")
+        ]
+        let models = rows.enumerated().map {
+            benchmark(id: "model-\($0.offset)", model: $0.element.0, effort: $0.element.1)
+        }
+        let providers = ModelCatalog.groupedByProvider(models)
+
+        XCTAssertEqual(ModelCatalog.grouped(models).count, 11)
+        XCTAssertEqual(
+            providers.map(\.id),
+            ["openai", "xai", "moonshot", "deepseek", "dsh", "zai"]
+        )
+        XCTAssertEqual(providers.first { $0.id == "dsh" }?.families.count, 2)
+        XCTAssertEqual(
+            models.first { $0.model == "dsh-deepseek-v4-flash" }?.catalogEntry.providerID,
+            "dsh"
+        )
+        XCTAssertEqual(
+            models.first { $0.model == "deepseek-v4-flash" }?.catalogEntry.providerID,
+            "deepseek"
+        )
     }
 
     private func benchmark(id: String, model: String, effort: String) -> ModelBenchmark {

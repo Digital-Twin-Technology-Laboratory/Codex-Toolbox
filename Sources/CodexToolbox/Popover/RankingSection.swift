@@ -37,12 +37,14 @@ struct RankingSection: View {
     let presentation: RankingSectionPresentation
     let showsExpandedMetrics: Bool
     let overallMode: OverallRankingMode
+    let compactModelName: (ModelBenchmark) -> String
     let namespace: Namespace.ID
     let onExpand: () -> Void
     let onCollapse: () -> Void
 
     @StateObject private var interaction = RankingSectionInteractionState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dashboardTheme) private var dashboardTheme
 
     private var visibleRankings: [RankedModel] {
         Array(rankings.prefix(presentation.rowLimit))
@@ -65,7 +67,7 @@ struct RankingSection: View {
             }
             .groupBoxStyle(
                 RankingGroupBoxStyle(
-                    tint: metric.tint,
+                    tint: tint,
                     isHovered: interaction.isHovered,
                     id: metric.rawValue,
                     namespace: namespace
@@ -86,15 +88,6 @@ struct RankingSection: View {
 
     private var rankingContent: some View {
         VStack(spacing: contentSpacing) {
-            if let metricExplanation {
-                Text(metricExplanation)
-                    .font(.system(size: 8.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
             if showsMetricTable {
                 metricTableHeader
                 Divider()
@@ -105,7 +98,8 @@ struct RankingSection: View {
                     ranked: ranked,
                     presentation: presentation,
                     showsExpandedMetrics: showsExpandedMetrics,
-                    overallMode: overallMode
+                    overallMode: overallMode,
+                    compactModelName: compactModelName(ranked.benchmark)
                 )
                 if ranked.id != visibleRankings.last?.id {
                     Divider()
@@ -158,7 +152,7 @@ struct RankingSection: View {
             .fixedSize(horizontal: true, vertical: false)
 
             Text(metric.displayName(overallMode: overallMode))
-                .foregroundStyle(metric.tint.opacity(0.82))
+                .foregroundStyle(tint.opacity(0.82))
                 .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
         }
         .font(.system(size: 8, weight: .semibold))
@@ -171,8 +165,18 @@ struct RankingSection: View {
         HStack(spacing: 6) {
             Label(rankingTitle, systemImage: metric.systemImage)
                 .font(.system(size: presentation == .compact ? 10 : 12, weight: .bold))
-                .foregroundStyle(metric.tint)
+                .foregroundStyle(tint)
                 .lineLimit(1)
+                .layoutPriority(2)
+
+            if let metricExplanation {
+                Text(metricExplanation)
+                    .font(.system(size: 8.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
+            }
 
             Spacer(minLength: 2)
 
@@ -192,6 +196,10 @@ struct RankingSection: View {
 
     private var rankingTitle: String {
         metric.rankingTitle(overallMode: overallMode)
+    }
+
+    private var tint: Color {
+        dashboardTheme.palette.accent(for: metric)
     }
 
     private var metricExplanation: String? {
@@ -224,7 +232,7 @@ struct RankingSection: View {
     }
 
     private var emptyStateText: String {
-        metric == .overall && overallMode == .radarCostEfficiency
+        return metric == .overall && overallMode == .radarCostEfficiency
             ? "Radar 成本效率字段不可用"
             : "暂无可用数据"
     }

@@ -22,5 +22,6 @@ public struct ApplicationSupportLayout: Sendable {
     public var legacyRadarStateURL: URL { legacyDirectory.appendingPathComponent("latest.json") }
     public var usageLedgerURL: URL { currentDirectory.appendingPathComponent("usage-ledger.json") }
     public var rateCardCacheURL: URL { currentDirectory.appendingPathComponent("codex-rate-card-v1.json") }
+    public var apiPriceCardCacheURL: URL { currentDirectory.appendingPathComponent("api-price-card-v1.json") }
     public var resetCreditsCacheURL: URL { currentDirectory.appendingPathComponent("reset-credits.json") }
 }

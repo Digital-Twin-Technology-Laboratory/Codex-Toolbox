@@ -3,6 +3,17 @@ import Foundation
 import XCTest
 
 final class RateCardRepositoryTests: XCTestCase {
+    func testOnlineRateErrorsIdentifyLocalFallback() {
+        XCTAssertEqual(
+            RateCardClientError.httpStatus(503).localizedDescription,
+            "在线 Codex 费率清单检查失败（HTTP 503）；继续使用本地费率。"
+        )
+        XCTAssertEqual(
+            RateCardClientError.transport("网络离线").localizedDescription,
+            "在线 Codex 费率清单连接失败：网络离线；继续使用本地费率。"
+        )
+    }
+
     func testRemoteCannotRewritePublishedHistory() async {
         let bundled = manifest(inputRate: 100)
         let rewritten = manifest(inputRate: 999)

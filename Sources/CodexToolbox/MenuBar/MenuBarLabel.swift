@@ -92,10 +92,7 @@ struct MenuBarLabel: View {
 
     private func rowTitle(for ranked: RankedModel) -> String {
         appModel.settings.menuBarRankStyle.prefix(for: ranked.position)
-            + appModel.settings.menuBarModelName(
-                modelID: ranked.benchmark.id,
-                fullName: ranked.benchmark.label
-            )
+            + appModel.settings.compactModelName(for: ranked.benchmark)
     }
 
     private var accessibilitySummary: String {

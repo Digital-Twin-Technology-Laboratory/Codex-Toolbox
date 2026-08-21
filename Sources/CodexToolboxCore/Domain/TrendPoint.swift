@@ -117,6 +117,36 @@ public struct TrendSeriesData: Hashable, Sendable {
     public let hasCustomSelection: Bool
     public let hasDrawableSeries: Bool
 
+    /// A truthful, local scale for line charts. Ranking values often cluster
+    /// tightly around the same score; including zero makes distinct curves
+    /// look identical even when their underlying values differ.
+    public var adaptiveYDomain: ClosedRange<Double> {
+        let values = chartPoints.map(\.value).filter(\.isFinite)
+        guard let minimum = values.min(), let maximum = values.max() else {
+            return 0...1
+        }
+
+        let spread = maximum - minimum
+        let magnitude = max(abs(minimum), abs(maximum))
+        let minimumSpan: Double
+        switch metric {
+        case .iq:
+            minimumSpan = max(6, magnitude * 0.04)
+        case .cost:
+            minimumSpan = max(0.02, magnitude * 0.12)
+        case .duration:
+            minimumSpan = max(60, magnitude * 0.08)
+        case .overall:
+            minimumSpan = max(5, magnitude * 0.05)
+        }
+
+        let targetSpan = max(spread * 1.28, minimumSpan)
+        let padding = max(0, (targetSpan - spread) / 2)
+        let lower = max(0, minimum - padding)
+        let upper = max(maximum + padding, lower + targetSpan)
+        return lower...upper
+    }
+
     public init(
         metric: RankingMetric,
         chartPoints: [TrendPoint],

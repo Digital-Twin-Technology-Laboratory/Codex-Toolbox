@@ -2,15 +2,6 @@ import CodexToolboxCore
 import SwiftUI
 
 extension RankingMetric {
-    var tint: Color {
-        switch self {
-        case .iq: .blue
-        case .cost: .green
-        case .duration: .orange
-        case .overall: .purple
-        }
-    }
-
     var rankingTitle: String {
         rankingTitle(overallMode: .localWeighted)
     }

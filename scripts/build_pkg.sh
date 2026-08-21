@@ -6,6 +6,12 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 XCODE_APP="${XCODE_APP:-/Applications/Xcode-beta.app}"
 source "$ROOT_DIR/scripts/version.sh"
 
+if [[ -z "${APP_SIGN_IDENTITY:-}" || -z "${INSTALLER_SIGN_IDENTITY:-}" ]]; then
+    echo "Developer ID Application and Developer ID Installer identities are required for a runnable PKG." >&2
+    echo "Use scripts/build_local_test_pkg.sh for the established signed local-test workflow." >&2
+    exit 1
+fi
+
 BUILD_DIR="$(mktemp -d "${TMPDIR%/}/CodexToolbox-archive.XXXXXX")"
 ARCHIVE_PATH="$BUILD_DIR/CodexToolbox.xcarchive"
 DERIVED_DATA_PATH="$BUILD_DIR/DerivedData"
@@ -55,14 +61,9 @@ if [[ "$ARCHITECTURES" != *arm64* || "$ARCHITECTURES" != *x86_64* ]]; then
 fi
 
 xattr -cr "$APP_PATH"
-if [[ -n "${APP_SIGN_IDENTITY:-}" ]]; then
-    "$ROOT_DIR/scripts/sign_app.sh" "$APP_PATH" "$APP_SIGN_IDENTITY"
-else
-    "$ROOT_DIR/scripts/sign_app.sh" "$APP_PATH" -
-    echo "Applied an ad-hoc development signature; Developer ID Application signing is still required." >&2
-fi
+"$ROOT_DIR/scripts/sign_app.sh" "$APP_PATH" "$APP_SIGN_IDENTITY"
 
 "$ROOT_DIR/scripts/package_pkg.sh" "$APP_PATH" "$OUTPUT_PKG"
-"$ROOT_DIR/scripts/verify_pkg.sh" "$OUTPUT_PKG"
+REQUIRE_DISTRIBUTION_SIGNATURE=1 "$ROOT_DIR/scripts/verify_pkg.sh" "$OUTPUT_PKG"
 
 echo "Architectures: $ARCHITECTURES"

@@ -54,6 +54,7 @@ cd "$ROOT_DIR"
 xcodegen generate
 bash scripts/version.sh
 python3 -m unittest discover -s Tests/RateCardScriptTests -v
+python3 -m unittest discover -s Tests/APIPriceScriptTests -v
 
 xcrun --toolchain "$TOOLCHAINS" swift test \
     --scratch-path "$SPM_SCRATCH"
