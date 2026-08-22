@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "current_version": "2026-08-20-v1",
-  "generated_at": "2026-08-20T07:30:00Z",
+  "current_version": "2026-08-22",
+  "generated_at": "2026-08-22T02:04:47Z",
   "sources": [
     "https://developers.openai.com/api/docs/models/gpt-5.5",
     "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
@@ -18,7 +18,10 @@
         {
           "id": "openai-gpt-5.5",
           "provider_id": "openai",
-          "aliases": ["gpt-5.5", "gpt-5.5-instant"],
+          "aliases": [
+            "gpt-5.5",
+            "gpt-5.5-instant"
+          ],
           "source": "openai_official",
           "source_updated_at": "2026-08-20",
           "standard": {
@@ -45,7 +48,9 @@
         {
           "id": "openai-gpt-5.6-sol",
           "provider_id": "openai",
-          "aliases": ["gpt-5.6-sol"],
+          "aliases": [
+            "gpt-5.6-sol"
+          ],
           "source": "openai_official",
           "source_updated_at": "2026-08-20",
           "standard": {
@@ -81,7 +86,9 @@
         {
           "id": "openai-gpt-5.6-terra",
           "provider_id": "openai",
-          "aliases": ["gpt-5.6-terra"],
+          "aliases": [
+            "gpt-5.6-terra"
+          ],
           "source": "openai_official",
           "source_updated_at": "2026-08-20",
           "standard": {
@@ -117,7 +124,9 @@
         {
           "id": "openai-gpt-5.6-luna",
           "provider_id": "openai",
-          "aliases": ["gpt-5.6-luna"],
+          "aliases": [
+            "gpt-5.6-luna"
+          ],
           "source": "openai_official",
           "source_updated_at": "2026-08-20",
           "standard": {
@@ -153,7 +162,9 @@
         {
           "id": "modelsdev-xai-grok-4.6",
           "provider_id": "xai",
-          "aliases": ["grok-4.6"],
+          "aliases": [
+            "grok-4.6"
+          ],
           "source": "models_dev",
           "source_updated_at": "2026-08-12",
           "first_captured_at": "2026-08-20T07:30:00Z",
@@ -176,7 +187,10 @@
         {
           "id": "modelsdev-moonshot-kimi-k3",
           "provider_id": "moonshot",
-          "aliases": ["k3", "kimi-k3"],
+          "aliases": [
+            "k3",
+            "kimi-k3"
+          ],
           "source": "models_dev",
           "source_updated_at": "2026-07-16",
           "first_captured_at": "2026-08-20T07:30:00Z",
@@ -190,7 +204,10 @@
         {
           "id": "modelsdev-deepseek-v4-flash",
           "provider_id": "deepseek",
-          "aliases": ["deepseek-v4-flash", "deepseek-v4-flash-preview"],
+          "aliases": [
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-preview"
+          ],
           "source": "models_dev",
           "source_updated_at": "2026-07-31",
           "first_captured_at": "2026-08-20T07:30:00Z",
@@ -204,7 +221,10 @@
         {
           "id": "modelsdev-deepseek-v4-pro",
           "provider_id": "deepseek",
-          "aliases": ["deepseek-v4-pro", "deepseek-v4-pro-preview"],
+          "aliases": [
+            "deepseek-v4-pro",
+            "deepseek-v4-pro-preview"
+          ],
           "source": "models_dev",
           "source_updated_at": "2026-08-12",
           "first_captured_at": "2026-08-20T07:30:00Z",
@@ -216,6 +236,233 @@
           "context_tiers": []
         }
       ]
+    },
+    {
+      "id": "2026-08-22",
+      "effective_at": "2026-08-22T02:04:47Z",
+      "models": [
+        {
+          "id": "openai-gpt-5.5",
+          "provider_id": "openai",
+          "aliases": [
+            "gpt-5.5",
+            "gpt-5.5-instant"
+          ],
+          "source": "openai_official",
+          "source_updated_at": "2026-08-20",
+          "standard": {
+            "input_usd_per_million": 5,
+            "output_usd_per_million": 30,
+            "cached_input_usd_per_million": 0.5
+          },
+          "priority": {
+            "input_usd_per_million": 12.5,
+            "output_usd_per_million": 75,
+            "cached_input_usd_per_million": 1.25
+          },
+          "context_tiers": [
+            {
+              "minimum_input_tokens": 272000,
+              "price": {
+                "input_usd_per_million": 10,
+                "output_usd_per_million": 45,
+                "cached_input_usd_per_million": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "openai-gpt-5.6-sol",
+          "provider_id": "openai",
+          "aliases": [
+            "gpt-5.6-sol"
+          ],
+          "source": "openai_official",
+          "source_updated_at": "2026-08-22",
+          "standard": {
+            "input_usd_per_million": 4,
+            "output_usd_per_million": 20,
+            "cached_input_usd_per_million": 0.4,
+            "cache_write_usd_per_million": 5
+          },
+          "priority": {
+            "input_usd_per_million": 8,
+            "output_usd_per_million": 40,
+            "cached_input_usd_per_million": 0.8,
+            "cache_write_usd_per_million": 10
+          },
+          "context_tiers": [
+            {
+              "minimum_input_tokens": 272000,
+              "price": {
+                "input_usd_per_million": 8,
+                "output_usd_per_million": 30,
+                "cached_input_usd_per_million": 0.8,
+                "cache_write_usd_per_million": 10
+              },
+              "priority_price": {
+                "input_usd_per_million": 16,
+                "output_usd_per_million": 60,
+                "cached_input_usd_per_million": 1.6,
+                "cache_write_usd_per_million": 20
+              }
+            }
+          ]
+        },
+        {
+          "id": "openai-gpt-5.6-terra",
+          "provider_id": "openai",
+          "aliases": [
+            "gpt-5.6-terra"
+          ],
+          "source": "openai_official",
+          "source_updated_at": "2026-08-20",
+          "standard": {
+            "input_usd_per_million": 2,
+            "output_usd_per_million": 12,
+            "cached_input_usd_per_million": 0.2,
+            "cache_write_usd_per_million": 2.5
+          },
+          "priority": {
+            "input_usd_per_million": 4,
+            "output_usd_per_million": 24,
+            "cached_input_usd_per_million": 0.4,
+            "cache_write_usd_per_million": 5
+          },
+          "context_tiers": [
+            {
+              "minimum_input_tokens": 272000,
+              "price": {
+                "input_usd_per_million": 4,
+                "output_usd_per_million": 18,
+                "cached_input_usd_per_million": 0.4,
+                "cache_write_usd_per_million": 5
+              },
+              "priority_price": {
+                "input_usd_per_million": 8,
+                "output_usd_per_million": 36,
+                "cached_input_usd_per_million": 0.8,
+                "cache_write_usd_per_million": 10
+              }
+            }
+          ]
+        },
+        {
+          "id": "openai-gpt-5.6-luna",
+          "provider_id": "openai",
+          "aliases": [
+            "gpt-5.6-luna"
+          ],
+          "source": "openai_official",
+          "source_updated_at": "2026-08-20",
+          "standard": {
+            "input_usd_per_million": 0.2,
+            "output_usd_per_million": 1.2,
+            "cached_input_usd_per_million": 0.02,
+            "cache_write_usd_per_million": 0.25
+          },
+          "priority": {
+            "input_usd_per_million": 0.4,
+            "output_usd_per_million": 2.4,
+            "cached_input_usd_per_million": 0.04,
+            "cache_write_usd_per_million": 0.5
+          },
+          "context_tiers": [
+            {
+              "minimum_input_tokens": 272000,
+              "price": {
+                "input_usd_per_million": 0.4,
+                "output_usd_per_million": 1.8,
+                "cached_input_usd_per_million": 0.04,
+                "cache_write_usd_per_million": 0.5
+              },
+              "priority_price": {
+                "input_usd_per_million": 0.8,
+                "output_usd_per_million": 3.6,
+                "cached_input_usd_per_million": 0.08,
+                "cache_write_usd_per_million": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "modelsdev-xai-grok-4.6",
+          "provider_id": "xai",
+          "aliases": [
+            "grok-4.6"
+          ],
+          "source": "models_dev",
+          "source_updated_at": "2026-08-12",
+          "first_captured_at": "2026-08-20T07:30:00Z",
+          "standard": {
+            "input_usd_per_million": 2,
+            "output_usd_per_million": 6,
+            "cached_input_usd_per_million": 0.5
+          },
+          "context_tiers": [
+            {
+              "minimum_input_tokens": 200000,
+              "price": {
+                "input_usd_per_million": 4,
+                "output_usd_per_million": 12,
+                "cached_input_usd_per_million": 1
+              }
+            }
+          ]
+        },
+        {
+          "id": "modelsdev-moonshot-kimi-k3",
+          "provider_id": "moonshot",
+          "aliases": [
+            "k3",
+            "kimi-k3"
+          ],
+          "source": "models_dev",
+          "source_updated_at": "2026-07-16",
+          "first_captured_at": "2026-08-20T07:30:00Z",
+          "standard": {
+            "input_usd_per_million": 3,
+            "output_usd_per_million": 15,
+            "cached_input_usd_per_million": 0.3
+          },
+          "context_tiers": []
+        },
+        {
+          "id": "modelsdev-deepseek-v4-flash",
+          "provider_id": "deepseek",
+          "aliases": [
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-preview"
+          ],
+          "source": "models_dev",
+          "source_updated_at": "2026-07-31",
+          "first_captured_at": "2026-08-20T07:30:00Z",
+          "standard": {
+            "input_usd_per_million": 0.14,
+            "output_usd_per_million": 0.28,
+            "cached_input_usd_per_million": 0.0028
+          },
+          "context_tiers": []
+        },
+        {
+          "id": "modelsdev-deepseek-v4-pro",
+          "provider_id": "deepseek",
+          "aliases": [
+            "deepseek-v4-pro",
+            "deepseek-v4-pro-preview"
+          ],
+          "source": "models_dev",
+          "source_updated_at": "2026-08-12",
+          "first_captured_at": "2026-08-20T07:30:00Z",
+          "standard": {
+            "input_usd_per_million": 0.435,
+            "output_usd_per_million": 0.87,
+            "cached_input_usd_per_million": 0.003625
+          },
+          "context_tiers": []
+        }
+      ],
+      "content_sha256": "712e476a54f5b41bf6d2d59306cea951d64a54b238b888698c521cee745402f3"
     }
   ]
 }
