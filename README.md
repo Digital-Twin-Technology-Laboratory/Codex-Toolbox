@@ -12,7 +12,7 @@
 Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时新增完全本机的 Token 审计与账户重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
 
 > [!TIP]
-> **v1.3.0 正式发布候选已经完成准备。** 本版新增站长推荐、Radar 成本效率、API 等值成本、模型可见性管理和可选实验主题；版本状态与正式附件以 Releases 页面为准。
+> **v1.3.1 修复了 Mac 休眠/唤醒、本地代理恢复期间的 Radar、检查更新和重置卡瞬时报错。** 版本状态与正式附件以 Releases 页面为准。
 
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
@@ -72,9 +72,9 @@ macOS 26+ 使用原生 Liquid Glass，macOS 14–15 回退为系统 Material。�
 2. 校验文件：
 
    ```bash
-   shasum -a 256 -c Codex-Toolbox-1.3.0-universal.pkg.sha256
+   shasum -a 256 -c Codex-Toolbox-1.3.1-universal.pkg.sha256
    # 或
-   shasum -a 256 -c Codex-Toolbox-1.3.0-universal.dmg.sha256
+   shasum -a 256 -c Codex-Toolbox-1.3.1-universal.dmg.sha256
    ```
 
 3. **PKG（升级推荐）：**双击安装。它会在新应用验证成功后精确删除 `/Applications/Show Codex IQ.app`。

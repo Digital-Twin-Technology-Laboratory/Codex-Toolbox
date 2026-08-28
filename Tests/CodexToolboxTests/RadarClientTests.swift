@@ -113,7 +113,9 @@ final class RadarClientTests: XCTestCase {
     }
 
     func testMapsHTTPFailure() async {
+        var requestCount = 0
         URLProtocolStub.handler = { request in
+            requestCount += 1
             let response = HTTPURLResponse(
                 url: request.url!,
                 statusCode: 503,
@@ -131,14 +133,44 @@ final class RadarClientTests: XCTestCase {
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
+        XCTAssertEqual(requestCount, 1)
     }
 
-    private func makeClient() -> URLSessionRadarClient {
+    func testRetriesTransientFailuresThenSucceeds() async throws {
+        let payload = try Data(contentsOf: try fixtureURL("intelligence-efficiency-v2.json"))
+        var requestCount = 0
+        URLProtocolStub.handler = { request in
+            requestCount += 1
+            if requestCount < 3 {
+                throw URLError(.notConnectedToInternet)
+            }
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: [:]
+            )!
+            return (response, payload)
+        }
+
+        _ = try await makeClient(noDelay: true).fetch(cacheValidators: nil)
+
+        XCTAssertEqual(requestCount, 3)
+    }
+
+    private func makeClient(noDelay: Bool = false) -> URLSessionRadarClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]
+        let sleep: @Sendable (Duration) async throws -> Void
+        if noDelay {
+            sleep = { _ in }
+        } else {
+            sleep = { duration in try await Task.sleep(for: duration) }
+        }
         return URLSessionRadarClient(
             session: URLSession(configuration: configuration),
-            endpoint: URL(string: "https://example.test/current.json")!
+            endpoint: URL(string: "https://example.test/current.json")!,
+            sleep: sleep
         )
     }
 

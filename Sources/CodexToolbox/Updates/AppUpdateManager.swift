@@ -1,10 +1,13 @@
+import CodexToolboxCore
 import Foundation
 import Observation
+import OSLog
 import Sparkle
 
 enum AppUpdateState: Equatable {
     case idle
     case checking
+    case retryingCheck(attempt: Int)
     case upToDate(checkedAt: Date)
     case downloading(version: String)
     case preparing(version: String)
@@ -34,6 +37,11 @@ enum UpdateCheckFrequency: TimeInterval, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
+    private enum LifecycleError {
+        static let domain = "CodexToolbox.UpdateLifecycle"
+        static let suspended = 1
+    }
+
     private enum DefaultsKey {
         static let didMigrateLegacyPreference = "didMigrateLegacyUpdatePreferenceToSparkle"
         static let legacyAutomaticChecks = "automaticUpdateChecksEnabled"
@@ -66,6 +74,33 @@ final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
 
     @ObservationIgnored
     private var didStart = false
+
+    @ObservationIgnored
+    private var pendingUserInitiatedCheck = false
+
+    @ObservationIgnored
+    private var pendingRetryOrigin: UpdateCheckOrigin?
+
+    @ObservationIgnored
+    private var activeCheckOrigin: UpdateCheckOrigin = .scheduled
+
+    @ObservationIgnored
+    private var completedRetries = 0
+
+    @ObservationIgnored
+    private var preCheckState: AppUpdateState = .idle
+
+    @ObservationIgnored
+    private var retryTask: Task<Void, Never>?
+
+    @ObservationIgnored
+    private var applicationIsAwake = true
+
+    @ObservationIgnored
+    private let logger = Logger(
+        subsystem: "io.github.zzzzzzjw.CodexToolbox",
+        category: "Updates"
+    )
 
     init(defaults: UserDefaults = .standard, isEnabled: Bool = true) {
         self.defaults = defaults
@@ -108,11 +143,31 @@ final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
         start()
         let updater = updaterController.updater
         guard updater.canCheckForUpdates else { return }
+        retryTask?.cancel()
+        pendingUserInitiatedCheck = true
+        pendingRetryOrigin = nil
+        completedRetries = 0
+        preCheckState = stableState(before: state)
         state = .checking
         // The settings page is our user-facing progress UI. Keep this check
         // in the background so a newly found update follows the same silent
         // download -> badge -> explicit install flow as a scheduled check.
         updater.checkForUpdatesInBackground()
+    }
+
+    func setApplicationAwake(_ isAwake: Bool) {
+        applicationIsAwake = isAwake
+        guard !isAwake else { return }
+
+        retryTask?.cancel()
+        retryTask = nil
+        pendingRetryOrigin = nil
+        pendingUserInitiatedCheck = false
+        if case .checking = state {
+            state = preCheckState
+        } else if case .retryingCheck = state {
+            state = preCheckState
+        }
     }
 
     func installReadyUpdate() {
@@ -130,6 +185,28 @@ final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         state = .downloading(version: item.displayVersionString)
+    }
+
+    func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
+        guard applicationIsAwake else {
+            throw NSError(
+                domain: LifecycleError.domain,
+                code: LifecycleError.suspended,
+                userInfo: [NSLocalizedDescriptionKey: "Update check paused while Mac sleeps."]
+            )
+        }
+
+        if let retryOrigin = pendingRetryOrigin {
+            activeCheckOrigin = retryOrigin
+            pendingRetryOrigin = nil
+        } else if pendingUserInitiatedCheck {
+            activeCheckOrigin = .userInitiated
+            pendingUserInitiatedCheck = false
+        } else {
+            activeCheckOrigin = .scheduled
+            completedRetries = 0
+            preCheckState = stableState(before: state)
+        }
     }
 
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
@@ -153,7 +230,7 @@ final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
         failedToDownloadUpdate item: SUAppcastItem,
         error: any Error
     ) {
-        state = .failed("下载更新失败：\(error.localizedDescription)")
+        log(error, context: "download")
     }
 
     func updater(
@@ -176,14 +253,106 @@ final class AppUpdateManager: NSObject, SPUUpdaterDelegate {
         error: (any Error)?
     ) {
         guard let error else {
+            clearRecoveryBookkeeping()
             if case .checking = state {
+                state = .upToDate(checkedAt: Date())
+            } else if case .retryingCheck = state {
                 state = .upToDate(checkedAt: Date())
             }
             return
         }
-        if case .upToDate = state { return }
-        if case .readyToInstall = state { return }
-        state = .failed(error.localizedDescription)
+
+        log(error, context: "cycle")
+        let nsError = error as NSError
+        if !applicationIsAwake
+            || (nsError.domain == LifecycleError.domain
+                && nsError.code == LifecycleError.suspended) {
+            clearRecoveryBookkeeping()
+            return
+        }
+        if case .upToDate = state {
+            clearRecoveryBookkeeping()
+            return
+        }
+        if case .readyToInstall = state {
+            clearRecoveryBookkeeping()
+            return
+        }
+
+        switch UpdateRecoveryPolicy.action(
+            origin: activeCheckOrigin,
+            completedRetries: completedRetries,
+            error: error
+        ) {
+        case let .retry(delay):
+            scheduleRetry(after: delay, origin: activeCheckOrigin)
+        case .preservePreviousState:
+            restorePreCheckState()
+        case let .present(message):
+            clearRecoveryBookkeeping()
+            state = .failed(message)
+        }
+    }
+
+    private func scheduleRetry(after delay: Duration, origin: UpdateCheckOrigin) {
+        retryTask?.cancel()
+        if origin == .userInitiated {
+            state = .retryingCheck(attempt: completedRetries + 1)
+        } else {
+            state = preCheckState
+        }
+
+        retryTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard let self,
+                  self.applicationIsAwake else { return }
+            let updater = self.updaterController.updater
+            guard updater.canCheckForUpdates else {
+                if origin == .userInitiated {
+                    self.clearRecoveryBookkeeping()
+                    self.state = .failed("更新服务暂时忙，请稍后重试。")
+                } else {
+                    self.restorePreCheckState()
+                }
+                return
+            }
+            self.completedRetries += 1
+            self.pendingRetryOrigin = origin
+            updater.checkForUpdatesInBackground()
+        }
+    }
+
+    private func restorePreCheckState() {
+        clearRecoveryBookkeeping()
+        state = preCheckState
+    }
+
+    private func clearRecoveryBookkeeping() {
+        retryTask?.cancel()
+        retryTask = nil
+        pendingUserInitiatedCheck = false
+        pendingRetryOrigin = nil
+        completedRetries = 0
+    }
+
+    private func stableState(before candidate: AppUpdateState) -> AppUpdateState {
+        switch candidate {
+        case .checking, .retryingCheck, .downloading, .preparing, .installing:
+            return .idle
+        case .idle, .upToDate, .readyToInstall, .failed:
+            return candidate
+        }
+    }
+
+    private func log(_ error: any Error, context: String) {
+        let nsError = error as NSError
+        logger.error(
+            "Sparkle \(context, privacy: .public) failed: \(nsError.domain, privacy: .public) \(nsError.code)"
+        )
     }
 
     private func migrateLegacyPreferenceIfNeeded(to updater: SPUUpdater) {

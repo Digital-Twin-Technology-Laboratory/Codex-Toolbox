@@ -188,13 +188,108 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
         }
     }
 
+    func testProcessTransportClassifiesRateLimitFetchFailureAsTemporary() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let executable = directory.appendingPathComponent("failing-codex")
+        let script = """
+        #!/bin/sh
+        IFS= read -r initialize
+        printf '%s\\n' '{"id":1,"result":{}}'
+        IFS= read -r initialized
+        IFS= read -r request
+        printf '%s\\n' '{"id":2,"error":{"code":-32603,"message":"failed to fetch codex rate limits: error sending request for url (https://chatgpt.com/backend-api/wham/usage)"}}'
+        """
+        try Data(script.utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        let transport = ProcessCodexAppServerTransport(executableURL: executable, timeout: 2)
+
+        do {
+            _ = try await transport.request(method: ProcessCodexAppServerTransport.allowedMethod)
+            XCTFail("temporary upstream failure should be typed")
+        } catch let error as ResetCreditsError {
+            guard case .temporarilyUnavailable = error else {
+                return XCTFail("unexpected error: \(error)")
+            }
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Codex 账户服务暂时无法连接，请稍后重试。"
+            )
+        }
+    }
+
+    func testClientRetriesTemporaryFailureThenSucceeds() async throws {
+        let response: [String: Any] = [
+            "rateLimitResetCredits": ["availableCount": 1, "credits": []]
+        ]
+        let transport = SequencedTransport(outcomes: [
+            .failure(.temporarilyUnavailable("upstream request failed")),
+            .success(jsonData(response))
+        ])
+        let client = ResetCreditsClient(
+            transport: transport,
+            sleep: { _ in }
+        )
+
+        let snapshot = try await client.readResetCredits()
+        let callCount = await transport.callCount()
+
+        XCTAssertEqual(snapshot.availableCount, 1)
+        XCTAssertEqual(callCount, 2)
+    }
+
+    func testClientRetriesTimeoutOnlyOnce() async throws {
+        let transport = SequencedTransport(outcomes: [
+            .failure(.timeout),
+            .failure(.timeout),
+            .failure(.timeout)
+        ])
+        let client = ResetCreditsClient(
+            transport: transport,
+            sleep: { _ in }
+        )
+
+        do {
+            _ = try await client.readResetCredits()
+            XCTFail("timeout retry budget should be bounded")
+        } catch let error as ResetCreditsError {
+            XCTAssertEqual(error, .timeout)
+        }
+        let callCount = await transport.callCount()
+        XCTAssertEqual(callCount, 2)
+    }
+
+    func testClientDoesNotRetryAuthenticationFailure() async throws {
+        let transport = SequencedTransport(outcomes: [
+            .failure(.notLoggedIn("login required")),
+            .failure(.temporarilyUnavailable("must not be reached"))
+        ])
+        let client = ResetCreditsClient(
+            transport: transport,
+            sleep: { _ in }
+        )
+
+        do {
+            _ = try await client.readResetCredits()
+            XCTFail("authentication failure should be returned immediately")
+        } catch let error as ResetCreditsError {
+            XCTAssertEqual(error, .notLoggedIn("login required"))
+        }
+        let callCount = await transport.callCount()
+        XCTAssertEqual(callCount, 1)
+    }
+
     func testClientPreservesTypedRecoveryErrors() async throws {
         for expected in [
             ResetCreditsError.notLoggedIn("login required"),
             ResetCreditsError.protocolIncompatible("unexpected response"),
             ResetCreditsError.timeout
         ] {
-            let client = ResetCreditsClient(transport: RecordingTransport(error: expected))
+            let client = ResetCreditsClient(
+                transport: RecordingTransport(error: expected),
+                sleep: { _ in }
+            )
             do {
                 _ = try await client.readResetCredits()
                 XCTFail("expected typed error")
@@ -211,6 +306,7 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
             .launchFailed(secret),
             .notLoggedIn(secret),
             .protocolIncompatible(secret),
+            .temporarilyUnavailable(secret),
             .server(secret)
         ]
 
@@ -223,6 +319,14 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
         }
     }
 
+    func testOnlyTemporaryServerAndTimeoutErrorsAreTransient() {
+        XCTAssertTrue(ResetCreditsError.timeout.isTransient)
+        XCTAssertTrue(ResetCreditsError.temporarilyUnavailable("upstream").isTransient)
+        XCTAssertFalse(ResetCreditsError.notLoggedIn("login").isTransient)
+        XCTAssertFalse(ResetCreditsError.protocolIncompatible("schema").isTransient)
+        XCTAssertFalse(ResetCreditsError.server("internal").isTransient)
+    }
+
     private func jsonData(_ object: [String: Any]) -> Data {
         try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
@@ -231,6 +335,30 @@ final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("ResetCreditsClientTests-\(UUID().uuidString)", isDirectory: true)
     }
+}
+
+private actor SequencedTransport: CodexAppServerRequesting {
+    enum Outcome: Sendable {
+        case success(Data)
+        case failure(ResetCreditsError)
+    }
+
+    private var outcomes: [Outcome]
+    private var calls = 0
+
+    init(outcomes: [Outcome]) {
+        self.outcomes = outcomes
+    }
+
+    func request(method: String) throws -> Data {
+        calls += 1
+        switch outcomes.removeFirst() {
+        case let .success(data): return data
+        case let .failure(error): throw error
+        }
+    }
+
+    func callCount() -> Int { calls }
 }
 
 private actor RecordingTransport: CodexAppServerRequesting {

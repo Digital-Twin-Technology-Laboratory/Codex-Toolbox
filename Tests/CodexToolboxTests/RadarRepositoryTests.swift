@@ -17,6 +17,34 @@ final class RadarRepositoryTests: XCTestCase {
         XCTAssertNotNil(failed.errorMessage)
     }
 
+    func testTransientFailureWithCacheUsesStaleDataWithoutBanner() async throws {
+        let cached = StoredRadarState(snapshot: snapshot(), costHistory: [])
+        let repository = RadarRepository(
+            client: TransientFailureRadarClient(),
+            store: MemorySnapshotStore(state: cached)
+        )
+
+        _ = await repository.loadCached()
+        let failed = await repository.refresh()
+
+        XCTAssertEqual(failed.snapshot, cached.snapshot)
+        XCTAssertTrue(failed.isStale)
+        XCTAssertNil(failed.errorMessage)
+    }
+
+    func testTransientFailureWithoutCacheUsesLocalizedMessage() async {
+        let repository = RadarRepository(
+            client: TransientFailureRadarClient(),
+            store: MemorySnapshotStore()
+        )
+
+        let failed = await repository.refresh()
+
+        XCTAssertNil(failed.snapshot)
+        XCTAssertFalse(failed.isStale)
+        XCTAssertEqual(failed.errorMessage, "网络暂不可用，恢复连接后请重试。")
+    }
+
     func testConcurrentRefreshesUseOneRequest() async {
         let fresh = snapshot()
         let client = QueueRadarClient(results: [.success(.modified(fresh))], delay: .milliseconds(30))
@@ -53,6 +81,12 @@ final class RadarRepositoryTests: XCTestCase {
             benchmarks: [],
             validators: CacheValidators(etag: "etag")
         )
+    }
+}
+
+private struct TransientFailureRadarClient: RadarClient {
+    func fetch(cacheValidators: CacheValidators?) async throws -> RadarFetchResult {
+        throw URLError(.notConnectedToInternet)
     }
 }
 

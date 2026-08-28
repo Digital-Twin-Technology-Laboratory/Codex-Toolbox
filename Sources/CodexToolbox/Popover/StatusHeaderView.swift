@@ -33,6 +33,13 @@ struct StatusHeaderView: View {
                 }
 
                 Spacer()
+
+                if appModel.isStale {
+                    Label("缓存", systemImage: "clock.arrow.circlepath")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("当前显示上次成功获取的模型数据")
+                }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)

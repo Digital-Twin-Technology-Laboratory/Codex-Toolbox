@@ -6,6 +6,15 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-28
+
+### Fixed
+
+- Mac 休眠和唤醒期间暂时无路由时，Radar 现在会等待连接并有限重试；仍失败时继续显示并标注上次缓存，不再持续显示底层英文断网错误。
+- 修复手动检查更新在网络或本地代理恢复窗口内直接失败的问题；前台检查会有限重试并显示中文状态，后台瞬时失败不再覆盖上次稳定状态。
+- 修复 Codex app-server 访问账户用量服务偶发 `-32603` 或超时时，重置卡模块持续显示错误的问题。初始化与查询现在使用独立超时、只读有限重试和缓存降级，仍不读取或保存账户凭据。
+- 应用在系统睡眠前停止自有刷新调度，完整唤醒后再延时恢复，避免 DarkWake 中发起无效网络请求。
+
 ## [1.3.0] - 2026-08-21
 
 ### Added
@@ -276,7 +285,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.1.0...v1.2.0

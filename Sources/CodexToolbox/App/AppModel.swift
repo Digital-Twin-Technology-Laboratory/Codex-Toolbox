@@ -38,6 +38,7 @@ final class AppModel {
     var isRefreshingUsage = false
     var resetCreditsSnapshot: ResetCreditsSnapshot?
     var resetCreditsErrorMessage: String?
+    var isResetCreditsStale = false
     var isRefreshingResetCredits = false
 
     init(
@@ -153,6 +154,7 @@ final class AppModel {
             stationRecommendationState = await stationRepository.loadCached()
         }
         resetCreditsSnapshot = try? await resetCreditsCache.load()
+        isResetCreditsStale = resetCreditsSnapshot != nil
         hasLoadedCache = true
         await reconfigureSchedulers()
         Task { [weak self] in await self?.refreshIfNeeded() }
@@ -273,10 +275,18 @@ final class AppModel {
                 windows: snapshot.quotaWindows
             )
             recalculateTaskQuotaEstimates()
+            isResetCreditsStale = false
             resetCreditsErrorMessage = nil
             try? await resetCreditsCache.save(snapshot)
         } catch {
-            resetCreditsErrorMessage = error.localizedDescription
+            if let resetError = error as? ResetCreditsError,
+               resetError.isTransient,
+               resetCreditsSnapshot != nil {
+                isResetCreditsStale = true
+                resetCreditsErrorMessage = nil
+            } else {
+                resetCreditsErrorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -293,6 +303,22 @@ final class AppModel {
         async let usage: Void = refreshUsageIfNeeded()
         async let credits: Void = refreshResetCreditsIfNeeded()
         _ = await (radar, usage, credits)
+    }
+
+    func suspendBackgroundWork() async {
+        updateManager.setApplicationAwake(false)
+        async let radar: Void = radarScheduler.stop()
+        async let usage: Void = usageScheduler.stop()
+        async let credits: Void = resetCreditsScheduler.stop()
+        async let rates: Void = rateCardScheduler.stop()
+        async let quota: Void = activeQuotaScheduler.stop()
+        _ = await (radar, usage, credits, rates, quota)
+    }
+
+    func resumeBackgroundWork() async {
+        updateManager.setApplicationAwake(true)
+        await reconfigureSchedulers()
+        await refreshAllIfNeeded()
     }
 
     func settingsDidChange() {

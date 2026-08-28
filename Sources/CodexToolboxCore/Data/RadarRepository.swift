@@ -115,11 +115,17 @@ public actor RadarRepository {
                     errorMessage: nil
                 )
             } catch {
+                let hasCache = previous.snapshot != nil
+                let isTransient = NetworkRecoveryPolicy.failure(in: error) != nil
                 return RadarRepositoryState(
                     snapshot: previous.snapshot,
                     costHistory: previous.costHistory,
-                    isStale: previous.snapshot != nil,
-                    errorMessage: error.localizedDescription
+                    isStale: hasCache,
+                    errorMessage: isTransient && hasCache
+                        ? nil
+                        : isTransient
+                            ? "网络暂不可用，恢复连接后请重试。"
+                            : error.localizedDescription
                 )
             }
         }

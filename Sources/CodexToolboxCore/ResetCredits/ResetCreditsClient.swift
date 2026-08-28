@@ -9,7 +9,15 @@ public enum ResetCreditsError: LocalizedError, Sendable, Equatable {
     case timeout
     case notLoggedIn(String)
     case protocolIncompatible(String)
+    case temporarilyUnavailable(String)
     case server(String)
+
+    public var isTransient: Bool {
+        switch self {
+        case .timeout, .temporarilyUnavailable: true
+        default: false
+        }
+    }
 
     public var errorDescription: String? {
         switch self {
@@ -25,6 +33,8 @@ public enum ResetCreditsError: LocalizedError, Sendable, Equatable {
             "Codex 尚未登录或登录已失效。请重新登录后重试。"
         case .protocolIncompatible:
             "当前 Codex app-server 协议不兼容。请更新 Codex 后重试。"
+        case .temporarilyUnavailable:
+            "Codex 账户服务暂时无法连接，请稍后重试。"
         case .server:
             "Codex app-server 返回错误。为保护账户凭据，详细信息已隐藏。"
         }
@@ -80,14 +90,14 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
 
     public init(
         locator: any CodexExecutableLocating = DefaultCodexExecutableLocator(),
-        timeout: TimeInterval = 8
+        timeout: TimeInterval = 12
     ) {
         self.locator = locator
         explicitExecutableURL = nil
         self.timeout = max(0.1, timeout)
     }
 
-    public init(executableURL: URL, timeout: TimeInterval = 8) {
+    public init(executableURL: URL, timeout: TimeInterval = 12) {
         locator = nil
         explicitExecutableURL = executableURL
         self.timeout = max(0.1, timeout)
@@ -143,7 +153,6 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
             if process.isRunning { Darwin.kill(process.processIdentifier, SIGKILL) }
         }
 
-        let deadline = Date().addingTimeInterval(timeout)
         var stdoutBuffer = Data()
         var stderrText = ""
         try send([
@@ -159,7 +168,7 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
             process: process,
             outputFD: output.fileHandleForReading.fileDescriptor,
             errorFD: errorOutput.fileHandleForReading.fileDescriptor,
-            deadline: deadline,
+            deadline: Date().addingTimeInterval(timeout),
             stdoutBuffer: &stdoutBuffer,
             stderrText: &stderrText
         )
@@ -170,7 +179,7 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
             process: process,
             outputFD: output.fileHandleForReading.fileDescriptor,
             errorFD: errorOutput.fileHandleForReading.fileDescriptor,
-            deadline: deadline,
+            deadline: Date().addingTimeInterval(timeout),
             stdoutBuffer: &stdoutBuffer,
             stderrText: &stderrText
         )
@@ -202,10 +211,13 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
                 guard let message = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
                       (message["id"] as? NSNumber)?.intValue == id else { continue }
                 if let error = message["error"] {
-                    let description = String(describing: error)
+                    let description = serverDescription(error)
                     if description.localizedCaseInsensitiveContains("login")
                         || description.localizedCaseInsensitiveContains("auth") {
                         throw ResetCreditsError.notLoggedIn(description)
+                    }
+                    if isTemporaryRateLimitFailure(error, description: description) {
+                        throw ResetCreditsError.temporarilyUnavailable(description)
                     }
                     throw ResetCreditsError.server(description)
                 }
@@ -255,22 +267,46 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
         }
         return count > 0 ? Data(bytes.prefix(count)) : Data()
     }
+
+    private static func serverDescription(_ error: Any) -> String {
+        guard let object = error as? [String: Any] else {
+            return String(describing: error)
+        }
+        return [object["message"], object["data"]]
+            .compactMap { $0 }
+            .map { String(describing: $0) }
+            .joined(separator: " ")
+    }
+
+    private static func isTemporaryRateLimitFailure(
+        _ error: Any,
+        description: String
+    ) -> Bool {
+        let code = ((error as? [String: Any])?["code"] as? NSNumber)?.intValue
+        return code == -32603
+            && description.localizedCaseInsensitiveContains("failed to fetch codex rate limits")
+    }
 }
 
 public actor ResetCreditsClient: AccountRateLimitsReading {
     private let transport: any CodexAppServerRequesting
     private let now: @Sendable () -> Date
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     public init(
         transport: any CodexAppServerRequesting = ProcessCodexAppServerTransport(),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
+            try await Task.sleep(for: duration)
+        }
     ) {
         self.transport = transport
         self.now = now
+        self.sleep = sleep
     }
 
     public func readResetCredits() async throws -> ResetCreditsSnapshot {
-        let data = try await transport.request(method: ProcessCodexAppServerTransport.allowedMethod)
+        let data = try await requestWithRecovery()
         guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ResetCreditsError.protocolIncompatible("rateLimits/read 结果不是 JSON 对象")
         }
@@ -305,6 +341,44 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
             planType: planType,
             fetchedAt: now()
         )
+    }
+
+    private func requestWithRecovery() async throws -> Data {
+        var completedRetries = 0
+        while true {
+            do {
+                return try await transport.request(
+                    method: ProcessCodexAppServerTransport.allowedMethod
+                )
+            } catch {
+                guard let delay = Self.retryDelay(
+                    after: completedRetries,
+                    for: error
+                ) else {
+                    throw error
+                }
+                completedRetries += 1
+                try await sleep(delay)
+            }
+        }
+    }
+
+    private static func retryDelay(
+        after completedRetries: Int,
+        for error: any Error
+    ) -> Duration? {
+        guard let resetError = error as? ResetCreditsError else { return nil }
+        switch resetError {
+        case .temporarilyUnavailable:
+            let delays: [Duration] = [.seconds(2), .seconds(5)]
+            return delays.indices.contains(completedRetries)
+                ? delays[completedRetries]
+                : nil
+        case .timeout:
+            return completedRetries == 0 ? .seconds(2) : nil
+        default:
+            return nil
+        }
     }
 
     private static func quotaWindows(from value: Any?) -> [AccountQuotaWindow] {

@@ -33,12 +33,23 @@ public actor RefreshScheduler {
         everyMinutes: Int,
         operation: @escaping @Sendable () async -> Void
     ) {
+        configure(
+            enabled: enabled,
+            every: .seconds(max(1, everyMinutes) * 60),
+            operation: operation
+        )
+    }
+
+    func configure(
+        enabled: Bool,
+        every duration: Duration,
+        operation: @escaping @Sendable () async -> Void
+    ) {
         task?.cancel()
         task = nil
         guard enabled else { return }
 
         task = Task {
-            let duration = Duration.seconds(max(1, everyMinutes) * 60)
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: duration)

@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appModel: AppModel
 
     private var statusItemController: StatusItemController?
+    private var suspensionTask: Task<Void, Never>?
+    private var wakeRecoveryTask: Task<Void, Never>?
 
     override init() {
         #if DEBUG
@@ -51,6 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
         statusItemController = StatusItemController(appModel: appModel)
         if !appModel.isDemoMode {
             LaunchAtLoginController.reconcileAfterRename(settings: appModel.settings)
@@ -62,12 +70,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        suspensionTask?.cancel()
+        wakeRecoveryTask?.cancel()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
+    @objc private func workspaceWillSleep(_ notification: Notification) {
+        wakeRecoveryTask?.cancel()
+        wakeRecoveryTask = nil
+        suspensionTask?.cancel()
+        suspensionTask = Task { [weak self] in
+            await self?.appModel.suspendBackgroundWork()
+        }
+    }
+
     @objc private func workspaceDidWake(_ notification: Notification) {
-        Task {
-            await appModel.refreshAllIfNeeded()
+        wakeRecoveryTask?.cancel()
+        let pendingSuspension = suspensionTask
+        wakeRecoveryTask = Task { [weak self] in
+            _ = await pendingSuspension?.value
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self?.appModel.resumeBackgroundWork()
         }
     }
 }

@@ -90,6 +90,10 @@ struct GeneralDashboardSettingsView: View {
                 ProgressView().controlSize(.small)
                 Text("正在检查更新…")
                     .foregroundStyle(.secondary)
+            case .retryingCheck:
+                ProgressView().controlSize(.small)
+                Text("网络暂不可用，正在重试检查…")
+                    .foregroundStyle(.secondary)
             case .upToDate:
                 Label("已是最新正式版", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
@@ -133,7 +137,7 @@ struct GeneralDashboardSettingsView: View {
 
     private var isUpdateActionDisabled: Bool {
         switch appModel.updateManager.state {
-        case .checking, .downloading, .preparing, .installing:
+        case .checking, .retryingCheck, .downloading, .preparing, .installing:
             true
         case .idle, .upToDate, .readyToInstall, .failed:
             false

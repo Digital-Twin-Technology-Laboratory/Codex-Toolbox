@@ -33,10 +33,16 @@ struct ResetCreditsModuleView: View {
 
                 creditDetails(snapshot)
 
-                Text("更新于 \(beijingDate(snapshot.fetchedAt))（北京时间）")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                HStack(spacing: 6) {
+                    if appModel.isResetCreditsStale {
+                        Label("缓存", systemImage: "clock.arrow.circlepath")
+                            .accessibilityLabel("当前显示上次成功获取的重置卡数据")
+                    }
+                    Spacer(minLength: 4)
+                    Text("更新于 \(beijingDate(snapshot.fetchedAt))（北京时间）")
+                }
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             } else if appModel.isResetCreditsInitialLoading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
