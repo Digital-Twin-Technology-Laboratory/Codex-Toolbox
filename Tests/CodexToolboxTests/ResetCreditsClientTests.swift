@@ -3,6 +3,108 @@ import XCTest
 @testable import CodexToolboxCore
 
 final class ResetCreditsClientTests: XCTestCase, @unchecked Sendable {
+    func testPartialResponsePreservesKnownDetailsWhenAvailableCountIsUnchanged() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let knownCredit = ResetCreditSummary(
+            sequence: 1,
+            status: "available",
+            grantedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: Date(timeIntervalSince1970: 20)
+        )
+        let previous = ResetCreditsSnapshot(
+            availableCount: 1,
+            credits: [knownCredit],
+            quotaWindows: [],
+            planType: "plus",
+            fetchedAt: Date(timeIntervalSince1970: 30)
+        )
+        let refreshedWindow = AccountQuotaWindow(
+            durationMinutes: 300,
+            usedPercent: 25,
+            resetsAt: Date(timeIntervalSince1970: 40)
+        )
+        let partial = ResetCreditsSnapshot(
+            availableCount: 1,
+            credits: [],
+            quotaWindows: [refreshedWindow],
+            planType: "pro",
+            fetchedAt: Date(timeIntervalSince1970: 50)
+        )
+
+        let merged = partial.preservingCreditDetails(from: previous)
+
+        XCTAssertEqual(merged.credits, [knownCredit])
+        XCTAssertEqual(merged.availableCount, 1)
+        XCTAssertEqual(merged.quotaWindows, [refreshedWindow])
+        XCTAssertEqual(merged.planType, "pro")
+        XCTAssertEqual(merged.fetchedAt, Date(timeIntervalSince1970: 50))
+
+        let store = ResetCreditsCacheStore(
+            fileURL: directory.appendingPathComponent("reset-credits.json")
+        )
+        try await store.save(merged)
+        let restoredAfterRelaunch = try await store.load()
+
+        XCTAssertEqual(restoredAfterRelaunch, merged)
+        XCTAssertEqual(restoredAfterRelaunch?.credits, [knownCredit])
+    }
+
+    func testPartialResponseDoesNotPreserveDetailsWhenAvailableCountChanges() {
+        let previous = ResetCreditsSnapshot(
+            availableCount: 1,
+            credits: [
+                ResetCreditSummary(
+                    sequence: 1,
+                    status: "available",
+                    grantedAt: nil,
+                    expiresAt: nil
+                )
+            ],
+            fetchedAt: Date(timeIntervalSince1970: 10)
+        )
+        let changed = ResetCreditsSnapshot(
+            availableCount: 0,
+            credits: [],
+            fetchedAt: Date(timeIntervalSince1970: 20)
+        )
+
+        let merged = changed.preservingCreditDetails(from: previous)
+
+        XCTAssertTrue(merged.credits.isEmpty)
+        XCTAssertEqual(merged.availableCount, 0)
+    }
+
+    func testCompleteResponseReplacesPreviouslyKnownDetails() {
+        let previousCredit = ResetCreditSummary(
+            sequence: 1,
+            status: "available",
+            grantedAt: Date(timeIntervalSince1970: 10),
+            expiresAt: Date(timeIntervalSince1970: 20)
+        )
+        let refreshedCredit = ResetCreditSummary(
+            sequence: 1,
+            status: "available",
+            grantedAt: Date(timeIntervalSince1970: 30),
+            expiresAt: Date(timeIntervalSince1970: 40)
+        )
+        let previous = ResetCreditsSnapshot(
+            availableCount: 1,
+            credits: [previousCredit],
+            fetchedAt: Date(timeIntervalSince1970: 50)
+        )
+        let complete = ResetCreditsSnapshot(
+            availableCount: 1,
+            credits: [refreshedCredit],
+            fetchedAt: Date(timeIntervalSince1970: 60)
+        )
+
+        let merged = complete.preservingCreditDetails(from: previous)
+
+        XCTAssertEqual(merged.credits, [refreshedCredit])
+    }
+
     func testSanitizesOpaqueIDsAndUsesAvailableCountAsAuthority() async throws {
         let response: [String: Any] = [
             "rateLimits": [

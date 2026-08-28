@@ -262,7 +262,11 @@ final class AppModel {
         isRefreshingResetCredits = true
         defer { isRefreshingResetCredits = false }
         do {
-            let snapshot = try await resetCreditsReader.readResetCredits()
+            let refreshedSnapshot = try await resetCreditsReader.readResetCredits()
+            let preservedCreditDetails = refreshedSnapshot.shouldPreserveCreditDetails(
+                from: resetCreditsSnapshot
+            )
+            let snapshot = refreshedSnapshot.preservingCreditDetails(from: resetCreditsSnapshot)
             resetCreditsSnapshot = snapshot
             try? await usageReader.recordAccountQuotaSnapshot(
                 windows: snapshot.quotaWindows,
@@ -275,7 +279,7 @@ final class AppModel {
                 windows: snapshot.quotaWindows
             )
             recalculateTaskQuotaEstimates()
-            isResetCreditsStale = false
+            isResetCreditsStale = preservedCreditDetails
             resetCreditsErrorMessage = nil
             try? await resetCreditsCache.save(snapshot)
         } catch {

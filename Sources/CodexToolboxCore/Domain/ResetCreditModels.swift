@@ -124,6 +124,26 @@ public struct ResetCreditsSnapshot: Codable, Hashable, Sendable {
     public var nearestExpiration: Date? {
         availableCredits.compactMap(\.expiresAt).min()
     }
+
+    public func shouldPreserveCreditDetails(from previous: ResetCreditsSnapshot?) -> Bool {
+        guard credits.isEmpty,
+              availableCount > 0,
+              let previous,
+              previous.availableCount == availableCount else { return false }
+        return !previous.availableCredits.isEmpty
+    }
+
+    public func preservingCreditDetails(from previous: ResetCreditsSnapshot?) -> ResetCreditsSnapshot {
+        guard shouldPreserveCreditDetails(from: previous),
+              let previous else { return self }
+        return ResetCreditsSnapshot(
+            availableCount: availableCount,
+            credits: previous.credits,
+            quotaWindows: quotaWindows,
+            planType: planType,
+            fetchedAt: fetchedAt
+        )
+    }
 }
 
 public protocol AccountRateLimitsReading: Sendable {
