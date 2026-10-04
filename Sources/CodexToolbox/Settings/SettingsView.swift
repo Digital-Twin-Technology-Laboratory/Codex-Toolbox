@@ -45,6 +45,10 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.general)
 
+            MenuBarSettingsView(appModel: appModel, onOpenAliases: { page = .menuBarAliases })
+                .tabItem { Label("菜单栏", systemImage: "menubar.rectangle") }
+                .tag(SettingsTab.menuBar)
+
             ModelRadarSettingsView(
                 appModel: appModel,
                 onOpenModelVisibility: { page = .modelVisibility },
@@ -57,13 +61,13 @@ struct SettingsView: View {
 
             TokenUsageSettingsView(appModel: appModel)
                 .tabItem {
-                    Label("Token 用量", systemImage: "chart.bar.xaxis")
+                    Label("用量分析", systemImage: "chart.bar.xaxis")
                 }
                 .tag(SettingsTab.tokenUsage)
 
             ResetCreditsSettingsView(appModel: appModel)
                 .tabItem {
-                    Label("重置卡", systemImage: "arrow.clockwise.circle")
+                    Label("账户额度&重置卡", systemImage: "gauge.with.dots.needle.50percent")
                 }
                 .tag(SettingsTab.resetCredits)
 
@@ -116,6 +120,7 @@ private enum SettingsPage {
 
 private enum SettingsTab: Hashable {
     case general
+    case menuBar
     case modelRadar
     case tokenUsage
     case resetCredits

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-XCODE_APP="${XCODE_APP:-/Applications/Xcode-beta.app}"
+XCODE_APP="${XCODE_APP:-$(xcode-select -p | sed 's#/Contents/Developer$##')}"
 source "$ROOT_DIR/scripts/version.sh"
 
 BUILD_DIR="$(mktemp -d "${TMPDIR%/}/CodexToolbox-dmg-archive.XXXXXX")"

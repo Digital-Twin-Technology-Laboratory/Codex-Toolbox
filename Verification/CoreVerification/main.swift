@@ -31,6 +31,23 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) {
     }
 }
 
+if let index = CommandLine.arguments.firstIndex(of: "--native-analytics-helper"), CommandLine.arguments.indices.contains(index + 1) {
+    let client = ProcessNativeAnalyticsClient(executableURL: URL(fileURLWithPath: CommandLine.arguments[index + 1]))
+    let salt = (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "").lowercased()
+    let first = try await client.authentication(salt: salt)
+    let second = try await client.authentication(salt: salt)
+    require(first == second, "stable account authentication")
+    print("Native authentication verified; account credentials and identifiers omitted")
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--live-radar") {
+    let result = try await URLSessionRadarClient().fetch(cacheValidators: nil)
+    guard case let .modified(snapshot) = result else { fatalError("Expected fresh radar") }
+    print("Live radar verified: schema=\(snapshot.schemaVersion), source=\(snapshot.sourceMonitoredAt ?? "unavailable"), models=\(snapshot.benchmarks.count), historyRecords=\(snapshot.benchmarks.reduce(0) { $0 + $1.recentDays.count }), aggregations=\(Set(snapshot.benchmarks.compactMap { $0.latest?.priceAggregation }).sorted())")
+    exit(0)
+}
+
 require(AppMetadata.displayName == "Codex Toolbox", "display name")
 require(AppMetadata.bundleIdentifier == "io.github.zzzzzzjw.ShowCodexIQ", "bundle identifier")
 require(!AppMetadata.version.isEmpty && !AppMetadata.version.contains("$("), "version")

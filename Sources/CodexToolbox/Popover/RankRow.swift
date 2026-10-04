@@ -59,7 +59,7 @@ struct RankRow: View {
                     .minimumScaleFactor(0.82)
                     .allowsTightening(true)
                     .layoutPriority(2)
-                    .help(ranked.benchmark.label)
+                    .help(benchmarkExplanation)
                 if let statusText {
                     Text(statusText)
                         .font(.system(size: 9))
@@ -96,7 +96,7 @@ struct RankRow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
                     .allowsTightening(true)
-                    .help(ranked.benchmark.label)
+                    .help(benchmarkExplanation)
             }
             valueText
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -137,6 +137,12 @@ struct RankRow: View {
         }
     }
 
+    private var benchmarkExplanation: String {
+        let latest = ranked.benchmark.latest
+        let price = latest?.priceAggregation == "median" ? "费用中位数" : latest?.priceAggregation == "mean" ? "平均费用" : "费用（聚合方式未提供）"
+        return ranked.benchmark.label + "\n" + price + " · USD\n平均耗时 · 分钟\n通过/计分样本：\(latest?.passed.map(String.init) ?? "未提供")/\(latest?.tasks.map(String.init) ?? "未提供")\n费用样本：\(latest?.priceSamples.map(String.init) ?? "未提供") · 耗时样本：\(latest?.durationSamples.map(String.init) ?? "未提供")"
+    }
+
     private var statusText: String? {
         guard ranked.metric != .overall,
               let latest = ranked.benchmark.latest,
@@ -144,7 +150,7 @@ struct RankRow: View {
               let tasks = latest.tasks else {
             return nil
         }
-        return "\(passed)/\(tasks) 项通过"
+        return "\(passed)/\(tasks) 计分样本通过"
     }
 
     private var shouldShowExpandedMetrics: Bool {

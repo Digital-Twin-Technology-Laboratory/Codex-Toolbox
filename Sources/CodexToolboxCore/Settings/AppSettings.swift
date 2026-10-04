@@ -169,6 +169,14 @@ public final class AppSettings {
         didSet { defaults.set(usageExpandedTaskLimit.rawValue, forKey: Keys.usageExpandedTaskLimit) }
     }
 
+    public var experimentalLocalCostEstimatesEnabled: Bool {
+        didSet { defaults.set(experimentalLocalCostEstimatesEnabled, forKey: Keys.experimentalLocalCostEstimatesEnabled) }
+    }
+
+    public var showsLocalCostEstimates: Bool {
+        experimentalLocalCostEstimatesEnabled && showsAPICostEstimatesInMenuBar
+    }
+
     public var showsAPICostEstimatesInMenuBar: Bool {
         didSet {
             defaults.set(
@@ -198,6 +206,16 @@ public final class AppSettings {
 
     public var resetExpiryWarning: ResetExpiryWarning {
         didSet { defaults.set(resetExpiryWarning.rawValue, forKey: Keys.resetExpiryWarning) }
+    }
+
+    public var menuBarConfiguration: MenuBarConfiguration {
+        didSet { if let data = try? JSONEncoder().encode(menuBarConfiguration) { defaults.set(data, forKey: Keys.menuBarConfiguration) } }
+    }
+    public var tokenMenuBarOptions: TokenMenuBarOptions {
+        didSet { if let data = try? JSONEncoder().encode(tokenMenuBarOptions) { defaults.set(data, forKey: Keys.tokenMenuBarOptions) } }
+    }
+    public var quotaDisplayOptions: QuotaDisplayOptions {
+        didSet { if let data = try? JSONEncoder().encode(quotaDisplayOptions) { defaults.set(data, forKey: Keys.quotaDisplayOptions) } }
     }
 
     public var menuBarMetric: RankingMetric {
@@ -322,6 +340,7 @@ public final class AppSettings {
         experimentalDashboardThemesEnabled = defaults.bool(
             forKey: Keys.experimentalDashboardThemesEnabled
         )
+        experimentalLocalCostEstimatesEnabled = defaults.bool(forKey: Keys.experimentalLocalCostEstimatesEnabled)
         dashboardTheme = DashboardTheme(
             rawValue: defaults.string(forKey: Keys.dashboardTheme) ?? ""
         ) ?? .colorfulGlass
@@ -373,6 +392,26 @@ public final class AppSettings {
             ) ?? .threeDays
         }
         menuBarMetric = RankingMetric(rawValue: defaults.string(forKey: Keys.menuBarMetric) ?? "") ?? .iq
+        let legacyContent = MenuBarContent(rawValue: defaults.string(forKey: Keys.menuBarMetric) ?? "") ?? .iq
+        let hasLegacySettings = defaults.dictionaryRepresentation().keys.contains {
+            [Keys.menuBarMetric, Keys.showsMenuBarIcon, Keys.showsMenuBarDetails,
+             Keys.menuBarRankStyle, Keys.menuBarModelAliases, Keys.collapsedDashboardModules].contains($0)
+        }
+        let build52 = defaults.data(forKey: "menuBarConfigurationV1")
+        let oldIcon = defaults.object(forKey: Keys.showsMenuBarIcon) == nil || defaults.bool(forKey: Keys.showsMenuBarIcon)
+        menuBarConfiguration = (defaults.data(forKey: Keys.menuBarConfiguration) ?? build52)
+            .flatMap { try? JSONDecoder().decode(MenuBarConfiguration.self, from: $0) }
+            ?? (hasLegacySettings
+                ? MenuBarConfiguration(items: [MenuBarItemConfiguration(content: legacyContent)])
+                : MenuBarConfiguration())
+        tokenMenuBarOptions = defaults.data(forKey: Keys.tokenMenuBarOptions)
+            .flatMap { try? JSONDecoder().decode(TokenMenuBarOptions.self, from: $0) }
+            ?? TokenMenuBarOptions(showsIcon: oldIcon)
+        quotaDisplayOptions = defaults.data(forKey: Keys.quotaDisplayOptions)
+            .flatMap { try? JSONDecoder().decode(QuotaDisplayOptions.self, from: $0) }
+            ?? (build52 != nil
+                ? QuotaDisplayOptions.migratingLegacy(defaults.data(forKey: "quotaDisplayOptionsV1"), showsIcon: oldIcon)
+                : QuotaDisplayOptions(showsIcon: oldIcon))
         menuBarRankStyle = MenuBarRankStyle(
             rawValue: defaults.string(forKey: Keys.menuBarRankStyle) ?? ""
         ) ?? .hidden
@@ -460,6 +499,9 @@ public final class AppSettings {
         } else {
             automaticUpdateChecksEnabled = defaults.bool(forKey: Keys.automaticUpdateChecksEnabled)
         }
+        if let data = try? JSONEncoder().encode(menuBarConfiguration) { defaults.set(data, forKey: Keys.menuBarConfiguration) }
+        if let data = try? JSONEncoder().encode(tokenMenuBarOptions) { defaults.set(data, forKey: Keys.tokenMenuBarOptions) }
+        if let data = try? JSONEncoder().encode(quotaDisplayOptions) { defaults.set(data, forKey: Keys.quotaDisplayOptions) }
     }
 
     @discardableResult
@@ -781,6 +823,7 @@ public final class AppSettings {
     private enum Keys {
         static let showsExperimentalFeaturesEntry = "showsExperimentalFeaturesEntry"
         static let experimentalDashboardThemesEnabled = "experimentalDashboardThemesEnabled"
+        static let experimentalLocalCostEstimatesEnabled = "experimentalLocalCostEstimatesEnabled"
         static let dashboardTheme = "dashboardTheme"
         static let dashboardModuleOrder = "dashboardModuleOrder"
         static let hiddenDashboardModules = "hiddenDashboardModules"
@@ -795,6 +838,9 @@ public final class AppSettings {
         static let anonymizesTaskTitles = "anonymizesTaskTitles"
         static let resetCreditsRefreshInterval = "resetCreditsRefreshIntervalMinutes"
         static let resetExpiryWarning = "resetExpiryWarningDays"
+        static let menuBarConfiguration = "menuBarConfigurationV2"
+        static let quotaDisplayOptions = "quotaDisplayOptionsV2"
+        static let tokenMenuBarOptions = "tokenMenuBarOptionsV1"
         static let menuBarMetric = "menuBarMetric"
         static let menuBarRankStyle = "menuBarRankStyle"
         static let showsMenuBarIcon = "showsMenuBarIcon"

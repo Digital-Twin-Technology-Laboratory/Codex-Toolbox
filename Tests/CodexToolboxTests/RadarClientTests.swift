@@ -37,6 +37,21 @@ final class RadarClientTests: XCTestCase {
         XCTAssertEqual(snapshot.validators.etag, "new-etag")
     }
 
+    func testLatestMetricsPreserveUpstreamScoreMedianAndSampleUnits() async throws {
+        URLProtocolStub.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: [:])!
+            return (response, Data(#"{"schema":3,"source_updated_at":"2026-10-03T12:00:00Z","points":[{"model":"gpt-6-astra","effort":"low","passed":107,"total":163,"iq":98.47,"average_price_usd":1.52901,"corrected_average_price_usd":9.9,"price_aggregation":"median","average_minutes":8.6}]}"#.utf8))
+        }
+        guard case let .modified(snapshot) = try await makeClient().fetch(cacheValidators: nil), let record = snapshot.benchmarks.first?.latest else { return XCTFail("Expected latest metrics") }
+        XCTAssertEqual(record.score, 98.47)
+        XCTAssertEqual(record.passed, 107)
+        XCTAssertEqual(record.tasks, 163)
+        XCTAssertEqual(record.costUSD, 1.52901)
+        XCTAssertEqual(record.priceAggregation, "median")
+        XCTAssertEqual(record.wallSeconds, 516)
+        XCTAssertNil(record.priceSamples)
+    }
+
     func testRejectsUnsupportedEfficiencySchema() async {
         URLProtocolStub.handler = { request in
             let response = HTTPURLResponse(
@@ -47,7 +62,7 @@ final class RadarClientTests: XCTestCase {
             )!
             return (
                 response,
-                Data(#"{"schema":3,"source_updated_at":"2026-08-02T13:23:26+08:00","points":[]}"#.utf8)
+                Data(#"{"schema":4,"source_updated_at":"2026-08-02T13:23:26+08:00","points":[]}"#.utf8)
             )
         }
 
@@ -58,7 +73,7 @@ final class RadarClientTests: XCTestCase {
             guard case let .invalidPayload(message) = error else {
                 return XCTFail("Expected invalid payload, got \(error)")
             }
-            XCTAssertTrue(message.contains("3"))
+            XCTAssertTrue(message.contains("4"))
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

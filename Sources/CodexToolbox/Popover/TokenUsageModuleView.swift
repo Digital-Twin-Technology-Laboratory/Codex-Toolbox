@@ -6,6 +6,7 @@ import SwiftUI
 
 struct TokenUsageModuleView: View {
     @Bindable var appModel: AppModel
+    var focusedContent: MenuBarContent? = nil
     @Namespace private var glassNamespace
     @State private var isTaskListExpanded = false
     @State private var isTaskCardHovered = false
@@ -48,11 +49,26 @@ struct TokenUsageModuleView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
             resetDateSelection()
         }
+        .onAppear {
+            focusTodayIfNeeded()
+            updateQuotaPriorities()
+            Task { await appModel.refreshNativeTaskQuota(force: true) }
+        }
+        .onChange(of: focusedContent) { _, _ in focusTodayIfNeeded() }
+        .onChange(of: selectedSummaryDateKey) { _, _ in updateQuotaPriorities() }
+        .onChange(of: currentTaskLimit) { _, _ in updateQuotaPriorities() }
+        .onChange(of: appModel.usageHistory?.generatedAt) { _, _ in updateQuotaPriorities() }
         .onDisappear {
             resetDateSelection()
         }
-        .onChange(of: appModel.settings.showsAPICostEstimatesInMenuBar) { _, isEnabled in
+        .onChange(of: appModel.settings.showsLocalCostEstimates) { _, isEnabled in
             if !isEnabled { trendMetric = .tokens }
+        }
+    }
+
+    private func focusTodayIfNeeded() {
+        if focusedContent == .todayTokens || focusedContent == .todayAPICost {
+            resetDateSelection()
         }
     }
 
@@ -487,8 +503,8 @@ struct TokenUsageModuleView: View {
     ) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
         var components = [format(tokens)]
-        components.append(contentsOf: estimates.map {
-            "\($0.window.displayName)≈\(formatPercent($0.percent))"
+        components.append(contentsOf: estimates.compactMap { metric, value in
+            value.map { "\(metric.displayName)\($0.comparison)\(formatPercent($0.percent))" }
         })
         if showsCostEstimates {
             components.append(MetricFormatter.apiCost(costUSD, precision: costPrecision))
@@ -507,46 +523,24 @@ struct TokenUsageModuleView: View {
         return details.joined(separator: "；")
     }
 
+    private func updateQuotaPriorities() {
+        appModel.prioritizeNativeQuotaTasks(Set(selectedSummary?.tasks.map(\.rootTaskID) ?? []))
+    }
+
     private func quotaEstimateHelp(taskIDs: Set<String>) -> String {
         let estimates = quotaEstimateSummaries(taskIDs: taskIDs)
-        guard !estimates.isEmpty else { return "暂无足够的逐轮额度快照" }
-        return estimates.map {
-            let interference = $0.hasConcurrentInterference
-                ? "，检测到其他设备、共享产品或并发干扰"
-                : ""
-            return "\($0.window.displayName)估算置信度：\($0.confidence.displayName)\(interference)"
+        guard !estimates.isEmpty else { return appModel.accountAvailabilityMessage }
+        return estimates.map { metric, value in
+            value.map { "\(metric.displayName)：\($0.help)；更新于 \(MetricFormatter.chineseAccountDate($0.updatedAt))" }
+                ?? "\(metric.displayName)：\(appModel.nativeTaskQuotaError ?? "尚无可靠的日基线或校准样本；缺失不代表零消耗")"
         }.joined(separator: "；")
-            + "；已按官方费率、Fast、缓存和输出校准"
     }
 
-    private func quotaEstimateSummaries(taskIDs: Set<String>) -> [TaskQuotaEstimate] {
-        guard !taskIDs.isEmpty else { return [] }
-        let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
-            Date() < $0.resetsAt
+    private func quotaEstimateSummaries(taskIDs: Set<String>) -> [(TaskQuotaMetric, DailyTaskQuotaValue?)] {
+        guard !taskIDs.isEmpty, appModel.hasChatGPTQuotaAccount else { return [] }
+        return TaskQuotaMetric.supported(by: appModel.resetCreditsSnapshot?.quotaWindows ?? []).map { metric in
+            (metric, DailyTaskQuotaValue.combined(taskIDs.map { appModel.dailyTaskQuotas[metric.rawValue]?[$0] }))
         }
-        return windows.compactMap { window in
-            let estimates = taskIDs.compactMap {
-                appModel.taskQuotaEstimatesByDuration[window.durationMinutes]?[$0]
-            }
-            guard estimates.count == taskIDs.count else { return nil }
-            return TaskQuotaEstimate(
-                window: window,
-                percent: estimates.reduce(0) { $0 + $1.percent },
-                confidence: combinedConfidence(estimates.map(\.confidence)),
-                observedStepCount: estimates.reduce(0) { $0 + $1.observedStepCount },
-                observedTokenCoverage: estimates.map(\.observedTokenCoverage).min() ?? 0,
-                hasConcurrentInterference: estimates.contains { $0.hasConcurrentInterference }
-            )
-        }
-        .sorted { $0.window.durationMinutes > $1.window.durationMinutes }
-    }
-
-    private func combinedConfidence(
-        _ confidences: [QuotaEstimateConfidence]
-    ) -> QuotaEstimateConfidence {
-        if confidences.contains(.low) { return .low }
-        if confidences.contains(.medium) { return .medium }
-        return .high
     }
 
     private func formatPercent(_ value: Double) -> String {
@@ -700,7 +694,7 @@ struct TokenUsageModuleView: View {
     }
 
     private var showsCostEstimates: Bool {
-        appModel.settings.showsAPICostEstimatesInMenuBar
+        appModel.settings.showsLocalCostEstimates
     }
 }
 

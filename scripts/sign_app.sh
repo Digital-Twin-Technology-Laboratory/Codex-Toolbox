@@ -39,6 +39,7 @@ for embedded_dylib in "$APP_PATH"/Contents/MacOS/*.dylib; do
         sign_runtime "$embedded_dylib"
     fi
 done
+sign_runtime "$APP_PATH/Contents/MacOS/toolbox-native-analytics"
 sign_runtime "$APP_PATH"
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"

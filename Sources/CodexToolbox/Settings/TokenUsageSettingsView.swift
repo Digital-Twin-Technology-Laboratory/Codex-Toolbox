@@ -15,82 +15,10 @@ struct TokenUsageSettingsView: View {
                 }
             }
 
-            Section("菜单栏显示") {
-                Toggle("显示估算成本", isOn: costEstimatesInMenuBarBinding)
-                Text("仅控制展开菜单栏中的成本数字和 Token／成本趋势切换；设置页仍会计算并显示成本。新用户默认关闭。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("当前用量概览") {
                 usageDetail("本机 Token", value: currentTokenText)
-                usageDetail("API 等值成本（估算）", value: currentCostText)
-                usageDetail("定价覆盖率", value: costCoverageText)
-                usageDetail("本机 Credits", value: currentCreditsText)
                 usageDetail("账户已用", value: accountUsedText)
-                usageDetail("估算置信度", value: estimateConfidenceText)
-            }
-
-            Section("官方费率与 Credits") {
-                Toggle("自动更新费率与价格", isOn: automaticRateUpdatesBinding)
-                Picker("费率制度", selection: rateCardModeBinding) {
-                    ForEach(RateCardMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("当前版本 \(appModel.rateCardState.manifest.currentVersion)")
-                        Text(rateCardStatus)
-                            .foregroundStyle(appModel.isRateCardStale ? .orange : .secondary)
-                    }
-                    .font(.caption)
-                    Spacer()
-                    Button("立即检查") {
-                        Task { await appModel.refreshRateCard() }
-                    }
-                    .disabled(appModel.isRefreshingRateCard)
-                }
-
-                Text("自动模式仅在可确认 ChatGPT 计划时计算 Credits；API Key 用量不套用 ChatGPT Credits。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let errorMessage = appModel.rateCardState.errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-            }
-
-            Section("API 等值成本明细") {
-                usageDetail("新输入", value: componentCostText(\.freshInputUSD))
-                usageDetail("缓存读取", value: componentCostText(\.cachedInputUSD))
-                usageDetail("缓存写入", value: componentCostText(\.cacheWriteUSD))
-                usageDetail("输出（含推理）", value: componentCostText(\.outputUSD))
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("价格版本 \(appModel.apiPriceCardState.manifest.currentVersion)")
-                        Text(apiPriceStatus)
-                            .foregroundStyle(appModel.isAPIPriceCardStale ? .orange : .secondary)
-                    }
-                    .font(.caption)
-                    Spacer()
-                    Button("立即检查") {
-                        Task { await appModel.refreshRateCard() }
-                    }
-                    .disabled(appModel.isRefreshingRateCard || appModel.isRefreshingAPIPriceCard)
-                }
-
-                Text("OpenAI 使用官方 API 价格，其他供应商使用 models.dev；金额是 API 等值估算，并非 ChatGPT/Codex 订阅账单。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let errorMessage = appModel.apiPriceCardState.errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
+                usageDetail("任务额度数据", value: estimateConfidenceText)
             }
 
             Section("任务榜单") {
@@ -150,47 +78,11 @@ struct TokenUsageSettingsView: View {
         )
     }
 
-    private var costEstimatesInMenuBarBinding: Binding<Bool> {
-        Binding(
-            get: { appModel.settings.showsAPICostEstimatesInMenuBar },
-            set: { appModel.settings.showsAPICostEstimatesInMenuBar = $0 }
-        )
-    }
-
     private var expandedTaskLimitBinding: Binding<UsageExpandedTaskLimit> {
         Binding(
             get: { appModel.settings.usageExpandedTaskLimit },
             set: { appModel.settings.usageExpandedTaskLimit = $0 }
         )
-    }
-
-    private var automaticRateUpdatesBinding: Binding<Bool> {
-        Binding(
-            get: { appModel.settings.automaticRateCardUpdatesEnabled },
-            set: {
-                appModel.settings.automaticRateCardUpdatesEnabled = $0
-                appModel.settingsDidChange()
-            }
-        )
-    }
-
-    private var rateCardModeBinding: Binding<RateCardMode> {
-        Binding(
-            get: { appModel.settings.rateCardMode },
-            set: {
-                appModel.settings.rateCardMode = $0
-                appModel.settingsDidChange()
-            }
-        )
-    }
-
-    private var rateCardStatus: String {
-        if appModel.isRateCardStale { return "费率可能过期" }
-        switch appModel.rateCardState.source {
-        case .bundled: return "内置回退数据"
-        case .cached: return "上次有效缓存"
-        case .remote: return "已从项目托管清单校验"
-        }
     }
 
     private func usageDetail(_ title: String, value: String) -> some View {
@@ -210,38 +102,6 @@ struct TokenUsageSettingsView: View {
         todaySummary?.totalTokens.formatted(.number.grouping(.automatic)) ?? "--"
     }
 
-    private var currentCreditsText: String {
-        guard let summary = todaySummary, let credits = summary.totalCredits else { return "--" }
-        let value = credits > 0 && credits < 0.01
-            ? "<0.01"
-            : String(format: "%.2f", credits)
-        return "\(creditPrefix(summary.creditPrecision))\(value) Cr"
-    }
-
-    private var currentCostText: String {
-        guard let summary = todaySummary else { return "--" }
-        return MetricFormatter.apiCost(summary.totalCostUSD, precision: summary.costPrecision)
-    }
-
-    private var costCoverageText: String {
-        guard let summary = todaySummary, summary.totalTokens > 0 else { return "--" }
-        return String(format: "%.1f%%", summary.costCoverage * 100)
-    }
-
-    private func componentCostText(_ keyPath: KeyPath<APICostBreakdown, Decimal>) -> String {
-        guard let breakdown = todaySummary?.costBreakdown else { return "--" }
-        return MetricFormatter.apiCost(breakdown[keyPath: keyPath])
-    }
-
-    private var apiPriceStatus: String {
-        if appModel.isAPIPriceCardStale { return "价格来源可能过期" }
-        switch appModel.apiPriceCardState.source {
-        case .bundled: return "内置 OpenAI + models.dev 快照"
-        case .cached: return "上次有效缓存"
-        case .remote: return "已从项目托管清单校验"
-        }
-    }
-
     private var accountUsedText: String {
         let windows = (appModel.resetCreditsSnapshot?.quotaWindows ?? []).filter {
             Date() < $0.resetsAt
@@ -254,28 +114,9 @@ struct TokenUsageSettingsView: View {
     }
 
     private var estimateConfidenceText: String {
-        let estimates = appModel.taskQuotaEstimatesByDuration.values.flatMap(\.values)
-        guard !estimates.isEmpty else { return "--" }
-        let confidence: QuotaEstimateConfidence
-        if estimates.contains(where: { $0.confidence == .low }) {
-            confidence = .low
-        } else if estimates.contains(where: { $0.confidence == .medium }) {
-            confidence = .medium
-        } else {
-            confidence = .high
-        }
-        return estimates.contains(where: \.hasConcurrentInterference)
-            ? "\(confidence.displayName) · 并发干扰"
-            : confidence.displayName
-    }
-
-    private func creditPrefix(_ precision: CreditEstimatePrecision?) -> String {
-        switch precision {
-        case .exact: ""
-        case .upperBound: "≤"
-        case .lowerBound: "≥"
-        case .approximate, nil: "≈"
-        }
+        let values = appModel.dailyTaskQuotas.values.flatMap(\.values)
+        guard !values.isEmpty else { return "—" }
+        return values.allSatisfy(\.isExact) ? "完整原生记录" : "包含估算"
     }
 
     private func dayKey(_ date: Date) -> String {

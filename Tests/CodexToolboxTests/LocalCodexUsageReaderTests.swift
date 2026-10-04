@@ -4,6 +4,100 @@ import XCTest
 @testable import CodexToolboxCore
 
 final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
+    func testUsageTitlesFollowDisplayNameAndRenameWithoutChangingTokens() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("root.jsonl")
+        let childRollout = workspace.appendingPathComponent("child.jsonl")
+        try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 8, increment: 8) + "\n").utf8).write(to: rollout)
+        try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 2, increment: 2) + "\n").utf8).write(to: childRollout)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let root = UUID().uuidString, child = UUID().uuidString
+        try createDatabase(at: database, threads: [
+            (root, "# Files mentioned by the user: attachment.png /tmp/attachment.png", rollout.path, 8, 1_791_158_400),
+            (child, "Child initial request", childRollout.path, 2, 1_791_158_400)
+        ], edges: [(root, child)], archivedThreadIDs: [root])
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(database.path, &db), SQLITE_OK)
+        defer { sqlite3_close(db) }
+        let handle = try XCTUnwrap(db)
+        try execute("ALTER TABLE threads ADD COLUMN name TEXT; UPDATE threads SET name = '优化用量文案并制作预发布包' WHERE id = '\(root)'; UPDATE threads SET name = 'Child name' WHERE id = '\(child)';", in: handle)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let now = try XCTUnwrap(MetricFormatter.sourceDate("2026-10-05T01:00:00Z"))
+        let first = try await reader.readUsage(now: now, calendar: calendar)
+        XCTAssertEqual(first.summary(for: "2026-10-05")?.tasks.first?.title, "优化用量文案并制作预发布包")
+        XCTAssertEqual(first.summary(for: "2026-10-05")?.totalTokens, 10)
+        try execute("UPDATE threads SET name = '改名后的任务' WHERE id = '\(root)';", in: handle)
+        // Reusing the ledger and unchanged rollout must still refresh the title.
+        let second = try await reader.readUsage(now: now, calendar: calendar)
+        let catalogue = try await reader.nativeCatalogue(now: now)
+        XCTAssertEqual(second.summary(for: "2026-10-05")?.tasks.first?.title, "改名后的任务")
+        XCTAssertEqual(catalogue.threads.first?.title, "改名后的任务")
+        XCTAssertEqual(second.summary(for: "2026-10-05")?.totalTokens, 10)
+        XCTAssertEqual(second.summary(for: "2026-10-05")?.tasks.count, 1)
+        XCTAssertEqual(second.quotaObservations, first.quotaObservations)
+        try FileManager.default.removeItem(at: rollout)
+        try execute("UPDATE threads SET name = '历史任务的新名称' WHERE id = '\(root)';", in: handle)
+        let missingRollout = try await reader.readUsage(now: now, calendar: calendar)
+        XCTAssertEqual(missingRollout.summary(for: "2026-10-05")?.tasks.first?.title, "历史任务的新名称")
+        XCTAssertEqual(missingRollout.summary(for: "2026-10-05")?.totalTokens, 10)
+    }
+
+    func testBlankDisplayNameFallsBackAndExplicitGenericNameIsPreserved() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let id = UUID().uuidString
+        try createDatabase(at: database, threads: [(id, "Existing title", "", 1, 4_000_000)], edges: [])
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(database.path, &db), SQLITE_OK)
+        defer { sqlite3_close(db) }
+        let handle = try XCTUnwrap(db)
+        try execute("ALTER TABLE threads ADD COLUMN name TEXT;", in: handle)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        for name in ["NULL", "''", "'   '"] {
+            try execute("UPDATE threads SET name = \(name);", in: handle)
+            let blank = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4_000_001))
+            XCTAssertEqual(blank.threads.first?.title, "Existing title")
+        }
+        try execute("UPDATE threads SET name = '任务 1';", in: handle)
+        let named = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4_000_001))
+        XCTAssertEqual(named.threads.first?.title, "任务 1")
+    }
+
+    func testNativeCataloguePrefersCodexDisplayNameOverStoredInitialTitle() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite"), id = UUID().uuidString
+        try createDatabase(at: database, threads: [(id, "Initial user request", "", 1, 4000000)], edges: [], archivedThreadIDs: [id])
+        var db: OpaquePointer?; XCTAssertEqual(sqlite3_open(database.path, &db), SQLITE_OK)
+        defer { sqlite3_close(db) }
+        try execute("ALTER TABLE threads ADD COLUMN name TEXT; UPDATE threads SET name = 'Native chat display name';", in: try XCTUnwrap(db))
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        let result = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4000001))
+        XCTAssertEqual(result.threads.first?.title, "Native chat display name")
+    }
+
+    func testNativeCatalogueIncludesArchivedDescendantsOnlyOnceAndExcludesOldRoots() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let root = UUID().uuidString, child = UUID().uuidString, grandchild = UUID().uuidString, old = UUID().uuidString
+        try createDatabase(at: database, threads: [(root, "Root", "", 1, 4000000), (child, "Child", "", 1, 4000001), (grandchild, "Archived", "", 1, 4000002), (old, "Old", "", 1, 1)], edges: [(root, child), (child, grandchild)], archivedThreadIDs: [grandchild])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        let result = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4000003))
+        XCTAssertEqual(result.eligibleCount, 1)
+        XCTAssertEqual(result.threads.map(\.id), [root])
+        XCTAssertEqual(Set(result.threads[0].descendantIDs), [child, grandchild])
+        XCTAssertEqual(result.excludedCount, 0)
+    }
+
     func testSelectsLatestMostCompleteReadableDatabase() async throws {
         let workspace = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: workspace) }
@@ -175,6 +269,37 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(reused.checkpoint, first.checkpoint)
     }
 
+    func testMixedAuthenticationKeepsAllTokensWithoutInheritingAccountEvidence() async throws {
+        let workspace = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("mixed.jsonl")
+        let reset = Date(timeIntervalSince1970: 1_800_000_000)
+        let lines = [
+            #"{"type":"session_meta","payload":{"model_provider":"custom","creator_account_id":"creator-only-not-payer"}}"#,
+            turnContextLine(model: "gpt-5.6-sol", provider: "openai"),
+            tokenLine(timestamp: "2026-07-22T15:59:00Z", cumulative: 100, increment: 100, quotaPercent: 10, quotaReset: reset),
+            #"{"type":"turn_context","payload":{"model":"gpt-5.6-sol","model_provider_id":"openai","auth_mode":"api_key"}}"#,
+            tokenLine(timestamp: "2026-07-22T16:01:00Z", cumulative: 300, increment: 200)
+        ].joined(separator: "\n") + "\n"
+        try Data(lines.utf8).write(to: rollout)
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let ledger = workspace.appendingPathComponent("ledger.json")
+        try createDatabase(at: database, threads: [("root", "Mixed", rollout.path, 300, 1)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledger)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let history = try await reader.readUsage(now: reset, calendar: calendar)
+        XCTAssertEqual(history.summary(for: "2026-07-22")?.totalTokens, 100)
+        XCTAssertEqual(history.summary(for: "2026-07-23")?.totalTokens, 200)
+        XCTAssertEqual(history.quotaObservations.first?.executionContext?.authenticationMode, .chatGPT)
+        XCTAssertEqual(history.quotaObservations.last?.executionContext?.authenticationMode, .api)
+        XCTAssertNil(history.quotaObservations.last?.executionContext?.planType)
+        XCTAssertEqual(history.quotaObservations.last?.executionContext?.hasAccountRateLimits, false)
+        XCTAssertTrue(history.quotaObservations.allSatisfy { $0.accountKey == nil })
+        XCTAssertFalse(try String(contentsOf: ledger, encoding: .utf8).contains("creator-only-not-payer"))
+    }
+
     func testExtractsSanitizedQuotaObservationsAndAggregatesThemToTheRoot() async throws {
         let workspace = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: workspace) }
@@ -307,6 +432,11 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(summary.costBreakdown?.cacheWriteUSD, Decimal(string: "0.25"))
         XCTAssertEqual(summary.costBreakdown?.outputUSD, Decimal(string: "3.6"))
         XCTAssertEqual(summary.tasks.first?.costUSD, Decimal(string: "5.29"))
+        let disabled = try await reader.readUsage(now: Date(timeIntervalSince1970: 1_800_000_000), calendar: calendar,
+            rateCard: nil, rateCardMode: .automatic, apiPriceCard: nil)
+        XCTAssertEqual(disabled.summary(for: "2026-08-20")?.totalTokens, summary.totalTokens)
+        XCTAssertNil(disabled.summary(for: "2026-08-20")?.totalCostUSD)
+        XCTAssertNil(disabled.summary(for: "2026-08-20")?.totalCredits)
     }
 
     func testQuotaUsageWeightingMatchesPublishedCodexRateCard() throws {

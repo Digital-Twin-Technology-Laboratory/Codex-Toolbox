@@ -27,11 +27,16 @@ private struct CodexThreadRow: Sendable {
 
 private enum TaskTitleResolver {
     static func resolve(
+        displayName: String,
         title: String,
         firstUserMessage: String,
         preview: String,
         workingDirectory: String
     ) -> String {
+        // Codex keeps the sidebar name separately from the initial user message.
+        // An explicit name wins even if it resembles a generic fallback title.
+        let normalizedName = normalized(displayName)
+        if !normalizedName.isEmpty { return normalizedName }
         let normalizedTitle = normalized(title)
         let fallbacks = [firstUserMessage, preview].map(normalized).filter { !$0.isEmpty }
 
@@ -116,6 +121,7 @@ private final class ReadOnlySQLiteDatabase {
 
     func inventory() throws -> CodexThreadInventory {
         let columns = try tableColumns("threads")
+        let displayName = columns.contains("name") ? "COALESCE(name, '')" : "''"
         let firstUserMessage = columns.contains("first_user_message")
             ? "COALESCE(first_user_message, '')" : "''"
         let preview = columns.contains("preview") ? "COALESCE(preview, '')" : "''"
@@ -123,7 +129,7 @@ private final class ReadOnlySQLiteDatabase {
         let statement = try prepare(
             "SELECT id, COALESCE(title, ''), COALESCE(rollout_path, ''), " +
             "COALESCE(created_at, 0), \(firstUserMessage), \(preview), " +
-            "\(workingDirectory) FROM threads"
+            "\(workingDirectory), \(displayName) FROM threads"
         )
         defer { sqlite3_finalize(statement) }
         var threads: [String: CodexThreadRow] = [:]
@@ -133,6 +139,7 @@ private final class ReadOnlySQLiteDatabase {
             threads[id] = CodexThreadRow(
                 id: id,
                 title: TaskTitleResolver.resolve(
+                    displayName: text(statement, column: 7),
                     title: text(statement, column: 1),
                     firstUserMessage: text(statement, column: 4),
                     preview: text(statement, column: 5),
@@ -155,6 +162,54 @@ private final class ReadOnlySQLiteDatabase {
             }
         }
         return CodexThreadInventory(threads: threads, parentByChild: parents)
+    }
+
+    func nativeCatalogue(now: Date) throws -> NativeCatalogue {
+        let columns = try tableColumns("threads")
+        guard columns.contains("updated_at"), columns.contains("created_at") else {
+            throw LocalCodexUsageError.unreadableStateDatabase("缺少聊天时间字段")
+        }
+        let inventory = try inventory()
+        let since = now.addingTimeInterval(-30 * 86400)
+        // Archived tasks can still appear in the selected day's consumption ranking.
+        let stmt = try prepare("SELECT id FROM threads WHERE updated_at >= \(Int64(since.timeIntervalSince1970)) ORDER BY updated_at DESC, id")
+        defer { sqlite3_finalize(stmt) }
+        var active: [String] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            active.append(text(stmt, column: 0))
+        }
+        var seenRoots = Set<String>()
+        let roots = active.compactMap { id -> String? in
+            var root = id; var visited = Set<String>()
+            while let parent = inventory.parentByChild[root] {
+                guard visited.insert(root).inserted, visited.count <= 1000 else { return nil }
+                root = parent
+            }
+            return seenRoots.insert(root).inserted ? root : nil
+        }
+        var children: [String: [String]] = [:]
+        for (child, parent) in inventory.parentByChild { children[parent, default: []].append(child) }
+        var result: [NativeThread] = []; var excluded = 0
+        var owned = Set<String>()
+        for id in roots {
+            guard let root = inventory.threads[id], UUID(uuidString: id) != nil else { excluded += 1; continue }
+            var visited: Set<String> = [id]; var queue = children[id] ?? []
+            var invalid = false
+            while let child = queue.popLast() {
+                guard UUID(uuidString: child) != nil, visited.insert(child).inserted else { invalid = true; break }
+                queue += children[child] ?? []
+                if visited.count > 1000 { invalid = true; break }
+            }
+            if invalid || !owned.isDisjoint(with: visited) { excluded += 1; continue }
+            owned.formUnion(visited)
+            result.append(NativeThread(id: id, title: root.title,
+                createdAt: root.createdAt > 0 ? Date(timeIntervalSince1970: Double(root.createdAt)).ISO8601Format() : nil,
+                descendantIDs: visited.subtracting([id]).sorted(),
+                earliestCreatedAt: visited.allSatisfy({ (inventory.threads[$0]?.createdAt ?? 0) > 0 })
+                    ? visited.compactMap { inventory.threads[$0]?.createdAt }.min().map { Date(timeIntervalSince1970: Double($0)).ISO8601Format() }
+                    : nil))
+        }
+        return NativeCatalogue(threads: result, eligibleCount: roots.count, excludedCount: excluded, since: since.ISO8601Format())
     }
 
     private func tableColumns(_ table: String) throws -> Set<String> {
@@ -327,7 +382,7 @@ enum RolloutTokenParser {
                     damagedLineCount += 1
                     continue
                 }
-                if event["type"] as? String == "turn_context",
+                if ["session_meta", "turn_context"].contains(event["type"] as? String ?? ""),
                    let payload = event["payload"] as? [String: Any] {
                     currentContext = updatedContext(currentContext, from: payload)
                     continue
@@ -357,10 +412,10 @@ enum RolloutTokenParser {
                     reasoningEffort: currentContext.reasoningEffort,
                     serviceTier: currentContext.serviceTier,
                     modelProviderID: currentContext.modelProviderID,
-                    planType: string(rateLimits?["plan_type"]) ?? currentContext.planType,
+                    authenticationMode: currentContext.authenticationMode == .api ? .api : (rateLimits?["plan_type"] != nil ? .chatGPT : nil),
+                    planType: string(rateLimits?["plan_type"]),
                     hasAccountRateLimits: rateLimits?["primary"] != nil
-                        || rateLimits?["secondary"] != nil
-                        || currentContext.hasAccountRateLimits,
+                        || rateLimits?["secondary"] != nil,
                     rateCardMode: rateCardMode,
                     rateCardVersion: rateCard?.version(at: timestamp)?.id
                 )
@@ -428,19 +483,26 @@ enum RolloutTokenParser {
         _ current: UsageExecutionContext,
         from payload: [String: Any]
     ) -> UsageExecutionContext {
-        UsageExecutionContext(
+        let provider = string(payload["model_provider_id"])
+            ?? string(payload["modelProviderId"]) ?? string(payload["model_provider"])
+            ?? current.modelProviderID
+        let rawMode = string(payload["auth_mode"]) ?? string(payload["authentication_mode"])
+        let mode: UsageAuthenticationMode? = switch rawMode {
+        case "api", "api_key", "apikey": .api
+        case "chatgpt", "chatGPT": .chatGPT
+        default: nil
+        }
+        return UsageExecutionContext(
             modelID: string(payload["model"]) ?? current.modelID,
             reasoningEffort: string(payload["reasoning_effort"])
-                ?? string(payload["reasoningEffort"])
-                ?? current.reasoningEffort,
+                ?? string(payload["reasoningEffort"]) ?? current.reasoningEffort,
             serviceTier: string(payload["service_tier"])
-                ?? string(payload["serviceTier"])
-                ?? current.serviceTier,
-            modelProviderID: string(payload["model_provider_id"])
-                ?? string(payload["modelProviderId"])
-                ?? current.modelProviderID,
-            planType: current.planType,
-            hasAccountRateLimits: current.hasAccountRateLimits,
+                ?? string(payload["serviceTier"]) ?? current.serviceTier,
+            modelProviderID: provider,
+            authenticationMode: mode,
+            // A new turn/provider never inherits a previous turn's account evidence.
+            planType: nil,
+            hasAccountRateLimits: false,
             rateCardMode: current.rateCardMode,
             rateCardVersion: current.rateCardVersion
         )
@@ -507,7 +569,7 @@ enum RolloutTokenParser {
     }
 }
 
-public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnapshotRecording {
+public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnapshotRecording, NativeThreadReading {
     private let codexHome: URL
     private let explicitDatabaseURL: URL?
     private let fileManager: FileManager
@@ -562,6 +624,11 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         }
         guard let best else { throw LocalCodexUsageError.stateDatabaseNotFound(codexHome) }
         return best.1
+    }
+
+    public func nativeCatalogue(now: Date) async throws -> NativeCatalogue {
+        let db = try ReadOnlySQLiteDatabase(url: selectedStateDatabase())
+        return try db.nativeCatalogue(now: now)
     }
 
     public func readUsage(
@@ -664,19 +731,21 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
     public func recordAccountQuotaSnapshot(
         windows: [AccountQuotaWindow],
         planType: String?,
-        timestamp: Date
+        timestamp: Date,
+        accountKey: String? = nil
     ) async throws {
         guard !windows.isEmpty else { return }
         let timezone = Calendar.current.timeZone.identifier
         var ledger = try ledgerStore.load(timezoneIdentifier: timezone)
         let minute = Int64(timestamp.timeIntervalSince1970 / 60)
         ledger.accountObservations.removeAll { observation in
-            Int64(observation.timestamp.timeIntervalSince1970 / 60) == minute
+            observation.accountKey == accountKey && Int64(observation.timestamp.timeIntervalSince1970 / 60) == minute
         }
         ledger.accountObservations.append(
             ThreadQuotaUsageObservation(
                 timestamp: timestamp,
                 tokenIncrement: 0,
+                accountKey: accountKey,
                 executionContext: UsageExecutionContext(
                     modelID: nil,
                     reasoningEffort: nil,
@@ -736,7 +805,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                             at: observation.timestamp
                         )
                     }
-                } ?? observation.creditEstimate
+                }
                 let costEstimate = observation.tokenBreakdown.flatMap { breakdown in
                     observation.executionContext.flatMap { context in
                         apiPriceCard?.cost(
@@ -751,6 +820,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                         timestamp: observation.timestamp,
                         rootTaskID: entry.rootTaskID,
                         tokenIncrement: observation.tokenIncrement,
+                        accountKey: observation.accountKey,
                         quotaUsageWeight: observation.quotaUsageWeight,
                         tokenBreakdown: observation.tokenBreakdown,
                         executionContext: observation.executionContext,
@@ -853,6 +923,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                     timestamp: $0.timestamp,
                     rootTaskID: "__account__",
                     tokenIncrement: 0,
+                    accountKey: $0.accountKey,
                     executionContext: $0.executionContext,
                     isAccountSnapshot: true,
                     windows: $0.windows

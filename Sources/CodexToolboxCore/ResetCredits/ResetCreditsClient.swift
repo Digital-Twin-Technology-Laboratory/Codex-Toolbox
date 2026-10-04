@@ -62,9 +62,11 @@ public struct DefaultCodexExecutableLocator: CodexExecutableLocating, Sendable {
                 workspaceApplication.appendingPathComponent("Contents/Resources/codex")
             )
         }
-        candidates.append(
-            URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources/codex")
-        )
+        for application in [workspaceApplication, URL(fileURLWithPath: "/Applications/ChatGPT.app"), URL(fileURLWithPath: "/Applications/Codex.app")].compactMap({ $0 }) {
+            for relativePath in ["Contents/Resources/codex-cli/bin/codex", "Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex", "Contents/Resources/codex"] {
+                candidates.append(application.appendingPathComponent(relativePath))
+            }
+        }
         if let path = environment["PATH"] {
             candidates.append(contentsOf: path.split(separator: ":").map {
                 URL(fileURLWithPath: String($0), isDirectory: true).appendingPathComponent("codex")

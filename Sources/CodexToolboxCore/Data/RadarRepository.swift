@@ -5,6 +5,7 @@ public struct RadarRepositoryState: Sendable, Equatable {
     public let costHistory: [CostHistoryPoint]
     public let isStale: Bool
     public let errorMessage: String?
+    public let checkedAt: Date?
 
     public static let empty = RadarRepositoryState(
         snapshot: nil,
@@ -17,12 +18,14 @@ public struct RadarRepositoryState: Sendable, Equatable {
         snapshot: RadarSnapshot?,
         costHistory: [CostHistoryPoint],
         isStale: Bool,
-        errorMessage: String?
+        errorMessage: String?,
+        checkedAt: Date? = nil
     ) {
         self.snapshot = snapshot
         self.costHistory = costHistory
         self.isStale = isStale
         self.errorMessage = errorMessage
+        self.checkedAt = checkedAt
     }
 }
 
@@ -83,7 +86,7 @@ public actor RadarRepository {
         let now = now
         let task = Task<RadarRepositoryState, Never> {
             do {
-                let result = try await client.fetch(cacheValidators: previous.snapshot?.validators)
+                let result = try await client.fetch(cacheValidators: previous.snapshot?.schemaVersion == "intelligence-efficiency/3" && previous.snapshot?.aggregationMode != nil ? previous.snapshot?.validators : nil)
                 let snapshot: RadarSnapshot
                 switch result {
                 case let .modified(newSnapshot):
@@ -97,12 +100,21 @@ public actor RadarRepository {
                         sourceMonitoredAt: cached.sourceMonitoredAt,
                         fetchedAt: now(),
                         benchmarks: cached.benchmarks,
-                        validators: validators
+                        validators: validators,
+                        benchmarkID: cached.benchmarkID, aggregationMode: cached.aggregationMode, scoringMode: cached.scoringMode, priceRollingWindow: cached.priceRollingWindow
                     )
                 }
 
+                if let previousDate = previous.snapshot?.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate),
+                   let newDate = snapshot.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate), newDate < previousDate {
+                    throw RadarClientError.invalidPayload("上游快照时间倒退，保留较新的有效缓存。")
+                }
+                let oldPrices = Dictionary(uniqueKeysWithValues: (previous.snapshot?.benchmarks ?? []).map { ($0.id, $0.latest?.priceAggregation) })
+                let newPrices = Dictionary(uniqueKeysWithValues: snapshot.benchmarks.map { ($0.id, $0.latest?.priceAggregation) })
+                let compatibleHistory = previous.snapshot?.schemaVersion == snapshot.schemaVersion && previous.snapshot?.semanticsKey == snapshot.semanticsKey
+                    ? previous.costHistory.filter { oldPrices[$0.modelID] == newPrices[$0.modelID] } : []
                 let history = CostHistoryBuilder.merging(
-                    previous.costHistory,
+                    compatibleHistory,
                     benchmarks: snapshot.benchmarks,
                     recordedAt: snapshot.fetchedAt
                 )
@@ -112,7 +124,8 @@ public actor RadarRepository {
                     snapshot: snapshot,
                     costHistory: history,
                     isStale: false,
-                    errorMessage: nil
+                    errorMessage: nil,
+                    checkedAt: now()
                 )
             } catch {
                 let hasCache = previous.snapshot != nil
@@ -125,7 +138,8 @@ public actor RadarRepository {
                         ? nil
                         : isTransient
                             ? "网络暂不可用，恢复连接后请重试。"
-                            : error.localizedDescription
+                            : error.localizedDescription,
+                    checkedAt: now()
                 )
             }
         }

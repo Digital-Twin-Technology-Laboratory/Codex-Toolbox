@@ -1,7 +1,7 @@
 <div align="center">
   <img src="design/icon-concepts/codex-toolbox-preview.png" width="160" alt="Codex Toolbox 应用图标">
   <h1>Codex Toolbox</h1>
-  <p>把模型排名、本机 Token 用量与账户重置卡放进 macOS 菜单栏。</p>
+  <p>把模型排名、本机用量与账户额度放进 macOS 菜单栏。</p>
 
   [![GitHub Release](https://img.shields.io/github/v/release/Digital-Twin-Technology-Laboratory/Codex-Toolbox?sort=semver)](https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases)
   [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple)](#系统要求)
@@ -9,21 +9,23 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 </div>
 
-Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时新增完全本机的 Token 审计与账户重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
+Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时提供本机用量分析与账户额度、重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
 
 > [!TIP]
-> **v1.3.1 修复了 Mac 休眠/唤醒、本地代理恢复期间的 Radar、检查更新和重置卡瞬时报错。** 版本状态与正式附件以 Releases 页面为准。
+> **1.4.0 / Build 58 正在准备发布，新增多菜单栏与账户额度，并改进每日任务用量。** 当前公开正式版仍为 v1.3.1；版本状态与正式附件以 Releases 页面为准。候选版说明见 [1.4.0 更新日志](docs/releases/v1.4.0.md)。
 
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
 
 ## 应用预览
 
+现有截图来自此前版本；1.4.0 的界面变化以候选版与发布说明为准。
+
 <p align="center">
   <img src="docs/assets/screenshots/dashboard.png" width="390" alt="Codex Toolbox 模型智商看板，显示智商、费用、耗时与综合排名">
   <img src="docs/assets/screenshots/model-ranking-expanded.png" width="390" alt="Codex Toolbox 模型智商榜单展开视图，显示完整前五名排名">
-  <img src="docs/assets/screenshots/token-reset-expanded.png" width="390" alt="Codex Toolbox Token 用量趋势与账户重置卡展开视图">
-  <img src="docs/assets/screenshots/dashboard-collapsed.png" width="390" alt="Codex Toolbox 默认折叠看板，显示模型智商、Token 用量与重置卡摘要">
+  <img src="docs/assets/screenshots/token-reset-expanded.png" width="390" alt="Codex Toolbox 用量分析趋势与账户重置卡展开视图">
+  <img src="docs/assets/screenshots/dashboard-collapsed.png" width="390" alt="Codex Toolbox 默认折叠看板，显示模型智商、用量分析与重置卡摘要">
 </p>
 
 ## 三项核心功能
@@ -38,14 +40,14 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 - 菜单栏可切换智商、综合、费用或耗时，并支持序号、图标、详细数值和模型别名。
 - 失败时继续展示最后一次成功数据，不会用空榜单覆盖有用状态。
 
-### Token 用量
+### 用量分析
 
 - 只读解析 `~/.codex/state_*.sqlite` 和本机 rollout JSONL，不调用模型，不上传任务内容。
 - Token 内容分为上下两张独立卡片：当日总量与根任务 Top 3、每日用量趋势。点击趋势柱可切换到该日任务明细，并可“返回今日”；每次关闭弹窗都会清除日期选择。任务榜单可按设置展开为 Top 5 或 Top 10，悬停柱子仍可查看精确 Token。
-- Token 卡分别显示本机可读日志的原始 Token、按版本化官方费率计算的 Credits、账户全设备/共享产品权威已用比例，以及逐任务 `≈额度%`。费率数据每 6 小时自动检查，并按事件时间选择历史版本。
+- Token 卡显示本机原始 Token 与任务每日额度：完整原生记录使用 `=`，快照差值和校准估算使用 `≈`。本机 Credits、API 等值成本和相关设置集中在默认关闭的实验性功能中。
 - 可选 API 等值成本按输入、缓存读取、缓存写入与输出分项估算，支持每日成本趋势、任务成本和定价覆盖率；它不是 ChatGPT/Codex 订阅账单，菜单栏默认不显示。
 - 计算会跟踪中途模型、推理强度与 Standard/Fast 切换，区分缓存命中与免费缓存写入，且不重复计算已包含在输出中的 reasoning Token。字段不完时显示近似或上界，API Key 模式不套用 ChatGPT Credits。
-- 活动任务期间会每分钟只读采样账户窗口；其他设备或共享产品消耗、同一分钟并发会被标记并不用于学习换算率。无可用样本时不显示任务百分比。
+- 活动任务期间每分钟采样账户窗口，原生任务快照每 5 分钟刷新；快照按账户隔离并独立保存。跨日缺测不会归入今天，无可靠基线或校准时额度显示不可用。
 - 任务按根任务及全部子任务聚合，标题使用 Codex 在本机保存的具体对话或任务名称；趋势支持 7/14/30/90 天。
 - 以累计 `total_token_usage.total_tokens` 去重，把 `last_token_usage.total_tokens` 按系统时区记账。`cached_input_tokens` 已属于 input，`reasoning_output_tokens` 已属于 output，不另行重复相加。
 - 历史账本默认永久保留；源文件缺失或损坏时保留已记录数据并标记为“不完整”。
@@ -60,9 +62,9 @@ Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ �
 
 ## 看板与设置
 
-弹窗是一个连续的纵向看板。三个模块默认全部显示，Token 用量和重置卡默认折叠，折叠标题仍会直接显示今日 Token 总量与可用卡数。标题整行都是至少 44pt 高的展开/折叠按钮，刷新按钮仍保持独立。模块可隐藏、拖动排序或用键盘上移/下移。
+弹窗是一个连续的纵向看板。三个模块默认全部显示，用量分析和重置卡默认折叠，折叠标题显示今日 Token，以及优先选取的周剩余额度与重置卡数量。标题整行都是至少 44pt 高的展开/折叠按钮，刷新按钮仍保持独立。模块可隐藏、拖动排序或用键盘上移/下移。
 
-设置页顺序为“通用与看板”、“智商显示”、“Token 用量”、“重置卡”和“关于”。模型榜单与 Token 选项按功能分组，数据访问说明集中在“关于 → 数据与隐私详情”。通用页可调整模块顺序、登录启动，以及每小时或每天自动检查更新。新版本会在后台下载；准备完成后设置齿轮显示红点，点击“立即更新”即可让应用自动退出、替换并重新打开。
+设置页包含“通用与看板”、“菜单栏”、“智商显示”、“用量分析”、“账户额度&重置卡”和“关于”。模型榜单与 Token 选项按功能分组，数据访问说明集中在“关于 → 数据与隐私详情”。通用页可调整模块顺序、登录启动，以及每小时或每天自动检查更新。新版本会在后台下载；准备完成后设置齿轮显示红点，点击“立即更新”即可让应用自动退出、替换并重新打开。
 
 macOS 26+ 使用原生 Liquid Glass，macOS 14–15 回退为系统 Material。实验性入口可选彩色玻璃、清透玻璃与扁平中性主题，默认不显示且不改变系统设置窗口。动效采用无弹跳的临界阻尼过渡；Reduced Motion 下只保留短交叉淡化。
 
@@ -96,9 +98,18 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录�
 - Token 模块需要当前 Mac 上可读取的 Codex 本地数据
 - 重置卡模块需要已安装并登录的 Codex 或 ChatGPT；其他模块不受影响
 
+## 1.4.0 多菜单栏与账户额度
+
+- 菜单栏固定三个独立槽位，可启停、自选内容并允许重复；新装默认综合榜单、今日 Token、账户剩余额度，仅开启第一项。升级保留已有设置；位置由 macOS 的 Command 拖动管理。
+- 即时预览固定在设置顶部，未开启项目呈灰色。榜单、Token 和额度拥有独立样式，Token 支持完整数字或 K/M/B 缩写，额度可选择进度条、圆圈或关闭及彩色/单色。
+- “用量分析”保留本机任务排行和每日趋势，不再提供单独账户分析页面。本机所有可读取账户与 API 历史继续保留；不同统计口径不会互相替换或重复累计。
+- “账户额度&重置卡”展示套餐、剩余额度、中文北京时间与重置卡；看板样式独立于菜单栏。不查询套餐用量历史。
+- 固定版本只读组件区分 ChatGPT、API 与未登录，并读取当前账户的任务累计额度来建立日快照。缓存按账户隔离、拒收旧请求；历史 rollout 身份保持未知，近似校准不会回填账户归属。协议见 [NativeAnalytics](NativeAnalytics/README.md)。
+- 最新榜单直连 metrics schema 3，价格遵循实际聚合方式；日期栏保留原版格式。
+
 ## 数据与隐私
 
-Token 总量仅代表当前 Mac 仍可读取的日志；归档或删除的 rollout、未落盘记录、云端及其他设备都不在其中。Credits 是本机事件按公开费率的计算值；API 等值成本来自 OpenAI 官方价格与 models.dev 快照；账户已用比例来自账户接口，任务百分比始终是带置信度的估算。
+Token 总量仅代表当前 Mac 仍可读取的日志；归档或删除的 rollout、未落盘记录、云端及其他设备都不在其中。Credits 是本机事件按公开费率的计算值；API 等值成本来自 OpenAI 官方价格与 models.dev 快照；账户已用比例来自账户接口；任务完整当日原生数据使用 `=`，部分差值及估算使用 `≈`，覆盖范围见悬停提示。
 
 应用级数据存放在：
 

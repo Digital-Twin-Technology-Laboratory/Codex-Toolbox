@@ -40,11 +40,20 @@ test "$(plutil -extract SUScheduledCheckInterval raw "$APP_PATH/Contents/Info.pl
 test "$(plutil -extract SUPublicEDKey raw "$APP_PATH/Contents/Info.plist")" = "$SPARKLE_PUBLIC_ED_KEY"
 test -d "$APP_PATH/Contents/Frameworks/Sparkle.framework"
 
+HELPER="$APP_PATH/Contents/MacOS/toolbox-native-analytics"
+test -x "$HELPER"
+HELPER_ARCHS="$(lipo -archs "$HELPER")"
+[[ "$HELPER_ARCHS" == *arm64* && "$HELPER_ARCHS" == *x86_64* ]]
+codesign --verify --strict "$HELPER"
+test -f "$APP_PATH/Contents/Resources/NativeAnalytics-LICENSE.txt"
+test -s "$APP_PATH/Contents/Resources/NativeAnalytics-THIRD-PARTY-NOTICES.txt"
+
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 codesign --verify --verbose=2 "$DMG_PATH"
 
 APP_SIGNATURE="$(codesign -dvv "$APP_PATH" 2>&1)"
 DMG_SIGNATURE="$(codesign -dvv "$DMG_PATH" 2>&1)"
+HELPER_SIGNATURE="$(codesign -dvv "$HELPER" 2>&1)"
 if ! grep -q 'flags=.*runtime' <<<"$APP_SIGNATURE"; then
     echo "Expected Hardened Runtime to remain enabled" >&2
     exit 1
@@ -74,9 +83,15 @@ if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then
         echo "A Developer ID Application signature is required for the DMG" >&2
         exit 1
     fi
+    if ! grep -q 'Authority=Developer ID Application' <<<"$HELPER_SIGNATURE"; then
+        echo "A Developer ID Application signature is required for the native helper" >&2
+        exit 1
+    fi
 fi
 
-"$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
+if [[ "${SKIP_APP_LAUNCH_VERIFICATION:-0}" != "1" ]]; then
+    "$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
+fi
 
 if [[ -f "$DMG_PATH.sha256" ]]; then
     (cd "$(dirname "$DMG_PATH")" && shasum -a 256 -c "$(basename "$DMG_PATH").sha256")

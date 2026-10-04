@@ -140,7 +140,8 @@ actor DemoUsageReader: CodexUsageReading, UsageHistoryClearing, AccountQuotaSnap
     func recordAccountQuotaSnapshot(
         windows: [AccountQuotaWindow],
         planType: String?,
-        timestamp: Date
+        timestamp: Date,
+        accountKey: String?
     ) async throws {}
 
     private func dayKey(_ date: Date, calendar: Calendar) -> String {

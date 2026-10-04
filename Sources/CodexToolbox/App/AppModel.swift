@@ -21,6 +21,31 @@ final class AppModel {
     private let usageReader: any CodexUsageReading & UsageHistoryClearing & AccountQuotaSnapshotRecording
     private let resetCreditsReader: any AccountRateLimitsReading
     private let resetCreditsCache: ResetCreditsCacheStore
+    private let identityRepository = AccountIdentityRepository()
+    private let nativeTaskQuotaStore = NativeTaskQuotaStore()
+    private let nativeTaskQuotaScheduler = RefreshScheduler()
+    private var nativeQuotaSnapshots: [NativeTaskQuotaSnapshot] = []
+    private var nativeContinuityID = UUID().uuidString
+    private var nativeDayBoundaryTask: Task<Void, Never>?
+    private var nativePriorityTaskIDs: Set<String> = []
+    private var lastNativeQuotaRefreshAt: Date?
+    private var isBackgroundSuspended = false
+    var isRefreshingNativeTaskQuota = false
+    var nativeTaskQuotaError: String?
+    var dailyTaskQuotas: [Int: [String: DailyTaskQuotaValue]] = [:]
+    private var identityRefreshTask: Task<AccountAuthentication, Never>?
+    private var identityRefreshID: UUID?
+    private var accountSession = AccountSession()
+    var isAPIAuthentication: Bool { accountSession.authentication == .api }
+    var hasChatGPTQuotaAccount: Bool { accountSession.ticket != nil }
+    var accountAvailabilityMessage: String {
+        switch accountSession.authentication {
+        case .api: "当前使用 API 登录，不适用 ChatGPT 套餐额度与重置卡；本机用量仍可查看。"
+        case .signedOut: "请在 Codex 中登录 ChatGPT 账户后刷新；本机用量仍可查看。"
+        case .unknown: "暂时无法确认账户身份；本机用量仍可查看。"
+        case .chatGPT: "账户额度暂不可用，请稍后刷新。"
+        }
+    }
     private var didStart = false
 
     var repositoryState: RadarRepositoryState = .empty
@@ -96,9 +121,15 @@ final class AppModel {
         self.updateManager = updateManager
     }
 
+    var todayUsage: DailyUsageSummary? {
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let key = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        return usageHistory?.summary(for: key)
+    }
+
     var snapshot: RadarSnapshot? { repositoryState.snapshot }
     var costHistory: [CostHistoryPoint] { repositoryState.costHistory }
-    var isStale: Bool { repositoryState.isStale }
+    var isStale: Bool { repositoryState.isStale || (snapshot?.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate).map { Date().timeIntervalSince($0) > 24 * 3600 } ?? false) }
     var errorMessage: String? { repositoryState.errorMessage }
     var isInitialLoading: Bool { !hasLoadedCache && snapshot == nil }
     var isUsageInitialLoading: Bool { usageHistory == nil && isRefreshingUsage }
@@ -153,14 +184,14 @@ final class AppModel {
         if settings.showsStationRecommendations {
             stationRecommendationState = await stationRepository.loadCached()
         }
-        resetCreditsSnapshot = try? await resetCreditsCache.load()
-        isResetCreditsStale = resetCreditsSnapshot != nil
+        // Legacy quota caches have no account binding; validate identity before loading.
+        await checkAccountIdentity()
         hasLoadedCache = true
         await reconfigureSchedulers()
         Task { [weak self] in await self?.refreshIfNeeded() }
         Task { [weak self] in await self?.refreshUsageIfNeeded() }
         Task { [weak self] in await self?.refreshResetCreditsIfNeeded() }
-        if settings.automaticRateCardUpdatesEnabled {
+        if settings.experimentalLocalCostEstimatesEnabled && settings.automaticRateCardUpdatesEnabled {
             Task { [weak self] in await self?.refreshRateCard() }
         }
         updateManager.start()
@@ -196,15 +227,18 @@ final class AppModel {
     }
 
     func refreshRateCard() async {
-        guard !isRefreshingRateCard else { return }
+        guard settings.experimentalLocalCostEstimatesEnabled, !isRefreshingRateCard else { return }
         isRefreshingRateCard = true
         defer { isRefreshingRateCard = false }
         isRefreshingAPIPriceCard = true
         async let creditCard = rateCardRepository.refresh()
         async let priceCard = apiPriceCardRepository.refresh()
-        rateCardState = await creditCard
-        apiPriceCardState = await priceCard
+        let rates = await creditCard
+        let prices = await priceCard
         isRefreshingAPIPriceCard = false
+        guard settings.experimentalLocalCostEstimatesEnabled else { return }
+        rateCardState = rates
+        apiPriceCardState = prices
         await refreshUsage()
     }
 
@@ -224,15 +258,24 @@ final class AppModel {
         isRefreshingUsage = true
         defer { isRefreshingUsage = false }
         do {
-            usageHistory = try await usageReader.readUsage(
+            var costsEnabled = settings.experimentalLocalCostEstimatesEnabled
+            var refreshed = try await usageReader.readUsage(
                 now: Date(),
                 calendar: .current,
-                rateCard: rateCardState.manifest,
+                rateCard: costsEnabled ? rateCardState.manifest : nil,
                 rateCardMode: settings.rateCardMode,
-                apiPriceCard: apiPriceCardState.manifest
+                apiPriceCard: costsEnabled ? apiPriceCardState.manifest : nil
             )
+            while costsEnabled != settings.experimentalLocalCostEstimatesEnabled {
+                costsEnabled = settings.experimentalLocalCostEstimatesEnabled
+                refreshed = try await usageReader.readUsage(now: Date(), calendar: .current,
+                    rateCard: costsEnabled ? rateCardState.manifest : nil, rateCardMode: settings.rateCardMode,
+                    apiPriceCard: costsEnabled ? apiPriceCardState.manifest : nil)
+            }
+            usageHistory = refreshed
             recalculateTaskQuotaEstimates()
             usageErrorMessage = nil
+            Task { [weak self] in await self?.refreshNativeTaskQuota() }
         } catch {
             usageErrorMessage = error.localizedDescription
         }
@@ -257,40 +300,84 @@ final class AppModel {
         }
     }
 
+    func checkAccountIdentity() async {
+        let task: Task<AccountAuthentication, Never>
+        let id: UUID
+        if let pending = identityRefreshTask, let pendingID = identityRefreshID { task = pending; id = pendingID }
+        else {
+            task = Task { [identityRepository, isDemoMode] in
+                if isDemoMode { return .chatGPT(accountKey: String(repeating: "d", count: 64)) }
+                return (try? await identityRepository.authentication()) ?? .unknown
+            }
+            id = UUID()
+            identityRefreshID = id
+            identityRefreshTask = task
+        }
+        let authentication = await task.value
+        guard identityRefreshID == id else { return }
+        identityRefreshID = nil
+        identityRefreshTask = nil
+        guard accountSession.observe(authentication) else { return }
+        resetCreditsSnapshot = nil
+        resetCreditsErrorMessage = nil
+        taskQuotaEstimatesByDuration = [:]
+        dailyTaskQuotas = [:]
+        nativeQuotaSnapshots = []
+        nativeContinuityID = UUID().uuidString
+        lastNativeQuotaRefreshAt = nil
+        nativeTaskQuotaError = nil
+        isResetCreditsStale = false
+        if let ticket = accountSession.ticket {
+            let cached = try? await resetCreditsCache.load(accountKey: ticket.accountKey)
+            guard accountSession.accepts(ticket) else { return }
+            resetCreditsSnapshot = cached
+            isResetCreditsStale = cached != nil
+            let snapshots = try? await nativeTaskQuotaStore.snapshots(accountKey: ticket.accountKey)
+            guard accountSession.accepts(ticket) else { return }
+            nativeQuotaSnapshots = snapshots ?? []
+            recalculateTaskQuotaEstimates()
+        }
+    }
+
     func refreshResetCredits() async {
         guard !isRefreshingResetCredits else { return }
         isRefreshingResetCredits = true
-        defer { isRefreshingResetCredits = false }
+        var retryForNewAccount = false
+        defer {
+            isRefreshingResetCredits = false
+            if retryForNewAccount, accountSession.ticket != nil {
+                Task { [weak self] in await self?.refreshResetCredits() }
+            }
+        }
+        await checkAccountIdentity()
+        guard let ticket = accountSession.ticket else { return }
         do {
             let refreshedSnapshot = try await resetCreditsReader.readResetCredits()
-            let preservedCreditDetails = refreshedSnapshot.shouldPreserveCreditDetails(
-                from: resetCreditsSnapshot
-            )
+            await checkAccountIdentity()
+            guard accountSession.accepts(ticket) else { retryForNewAccount = true; return }
+            let preservedCreditDetails = refreshedSnapshot.shouldPreserveCreditDetails(from: resetCreditsSnapshot)
             let snapshot = refreshedSnapshot.preservingCreditDetails(from: resetCreditsSnapshot)
             resetCreditsSnapshot = snapshot
-            try? await usageReader.recordAccountQuotaSnapshot(
-                windows: snapshot.quotaWindows,
-                planType: snapshot.planType,
-                timestamp: snapshot.fetchedAt
-            )
-            usageHistory = usageHistory?.appendingAccountSnapshot(
-                timestamp: snapshot.fetchedAt,
-                planType: snapshot.planType,
-                windows: snapshot.quotaWindows
-            )
-            recalculateTaskQuotaEstimates()
             isResetCreditsStale = preservedCreditDetails
             resetCreditsErrorMessage = nil
-            try? await resetCreditsCache.save(snapshot)
+            try? await resetCreditsCache.save(snapshot, accountKey: ticket.accountKey)
+            try? await usageReader.recordAccountQuotaSnapshot(
+                windows: snapshot.quotaWindows, planType: snapshot.planType,
+                timestamp: snapshot.fetchedAt, accountKey: ticket.accountKey
+            )
+            guard accountSession.accepts(ticket) else { retryForNewAccount = true; return }
+            usageHistory = usageHistory?.appendingAccountSnapshot(
+                timestamp: snapshot.fetchedAt, planType: snapshot.planType,
+                windows: snapshot.quotaWindows, accountKey: ticket.accountKey
+            )
+            recalculateTaskQuotaEstimates()
         } catch {
-            if let resetError = error as? ResetCreditsError,
-               resetError.isTransient,
-               resetCreditsSnapshot != nil {
+            await checkAccountIdentity()
+            guard accountSession.accepts(ticket) else { retryForNewAccount = true; return }
+            if let resetError = error as? ResetCreditsError, resetError.isTransient, resetCreditsSnapshot != nil {
                 isResetCreditsStale = true
                 resetCreditsErrorMessage = nil
-            } else {
-                resetCreditsErrorMessage = error.localizedDescription
-            }
+            } else { resetCreditsErrorMessage = error.localizedDescription }
         }
     }
 
@@ -303,30 +390,43 @@ final class AppModel {
     }
 
     func refreshAllIfNeeded() async {
+        await checkAccountIdentity()
         async let radar: Void = refreshIfNeeded()
         async let usage: Void = refreshUsageIfNeeded()
         async let credits: Void = refreshResetCreditsIfNeeded()
         _ = await (radar, usage, credits)
+        await refreshNativeTaskQuota()
     }
 
     func suspendBackgroundWork() async {
+        isBackgroundSuspended = true
+        nativeContinuityID = UUID().uuidString
+        nativeDayBoundaryTask?.cancel()
         updateManager.setApplicationAwake(false)
         async let radar: Void = radarScheduler.stop()
         async let usage: Void = usageScheduler.stop()
         async let credits: Void = resetCreditsScheduler.stop()
         async let rates: Void = rateCardScheduler.stop()
         async let quota: Void = activeQuotaScheduler.stop()
-        _ = await (radar, usage, credits, rates, quota)
+        async let native: Void = nativeTaskQuotaScheduler.stop()
+        _ = await (radar, usage, credits, rates, quota, native)
     }
 
     func resumeBackgroundWork() async {
+        isBackgroundSuspended = false
         updateManager.setApplicationAwake(true)
         await reconfigureSchedulers()
         await refreshAllIfNeeded()
+        await refreshNativeTaskQuota(force: true)
     }
 
     func settingsDidChange() {
         Task {
+            if !settings.experimentalLocalCostEstimatesEnabled {
+                async let rates: Void = rateCardRepository.cancelRefresh()
+                async let prices: Void = apiPriceCardRepository.cancelRefresh()
+                _ = await (rates, prices)
+            }
             await reconfigureSchedulers()
             if settings.showsStationRecommendations,
                stationRecommendationState.snapshot == nil {
@@ -334,6 +434,9 @@ final class AppModel {
                 await refreshStationRecommendations()
             }
             await refreshUsage()
+            if settings.experimentalLocalCostEstimatesEnabled && settings.automaticRateCardUpdatesEnabled {
+                await refreshRateCard()
+            }
         }
     }
 
@@ -356,14 +459,99 @@ final class AppModel {
             await self?.refreshResetCredits()
         }
         await rateCardScheduler.configure(
-            enabled: settings.automaticRateCardUpdatesEnabled,
+            enabled: settings.experimentalLocalCostEstimatesEnabled && settings.automaticRateCardUpdatesEnabled,
             everyMinutes: 360
         ) { [weak self] in
             await self?.refreshRateCard()
         }
         await activeQuotaScheduler.configure(enabled: true, everyMinutes: 1) { [weak self] in
+            await self?.checkAccountIdentity()
             await self?.sampleActiveAccountQuotaIfNeeded()
         }
+        await nativeTaskQuotaScheduler.configure(enabled: !isBackgroundSuspended, everyMinutes: 5) { [weak self] in
+            await self?.refreshNativeTaskQuota(force: true)
+        }
+        scheduleNativeQuotaDayBoundary()
+    }
+
+    private func scheduleNativeQuotaDayBoundary() {
+        nativeDayBoundaryTask?.cancel()
+        guard !isBackgroundSuspended,
+              let next = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())) else { return }
+        nativeDayBoundaryTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(max(1, next.timeIntervalSinceNow))) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            await refreshUsage()
+            await refreshNativeTaskQuota(force: true)
+            scheduleNativeQuotaDayBoundary()
+        }
+    }
+
+    func prioritizeNativeQuotaTasks(_ rootIDs: Set<String>) {
+        guard nativePriorityTaskIDs != rootIDs else { return }
+        nativePriorityTaskIDs = rootIDs
+        Task { [weak self] in await self?.refreshNativeTaskQuota(force: true) }
+    }
+
+    func refreshNativeTaskQuota(force: Bool = false) async {
+        guard !isBackgroundSuspended, !isDemoMode, !isRefreshingNativeTaskQuota,
+              force || lastNativeQuotaRefreshAt.map({ Date().timeIntervalSince($0) >= 300 }) != false,
+              let catalogueReader = usageReader as? any NativeThreadReading else { return }
+        isRefreshingNativeTaskQuota = true
+        let priorities = nativePriorityTaskIDs
+        var retry = false
+        defer {
+            isRefreshingNativeTaskQuota = false
+            if !isBackgroundSuspended && (retry || priorities != nativePriorityTaskIDs) {
+                Task { [weak self] in await self?.refreshNativeTaskQuota(force: true) }
+            }
+        }
+        await checkAccountIdentity()
+        guard let ticket = accountSession.ticket else { return }
+        let continuity = nativeContinuityID
+        do {
+            let now = Date()
+            let catalogue = try await catalogueReader.nativeCatalogue(now: now)
+            let since = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: now)) ?? now
+            let roots = priorities.union(usageHistory?.days.filter { $0.dateKey >= Self.quotaDayKey(since) }.flatMap { $0.tasks.map(\.rootTaskID) } ?? [])
+            let threads = catalogue.threads.filter { roots.contains($0.id) }.sorted {
+                if priorities.contains($0.id) != priorities.contains($1.id) { return priorities.contains($0.id) }
+                return $0.id < $1.id
+            }
+            guard !threads.isEmpty else { return }
+            for batch in DailyTaskQuotaAnalyzer.batches(threads) {
+                guard accountSession.accepts(ticket), continuity == nativeContinuityID, !isBackgroundSuspended else { retry = true; return }
+                let report = try await identityRepository.taskUsage(threads: batch)
+                await checkAccountIdentity()
+                guard accountSession.accepts(ticket), report.accountKey == ticket.accountKey,
+                      continuity == nativeContinuityID, !isBackgroundSuspended else { retry = true; return }
+                let requested = Dictionary(uniqueKeysWithValues: batch.map { ($0.id, $0) })
+                guard report.threads.allSatisfy({ requested[$0.id] != nil }),
+                      let collected = MetricFormatter.sourceDate(report.collectedAt) else { throw NativeAnalyticsError.invalidResponse }
+                let additions = report.threads.compactMap { row -> NativeTaskQuotaSnapshot? in
+                    guard let thread = requested[row.id] else { return nil }
+                    return NativeTaskQuotaSnapshot(accountKey: ticket.accountKey, thread: thread, row: row, collectedAt: collected,
+                        dataAsOf: report.dataAsOf.flatMap(MetricFormatter.sourceDate), planType: report.planType,
+                        timezoneIdentifier: usageHistory?.timezoneIdentifier ?? Calendar.current.timeZone.identifier, continuityID: continuity)
+                }
+                try await nativeTaskQuotaStore.append(additions, now: Date())
+                guard accountSession.accepts(ticket) else { retry = true; return }
+                nativeQuotaSnapshots = try await nativeTaskQuotaStore.snapshots(accountKey: ticket.accountKey)
+                guard accountSession.accepts(ticket) else { retry = true; return }
+                recalculateTaskQuotaEstimates()
+            }
+            lastNativeQuotaRefreshAt = Date()
+            nativeTaskQuotaError = nil
+        } catch {
+            await checkAccountIdentity()
+            guard accountSession.accepts(ticket) else { retry = true; return }
+            nativeTaskQuotaError = error.localizedDescription
+        }
+    }
+
+    private static func quotaDayKey(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
     private func sampleActiveAccountQuotaIfNeeded(now: Date = Date()) async {
@@ -400,10 +588,23 @@ final class AppModel {
     }
 
     private func recalculateTaskQuotaEstimates(now: Date = Date()) {
-        guard let history = usageHistory else {
+        guard let history = usageHistory, let key = accountSession.authentication.accountKey else {
             taskQuotaEstimatesByDuration = [:]
+            dailyTaskQuotas = [:]
             return
         }
+        dailyTaskQuotas = DailyTaskQuotaAnalyzer.values(history: history, snapshots: nativeQuotaSnapshots, accountKey: key, now: now)
+        for (duration, tasks) in TaskQuotaEstimator.dailyEstimates(
+            history: history, accountKey: key, now: now, accountSnapshot: resetCreditsSnapshot,
+            unattributedSince: accountSession.unattributedQuotaSince
+        ) {
+            for (id, percent) in tasks where dailyTaskQuotas[duration]?[id] == nil {
+                dailyTaskQuotas[duration, default: [:]][id] = DailyTaskQuotaValue(percent: percent, isExact: false,
+                    updatedAt: history.generatedAt, help: "本机逐轮额度观测校准的当日估算；未标账户历史仅按已验证套餐和窗口作近似匹配，不回填账户身份。")
+            }
+        }
+        let supported = Set(TaskQuotaMetric.supported(by: resetCreditsSnapshot?.quotaWindows ?? []).map(\.rawValue))
+        dailyTaskQuotas = dailyTaskQuotas.filter { supported.contains($0.key) }
         taskQuotaEstimatesByDuration = (resetCreditsSnapshot?.quotaWindows ?? []).reduce(
             into: [:]
         ) { result, window in
@@ -411,7 +612,8 @@ final class AppModel {
             result[window.durationMinutes] = TaskQuotaEstimator.estimates(
                 history: history,
                 window: window,
-                now: now
+                now: now,
+                accountKey: key
             )
         }
     }

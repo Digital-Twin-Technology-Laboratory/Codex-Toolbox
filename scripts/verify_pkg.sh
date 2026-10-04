@@ -35,6 +35,14 @@ if [[ -z "$APP_PATH" ]]; then
     exit 1
 fi
 
+HELPER="$APP_PATH/Contents/MacOS/toolbox-native-analytics"
+test -x "$HELPER"
+HELPER_ARCHS="$(lipo -archs "$HELPER")"
+[[ "$HELPER_ARCHS" == *arm64* && "$HELPER_ARCHS" == *x86_64* ]]
+codesign --verify --strict "$HELPER"
+test -f "$APP_PATH/Contents/Resources/NativeAnalytics-LICENSE.txt"
+test -s "$APP_PATH/Contents/Resources/NativeAnalytics-THIRD-PARTY-NOTICES.txt"
+
 PLIST="$APP_PATH/Contents/Info.plist"
 EXECUTABLE="$APP_PATH/Contents/MacOS/Codex Toolbox"
 test "$(plutil -extract CFBundleIdentifier raw "$PLIST")" = "io.github.zzzzzzjw.ShowCodexIQ"
@@ -103,6 +111,7 @@ if [[ "${REQUIRE_DISTRIBUTION_SIGNATURE:-0}" == "1" ]]; then
 
     SPARKLE_VERSION_DIR="$APP_PATH/Contents/Frameworks/Sparkle.framework/Versions/B"
     SIGNED_TARGETS=(
+        "$HELPER"
         "$SPARKLE_VERSION_DIR/XPCServices/Installer.xpc"
         "$SPARKLE_VERSION_DIR/XPCServices/Downloader.xpc"
         "$SPARKLE_VERSION_DIR/Autoupdate"
@@ -137,7 +146,9 @@ if [[ -f "$PKG_PATH.sha256" ]]; then
     (cd "$(dirname "$PKG_PATH")" && shasum -a 256 -c "$(basename "$PKG_PATH").sha256")
 fi
 
-"$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
+if [[ "${SKIP_APP_LAUNCH_VERIFICATION:-0}" != "1" ]]; then
+    "$ROOT_DIR/scripts/verify_app_launch.sh" "$APP_PATH"
+fi
 
 echo "PKG verified: $(basename "$PKG_PATH")"
 echo "Architectures: $ARCHITECTURES"

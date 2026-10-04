@@ -3,6 +3,18 @@ import Foundation
 import XCTest
 
 final class RateCardRepositoryTests: XCTestCase {
+    func testDisablingExperimentCancelsRateRefreshWithoutSavingResponse() async throws {
+        let gate = CostRefreshTestGate(), store = RateStoreStub(stored: nil)
+        let repository = RateCardRepository(bundledManifest: manifest(inputRate: 100), client: SuspendedRateClient(gate: gate), store: store)
+        let request = Task { await repository.refresh() }
+        await gate.waitUntilRequested()
+        await repository.cancelRefresh()
+        await gate.release()
+        let state = await request.value, cached = try await store.load()
+        XCTAssertNil(cached)
+        XCTAssertEqual(state.source, .bundled)
+        XCTAssertNil(state.errorMessage)
+    }
     func testOnlineRateErrorsIdentifyLocalFallback() {
         XCTAssertEqual(
             RateCardClientError.httpStatus(503).localizedDescription,
@@ -72,6 +84,29 @@ final class RateCardRepositoryTests: XCTestCase {
                 )
             ]
         )
+    }
+}
+
+actor CostRefreshTestGate {
+    private var requested = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var response: CheckedContinuation<Void, Never>?
+    func block() async {
+        requested = true
+        waiters.forEach { $0.resume() }; waiters = []
+        await withCheckedContinuation { response = $0 }
+    }
+    func waitUntilRequested() async {
+        if requested { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+    func release() { response?.resume(); response = nil }
+}
+private struct SuspendedRateClient: RateCardReading {
+    let gate: CostRefreshTestGate
+    func fetch(cacheValidators: CacheValidators?) async throws -> RateCardFetchResult {
+        await gate.block()
+        return .notModified(CacheValidators())
     }
 }
 

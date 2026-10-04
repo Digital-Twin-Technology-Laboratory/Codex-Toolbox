@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import CodexToolboxCore
 
 enum DashboardLayout {
     static let width: CGFloat = 430
@@ -26,6 +27,25 @@ enum DashboardLayout {
 @Observable
 final class DashboardLayoutState {
     var maximumHeight: CGFloat
+    var focusedContent: MenuBarContent?
+    var focusRequestID = UUID()
+    var temporarilyVisible: Set<ToolboxModule> = []
+    var temporarilyCollapsed: Set<ToolboxModule> = []
+    var temporarilyExpanded: Set<ToolboxModule> = []
+
+    func focus(_ content: MenuBarContent, settings: AppSettings) {
+        endFocus()
+        focusedContent = content
+        if settings.hiddenDashboardModules.contains(content.module) { temporarilyVisible.insert(content.module) }
+        temporarilyExpanded.insert(content.module)
+        focusRequestID = UUID()
+    }
+    func endFocus() {
+        focusedContent = nil
+        temporarilyVisible.removeAll()
+        temporarilyExpanded.removeAll()
+        temporarilyCollapsed.removeAll()
+    }
 
     init(maximumHeight: CGFloat = DashboardLayout.maximumHeight) {
         self.maximumHeight = maximumHeight

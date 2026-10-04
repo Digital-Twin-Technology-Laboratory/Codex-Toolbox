@@ -3,6 +3,18 @@ import XCTest
 @testable import CodexToolboxCore
 
 final class APIPriceCardTests: XCTestCase {
+    func testDisablingExperimentCancelsPriceRefreshWithoutSavingResponse() async throws {
+        let gate = CostRefreshTestGate(), store = CancellationPriceStore()
+        let repository = APIPriceCardRepository(bundledManifest: manifest(models: []), client: SuspendedPriceClient(gate: gate), store: store)
+        let request = Task { await repository.refresh() }
+        await gate.waitUntilRequested()
+        await repository.cancelRefresh()
+        await gate.release()
+        let state = await request.value, cached = await store.load()
+        XCTAssertNil(cached)
+        XCTAssertEqual(state.source, .bundled)
+        XCTAssertNil(state.errorMessage)
+    }
     func testOnlinePriceErrorsIdentifyFallbackInsteadOfGenericDataServer() {
         XCTAssertEqual(
             APIPriceCardClientError.httpStatus(404).localizedDescription,
@@ -361,4 +373,17 @@ final class APIPriceCardTests: XCTestCase {
     private func date(_ value: String) -> Date {
         try! Date(value, strategy: .iso8601)
     }
+}
+
+private struct SuspendedPriceClient: APIPriceCardReading {
+    let gate: CostRefreshTestGate
+    func fetch(cacheValidators: CacheValidators?) async throws -> APIPriceCardFetchResult {
+        await gate.block()
+        return .notModified(CacheValidators())
+    }
+}
+private actor CancellationPriceStore: APIPriceCardStoring {
+    private var stored: StoredAPIPriceCard?
+    func load() -> StoredAPIPriceCard? { stored }
+    func save(_ value: StoredAPIPriceCard) { stored = value }
 }

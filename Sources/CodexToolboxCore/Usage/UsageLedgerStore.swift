@@ -28,6 +28,7 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
 struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
     var timestamp: Date
     var tokenIncrement: Int64
+    var accountKey: String?
     var quotaUsageWeight: Double?
     var tokenBreakdown: UsageTokenBreakdown?
     var executionContext: UsageExecutionContext?
@@ -37,6 +38,7 @@ struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
     init(
         timestamp: Date,
         tokenIncrement: Int64,
+        accountKey: String? = nil,
         quotaUsageWeight: Double? = nil,
         tokenBreakdown: UsageTokenBreakdown? = nil,
         executionContext: UsageExecutionContext? = nil,
@@ -44,6 +46,7 @@ struct ThreadQuotaUsageObservation: Codable, Hashable, Sendable {
         windows: [AccountQuotaWindow]
     ) {
         self.timestamp = timestamp
+        self.accountKey = accountKey
         self.tokenIncrement = max(0, tokenIncrement)
         self.quotaUsageWeight = quotaUsageWeight
         self.tokenBreakdown = tokenBreakdown

@@ -8,6 +8,7 @@ public actor ResetCreditsCacheStore {
     private struct Envelope: Codable, Sendable {
         let schemaVersion: Int
         let snapshot: ResetCreditsSnapshot
+        let accountKey: String?
     }
 
     private let fileURL: URL
@@ -16,7 +17,7 @@ public actor ResetCreditsCacheStore {
         self.fileURL = fileURL ?? ApplicationSupportLayout().resetCreditsCacheURL
     }
 
-    public func load() throws -> ResetCreditsSnapshot? {
+    public func load(accountKey: String? = nil) throws -> ResetCreditsSnapshot? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         let data = try Data(contentsOf: fileURL)
         let decoder = JSONDecoder()
@@ -28,10 +29,11 @@ public actor ResetCreditsCacheStore {
             )
         }
         let envelope = try decoder.decode(Envelope.self, from: data)
+        if let accountKey, envelope.accountKey != accountKey { return nil }
         return envelope.snapshot
     }
 
-    public func save(_ snapshot: ResetCreditsSnapshot) throws {
+    public func save(_ snapshot: ResetCreditsSnapshot, accountKey: String? = nil) throws {
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -39,7 +41,7 @@ public actor ResetCreditsCacheStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(Envelope(schemaVersion: 3, snapshot: snapshot))
+        try encoder.encode(Envelope(schemaVersion: 3, snapshot: snapshot, accountKey: accountKey))
             .write(to: fileURL, options: .atomic)
     }
 

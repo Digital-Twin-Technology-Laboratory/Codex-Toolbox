@@ -37,6 +37,30 @@ struct DashboardThemePalette {
         theme == .colorfulGlass ? colorfulAccent : brandAccent
     }
 
+    /// Keep plan identity readable on both light and dark dashboard surfaces.
+    func accountPlan(_ raw: String?, colorScheme: ColorScheme) -> Color {
+        let dark = colorScheme == .dark
+        switch raw {
+        case "free": return .secondary
+        case "go":
+            return dark ? Color(red: 0.35, green: 0.88, blue: 0.94) : Color(red: 0.00, green: 0.39, blue: 0.46)
+        case "plus":
+            return dark ? Color(red: 0.45, green: 0.72, blue: 1.00) : Color(red: 0.12, green: 0.34, blue: 0.70)
+        case "prolite":
+            return dark ? Color(red: 1.00, green: 0.80, blue: 0.27) : Color(red: 0.50, green: 0.34, blue: 0.02)
+        case "pro":
+            return dark ? Color(red: 1.00, green: 0.65, blue: 0.32) : Color(red: 0.62, green: 0.28, blue: 0.02)
+        case "promax":
+            return dark ? Color(red: 0.82, green: 0.65, blue: 1.00) : Color(red: 0.47, green: 0.25, blue: 0.70)
+        case "team", "business", "self_serve_business_prolite", "self_serve_business_usage_based",
+             "enterprise", "ent26", "enterprise_cbp_automation", "enterprise_cbp_usage_based":
+            return dark ? Color(red: 0.36, green: 0.82, blue: 0.88) : Color(red: 0.04, green: 0.39, blue: 0.45)
+        case "edu", "edu_plus", "edu_pro":
+            return dark ? Color(red: 0.47, green: 0.85, blue: 0.60) : Color(red: 0.12, green: 0.42, blue: 0.23)
+        default: return .secondary
+        }
+    }
+
     var opaqueRoot: Color {
         Color(nsColor: .windowBackgroundColor)
     }

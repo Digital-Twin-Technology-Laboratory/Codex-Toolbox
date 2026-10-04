@@ -31,10 +31,15 @@ public struct UsageTokenBreakdown: Codable, Hashable, Sendable {
     }
 }
 
+public enum UsageAuthenticationMode: String, Codable, Hashable, Sendable {
+    case chatGPT, api
+}
+
 public struct UsageExecutionContext: Codable, Hashable, Sendable {
     public let modelID: String?
     public let reasoningEffort: String?
     public let serviceTier: String?
+    public let authenticationMode: UsageAuthenticationMode?
     public let modelProviderID: String?
     public let planType: String?
     public let hasAccountRateLimits: Bool
@@ -46,6 +51,7 @@ public struct UsageExecutionContext: Codable, Hashable, Sendable {
         reasoningEffort: String?,
         serviceTier: String?,
         modelProviderID: String? = nil,
+        authenticationMode: UsageAuthenticationMode? = nil,
         planType: String? = nil,
         hasAccountRateLimits: Bool = false,
         rateCardMode: RateCardMode? = nil,
@@ -54,6 +60,7 @@ public struct UsageExecutionContext: Codable, Hashable, Sendable {
         self.modelID = Self.normalized(modelID)
         self.reasoningEffort = Self.normalized(reasoningEffort)
         self.serviceTier = Self.normalized(serviceTier)
+        self.authenticationMode = authenticationMode
         self.modelProviderID = Self.normalized(modelProviderID)
         self.planType = Self.normalized(planType)
         self.hasAccountRateLimits = hasAccountRateLimits
@@ -69,7 +76,7 @@ public struct UsageExecutionContext: Codable, Hashable, Sendable {
     }
 
     public var isConfirmedChatGPTCreditUsage: Bool {
-        guard modelProviderID?.contains("api") != true else { return false }
+        guard authenticationMode != .api else { return false }
         return hasAccountRateLimits || planType != nil
     }
 
@@ -194,7 +201,7 @@ public struct RateCardManifest: Codable, Hashable, Sendable {
         guard breakdown.hasConsistentComponents,
               let modelID = context.modelID,
               let version = version(at: timestamp) else { return nil }
-        guard context.modelProviderID?.contains("api") != true else { return nil }
+        guard context.authenticationMode != .api else { return nil }
 
         let resolvedMode: RateCardMode
         switch mode {

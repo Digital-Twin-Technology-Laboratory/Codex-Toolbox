@@ -34,6 +34,10 @@ targets:
   CodexToolbox:
     type: application
     platform: macOS
+    postBuildScripts:
+      - name: Build and embed read-only native analytics
+        script: bash "$SRCROOT/scripts/build_native_analytics.sh"
+        basedOnDependencyAnalysis: false
     configFiles:
       Debug: Sources/CodexToolbox/Config/Version.xcconfig
       Release: Sources/CodexToolbox/Config/Version.xcconfig

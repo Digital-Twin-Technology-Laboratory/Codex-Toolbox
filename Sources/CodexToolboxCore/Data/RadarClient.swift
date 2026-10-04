@@ -16,19 +16,26 @@ public struct RadarSnapshot: Codable, Hashable, Sendable {
     public let fetchedAt: Date
     public let benchmarks: [ModelBenchmark]
     public let validators: CacheValidators
+    public let benchmarkID: String?
+    public let aggregationMode: String?
+    public let scoringMode: String?
+    public let priceRollingWindow: Int?
+    public var semanticsKey: String { [benchmarkID ?? "legacy", aggregationMode ?? "legacy", scoringMode ?? "legacy", priceRollingWindow.map(String.init) ?? "legacy"].joined(separator: "|") }
 
     public init(
         schemaVersion: String,
         sourceMonitoredAt: String?,
         fetchedAt: Date,
         benchmarks: [ModelBenchmark],
-        validators: CacheValidators
+        validators: CacheValidators,
+        benchmarkID: String? = nil, aggregationMode: String? = nil, scoringMode: String? = nil, priceRollingWindow: Int? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.sourceMonitoredAt = sourceMonitoredAt
         self.fetchedAt = fetchedAt
         self.benchmarks = benchmarks
         self.validators = validators
+        self.benchmarkID = benchmarkID; self.aggregationMode = aggregationMode; self.scoringMode = scoringMode; self.priceRollingWindow = priceRollingWindow
     }
 }
 

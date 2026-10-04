@@ -71,7 +71,8 @@ final class RateCardTests: XCTestCase {
             modelID: "gpt-5.6-sol",
             reasoningEffort: "high",
             serviceTier: "default",
-            modelProviderID: "openai_api",
+            modelProviderID: "openai",
+            authenticationMode: .api,
             planType: nil,
             hasAccountRateLimits: false
         )

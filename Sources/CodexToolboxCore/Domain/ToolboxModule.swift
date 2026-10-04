@@ -10,8 +10,8 @@ public enum ToolboxModule: String, Codable, CaseIterable, Identifiable, Sendable
     public var displayName: String {
         switch self {
         case .modelRadar: "模型智商"
-        case .tokenUsage: "Token 用量"
-        case .resetCredits: "重置卡"
+        case .tokenUsage: "用量分析"
+        case .resetCredits: "账户额度&重置卡"
         }
     }
 
@@ -19,7 +19,7 @@ public enum ToolboxModule: String, Codable, CaseIterable, Identifiable, Sendable
         switch self {
         case .modelRadar: "brain.head.profile"
         case .tokenUsage: "chart.bar.xaxis"
-        case .resetCredits: "arrow.clockwise.circle"
+        case .resetCredits: "gauge.with.dots.needle.50percent"
         }
     }
 }

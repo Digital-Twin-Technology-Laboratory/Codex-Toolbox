@@ -30,6 +30,7 @@ struct StatusHeaderView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
+
                 }
 
                 Spacer()

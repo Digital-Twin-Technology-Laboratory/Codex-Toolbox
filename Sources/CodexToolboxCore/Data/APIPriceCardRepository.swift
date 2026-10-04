@@ -214,6 +214,8 @@ public actor APIPriceCardRepository {
         return state
     }
 
+    public func cancelRefresh() { refreshTask?.cancel() }
+
     public func refresh() async -> APIPriceCardRepositoryState {
         if let refreshTask { return await refreshTask.value }
         let previous = state
@@ -223,6 +225,7 @@ public actor APIPriceCardRepository {
         let task = Task<APIPriceCardRepositoryState, Never> {
             do {
                 let result = try await client.fetch(cacheValidators: previous.validators)
+                try Task.checkCancellation()
                 let manifest: APIPriceManifest
                 let validators: CacheValidators
                 switch result {
@@ -251,6 +254,8 @@ public actor APIPriceCardRepository {
                     validators: validators,
                     errorMessage: nil
                 )
+            } catch where Task.isCancelled {
+                return previous
             } catch {
                 return APIPriceCardRepositoryState(
                     manifest: previous.manifest,

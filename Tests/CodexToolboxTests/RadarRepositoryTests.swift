@@ -3,6 +3,33 @@ import XCTest
 @testable import CodexToolboxCore
 
 final class RadarRepositoryTests: XCTestCase {
+    func testOlderSourceCannotReplaceNewerCacheAndCheckTimeIsSeparate() async {
+        let fresh = RadarSnapshot(schemaVersion: "intelligence-efficiency/3", sourceMonitoredAt: "2026-10-03T12:00:00Z", fetchedAt: Date(timeIntervalSince1970: 1), benchmarks: [], validators: CacheValidators())
+        let old = RadarSnapshot(schemaVersion: "intelligence-efficiency/3", sourceMonitoredAt: "2026-10-02T12:00:00Z", fetchedAt: Date(timeIntervalSince1970: 2), benchmarks: [], validators: CacheValidators())
+        let check = Date(timeIntervalSince1970: 100)
+        let repository = RadarRepository(client: QueueRadarClient(results: [.success(.modified(old))]), store: MemorySnapshotStore(state: StoredRadarState(snapshot: fresh, costHistory: [])), now: { check })
+        _ = await repository.loadCached()
+        let result = await repository.refresh()
+        XCTAssertEqual(result.snapshot, fresh)
+        XCTAssertEqual(result.checkedAt, check)
+        XCTAssertTrue(result.isStale)
+    }
+
+    func testDifferentPriceAggregationDoesNotJoinOldCostHistory() async {
+        let record = BenchmarkRecord(date: "2026-10-03T12:00:00Z", score: 100, status: nil, passed: 2, tasks: 3, wallSeconds: 60, costUSD: 2, priceAggregation: "median")
+        let benchmark = ModelBenchmark(id: "model", label: "Model", model: "gpt-6-sol", reasoningEffort: "high", latest: record, recentDays: [])
+        let oldRecord = BenchmarkRecord(date: "2026-10-01T12:00:00Z", score: 100, status: nil, passed: 2, tasks: 3, wallSeconds: 60, costUSD: 9, priceAggregation: "mean")
+        let oldModel = ModelBenchmark(id: "model", label: "Model", model: "gpt-6-sol", reasoningEffort: "high", latest: oldRecord, recentDays: [])
+        let old = RadarSnapshot(schemaVersion: "intelligence-efficiency/3", sourceMonitoredAt: oldRecord.date, fetchedAt: Date(timeIntervalSince1970: 1), benchmarks: [oldModel], validators: CacheValidators())
+        let current = RadarSnapshot(schemaVersion: "intelligence-efficiency/3", sourceMonitoredAt: record.date, fetchedAt: Date(timeIntervalSince1970: 2), benchmarks: [benchmark], validators: CacheValidators())
+        let history = CostHistoryPoint(modelID: "model", dateKey: oldRecord.date, costUSD: 9, recordedAt: old.fetchedAt)
+        let repository = RadarRepository(client: QueueRadarClient(results: [.success(.modified(current))]), store: MemorySnapshotStore(state: StoredRadarState(snapshot: old, costHistory: [history])))
+        _ = await repository.loadCached()
+        let result = await repository.refresh()
+        XCTAssertEqual(result.costHistory.count, 1)
+        XCTAssertEqual(result.costHistory.first?.costUSD, 2)
+    }
+
     func testFailurePreservesCachedSnapshot() async throws {
         let cached = StoredRadarState(snapshot: snapshot(), costHistory: [])
         let store = MemorySnapshotStore(state: cached)

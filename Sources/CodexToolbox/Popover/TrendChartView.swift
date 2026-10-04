@@ -412,7 +412,7 @@ struct TrendChartView: View {
 
     private var emptyDescription: String {
         if state.metric == .cost {
-            return "同一模型至少需要两个不同日期的有效平均费用点；远端历史完全缺失时才会使用本机新口径快照。"
+            return "同一模型至少需要两个不同日期的有效费用点；远端历史完全缺失时才会使用本机新口径快照。"
         }
         return "同一模型至少需要两个不同日期的有效数据点。"
     }

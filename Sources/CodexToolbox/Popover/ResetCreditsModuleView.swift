@@ -5,10 +5,32 @@ struct ResetCreditsModuleView: View {
     @Bindable var appModel: AppModel
     @Namespace private var glassNamespace
     @Environment(\.dashboardTheme) private var dashboardTheme
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
             if let snapshot = appModel.resetCreditsSnapshot {
+                (Text("套餐类型：") + Text(AccountPlan.displayName(snapshot.planType))
+                    .foregroundColor(dashboardTheme.palette.accountPlan(snapshot.planType, colorScheme: colorScheme)))
+                    .font(.headline)
+                ForEach(snapshot.quotaWindows) { window in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(window.displayName + "剩余额度")
+                            Spacer()
+                            if window.resetsAt > Date() {
+                                QuotaIndicators(remainingPercent: 100 - window.usedPercent, options: .dashboard)
+                            } else { Text("等待更新").foregroundStyle(.secondary) }
+                        }.font(.caption)
+                        Text("重置日期：" + beijingDate(window.resetsAt))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                if snapshot.quotaWindows.isEmpty {
+                    Text("账户未提供额度窗口").font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(snapshot.availableCount)")
@@ -46,16 +68,16 @@ struct ResetCreditsModuleView: View {
             } else if appModel.isResetCreditsInitialLoading {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("正在读取账户重置卡…")
+                    Text("正在读取账户额度…")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 72)
             } else {
                 ContentUnavailableView {
-                    Label("重置卡暂不可用", systemImage: "person.crop.circle.badge.exclamationmark")
+                    Label("账户额度暂不可用", systemImage: "person.crop.circle.badge.exclamationmark")
                 } description: {
-                    Text("请安装并登录 Codex 或 ChatGPT，然后重新刷新。")
+                    Text(appModel.accountAvailabilityMessage)
                 }
                 .frame(minHeight: 104)
             }
@@ -104,10 +126,6 @@ struct ResetCreditsModuleView: View {
                 }
             }
 
-            Text("上述时间均为北京时间（UTC+8）")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-
             let missingDetails = max(0, snapshot.availableCount - snapshot.availableCredits.count)
             if missingDetails > 0 {
                 Text("另有 \(missingDetails) 张可用卡未返回详细信息")
@@ -127,12 +145,7 @@ struct ResetCreditsModuleView: View {
     }
 
     private func beijingDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
-        formatter.dateFormat = "yyyy年M月d日 HH:mm"
-        return formatter.string(from: date)
+        MetricFormatter.chineseAccountDate(date)
     }
 
     private var tint: Color {

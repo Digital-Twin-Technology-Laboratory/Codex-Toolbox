@@ -8,6 +8,22 @@ final class GitHubReleaseClientTests: XCTestCase {
         super.tearDown()
     }
 
+    func testMalformedVersionsAreRejectedWithoutCrashing() {
+        let url = URL(string: "https://github.test/example/releases")!
+        let current = AppRelease(version: "1.4.0", pageURL: url, publishedAt: nil)
+        for malformed in ["", " ", "v", "-", "+metadata", "1..2.3", "1.x.2.3", "1.2", "1.2.3.4", "1.2.3-", "1.2.3+"] {
+            XCTAssertFalse(AppRelease(version: malformed, pageURL: url, publishedAt: nil).isNewer(than: "1.0.0"), malformed)
+            XCTAssertFalse(current.isNewer(than: malformed), malformed)
+        }
+    }
+
+    func testReleaseAndPrereleaseOrderingIgnoresBuildMetadata() {
+        let url = URL(string: "https://github.test/example/releases")!
+        XCTAssertTrue(AppRelease(version: "v1.4.0", pageURL: url, publishedAt: nil).isNewer(than: "1.4.0-rc.2"))
+        XCTAssertTrue(AppRelease(version: "1.4.0-rc.10", pageURL: url, publishedAt: nil).isNewer(than: "1.4.0-rc.2"))
+        XCTAssertFalse(AppRelease(version: "1.4.0+56", pageURL: url, publishedAt: nil).isNewer(than: "1.4.0+55"))
+    }
+
     func testChecksLatestOfficialReleaseAndComparesSemanticVersions() async throws {
         ReleaseURLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/vnd.github+json")

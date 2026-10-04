@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-XCODE_APP="${XCODE_APP:-/Applications/Xcode-beta.app}"
+XCODE_APP="${XCODE_APP:-$(xcode-select -p | sed 's#/Contents/Developer$##')}"
 SPM_SCRATCH=""
 XCODE_DERIVED=""
 TEST_APP=""
@@ -53,6 +53,7 @@ export TOOLCHAINS="${TOOLCHAINS:-com.apple.dt.toolchain.XcodeDefault}"
 cd "$ROOT_DIR"
 xcodegen generate
 bash scripts/version.sh
+bash scripts/build_native_analytics.sh --test
 python3 -m unittest discover -s Tests/RateCardScriptTests -v
 python3 -m unittest discover -s Tests/APIPriceScriptTests -v
 

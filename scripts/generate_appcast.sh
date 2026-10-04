@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-XCODE_APP="${XCODE_APP:-/Applications/Xcode-beta.app}"
+XCODE_APP="${XCODE_APP:-$(xcode-select -p | sed 's#/Contents/Developer$##')}"
 SPARKLE_KEY_ACCOUNT="Digital-Twin-Technology-Laboratory.Codex-Toolbox"
 SOURCE_PACKAGES_DIR="${SOURCE_PACKAGES_DIR:-$ROOT_DIR/.build/xcode-source-packages}"
 source "$ROOT_DIR/scripts/version.sh"

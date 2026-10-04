@@ -1,10 +1,17 @@
 import AppKit
 import SwiftUI
+import Observation
+import CodexToolboxCore
 
 @MainActor
 final class StatusItemController: NSObject {
-    private let statusItem: NSStatusItem
-    private let statusView: MenuBarStatusView
+    private struct Entry {
+        let item: NSStatusItem
+        let button: NSStatusBarButton
+    }
+    private var entries: [UUID: Entry] = [:]
+    private var orderedIDs: [UUID] = []
+    private var anchorID: UUID?
     private let popover: NSPopover
     private let appModel: AppModel
     private let dashboardLayoutState: DashboardLayoutState
@@ -15,40 +22,85 @@ final class StatusItemController: NSObject {
 
     init(appModel: AppModel) {
         self.appModel = appModel
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusView = MenuBarStatusView(appModel: appModel)
         popover = NSPopover()
         dashboardLayoutState = DashboardLayoutState()
         super.init()
-
-        configureStatusItem()
+        reconcileItems()
+        observeConfiguration()
         configurePopover(appModel: appModel)
-
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--show-dashboard") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.showPopover()
+                guard let self, let id = self.orderedIDs.first else { return }
+                self.showPopover(from: id)
             }
         }
         #endif
     }
 
-    private func configureStatusItem() {
-        statusView.onClick = { [weak self] in
-            self?.togglePopover()
+    private func observeConfiguration() {
+        withObservationTracking {
+            _ = appModel.settings.menuBarConfiguration
+            _ = appModel.settings.experimentalLocalCostEstimatesEnabled
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.reconcileItems()
+                self?.observeConfiguration()
+            }
         }
-        statusView.onPreferredWidthChange = { [weak self] width in
-            self?.updateStatusItemLength(to: width)
-        }
-        statusItem.view = statusView
-        updateStatusItemLength(to: statusView.intrinsicContentSize.width)
     }
 
-    private func updateStatusItemLength(to width: CGFloat) {
-        let resolvedWidth = ceil(max(1, width))
-        if statusItem.length != resolvedWidth {
-            statusItem.length = resolvedWidth
+    private func reconcileItems() {
+        let configurations = appModel.settings.menuBarConfiguration.items
+        if let anchorID, !configurations.contains(where: { $0.id == anchorID && $0.isEnabled }) { closePopover() }
+        orderedIDs = configurations.map(\.id)
+        // Each slot owns one stable status item. AppKit owns its saved position.
+        for configuration in configurations.reversed() {
+            let content = configuration.content.resolved(localCostEstimatesEnabled: appModel.settings.experimentalLocalCostEstimatesEnabled)
+            if let entry = entries[configuration.id] {
+                entry.item.isVisible = configuration.isEnabled
+                entry.button.setAccessibilityLabel("Codex Toolbox：\(content.displayName)")
+                entry.button.toolTip = content.displayName
+                continue
+            }
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            item.autosaveName = "CodexToolbox-\(configuration.id.uuidString)"
+            item.isVisible = configuration.isEnabled
+            guard let button = item.button else { continue }
+            button.identifier = NSUserInterfaceItemIdentifier(configuration.id.uuidString)
+            button.target = self
+            button.action = #selector(statusItemClicked(_:))
+            button.setAccessibilityLabel("Codex Toolbox：\(content.displayName)")
+            button.toolTip = content.displayName
+            let hostingView = StatusLabelHostingView(rootView: MenuBarLabel(
+                appModel: appModel, itemID: configuration.id,
+                onPreferredWidthChange: { [weak self] width in
+                    Task { @MainActor in self?.entries[configuration.id]?.item.length = ceil(max(1, width)) }
+                }
+            ).frame(height: 22).allowsHitTesting(false))
+            hostingView.translatesAutoresizingMaskIntoConstraints = false
+            button.addSubview(hostingView)
+            NSLayoutConstraint.activate([
+                hostingView.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+                hostingView.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+                hostingView.topAnchor.constraint(equalTo: button.topAnchor),
+                hostingView.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+            ])
+            item.length = max(30, hostingView.fittingSize.width)
+            entries[configuration.id] = Entry(item: item, button: button)
         }
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard let raw = sender.identifier?.rawValue, let id = UUID(uuidString: raw) else { return }
+        if popover.isShown, anchorID == id { closePopover(); return }
+        if popover.isShown {
+            let animates = popover.animates
+            popover.animates = false
+            closePopover()
+            popover.animates = animates
+        }
+        showPopover(from: id)
     }
 
     private func configurePopover(appModel: AppModel) {
@@ -102,27 +154,22 @@ final class StatusItemController: NSObject {
     }
 
     private func updateMaximumPopoverHeight() {
-        let screen = statusView.window?.screen ?? NSScreen.main
+        let screen = anchorID.flatMap { entries[$0]?.button.window?.screen } ?? NSScreen.main
         dashboardLayoutState.maximumHeight = DashboardLayout.maximumHeight(for: screen)
         if popover.contentSize.height > dashboardLayoutState.maximumHeight {
             updatePopoverHeight(to: dashboardLayoutState.maximumHeight)
         }
     }
 
-    private func togglePopover() {
-        if popover.isShown {
-            closePopover()
-        } else {
-            showPopover()
-        }
-    }
-
-    private func showPopover() {
-        guard !popover.isShown else { return }
+    private func showPopover(from id: UUID) {
+        guard !popover.isShown, let entry = entries[id],
+              let configuration = appModel.settings.menuBarConfiguration.items.first(where: { $0.id == id }) else { return }
+        anchorID = id
+        dashboardLayoutState.focus(configuration.content.resolved(localCostEstimatesEnabled: appModel.settings.experimentalLocalCostEstimatesEnabled), settings: appModel.settings)
         updateMaximumPopoverHeight()
         applyPendingPopoverSize()
         NSApplication.shared.activate(ignoringOtherApps: true)
-        popover.show(relativeTo: statusView.bounds, of: statusView, preferredEdge: .minY)
+        popover.show(relativeTo: entry.button.bounds, of: entry.button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
         beginOutsideClickMonitoring()
     }
@@ -175,74 +222,21 @@ final class StatusItemController: NSObject {
             return true
         }
 
-        guard event.window === statusView.window else { return false }
-        let pointInStatusView = statusView.convert(event.locationInWindow, from: nil)
-        return statusView.bounds.contains(pointInStatusView)
+        return entries.values.contains { entry in
+            guard event.window === entry.button.window else { return false }
+            return entry.button.bounds.contains(entry.button.convert(event.locationInWindow, from: nil))
+        }
     }
 }
 
 extension StatusItemController: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         endOutsideClickMonitoring()
+        dashboardLayoutState.endFocus()
     }
 }
 
 @MainActor
-private final class MenuBarStatusView: NSView {
-    var onClick: (() -> Void)?
-    var onPreferredWidthChange: ((CGFloat) -> Void)?
-    private var preferredWidth: CGFloat = 62
-
-    init(appModel: AppModel) {
-        super.init(frame: NSRect(x: 0, y: 0, width: 94, height: 22))
-
-        let hostingView = NSHostingView(
-            rootView: MenuBarLabel(
-                appModel: appModel,
-                onPreferredWidthChange: { [weak self] width in
-                    self?.contentWidthDidChange(width)
-                }
-            )
-                .frame(height: 22)
-                .contentShape(Rectangle())
-                .allowsHitTesting(false)
-        )
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(hostingView)
-
-        NSLayoutConstraint.activate([
-            hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            hostingView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            hostingView.topAnchor.constraint(equalTo: topAnchor),
-            hostingView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-
-        setAccessibilityElement(true)
-        setAccessibilityRole(.button)
-        setAccessibilityLabel("Codex Toolbox 菜单栏工具")
-    }
-
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: preferredWidth, height: 22)
-    }
-
-    private func contentWidthDidChange(_ width: CGFloat) {
-        let resolvedWidth = ceil(max(1, width))
-        guard preferredWidth != resolvedWidth else { return }
-        preferredWidth = resolvedWidth
-        invalidateIntrinsicContentSize()
-        onPreferredWidthChange?(resolvedWidth)
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        self
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onClick?()
-    }
+private final class StatusLabelHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

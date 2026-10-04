@@ -237,6 +237,8 @@ public actor RateCardRepository {
 
     public func currentState() -> RateCardRepositoryState { state }
 
+    public func cancelRefresh() { refreshTask?.cancel() }
+
     @discardableResult
     public func refresh() async -> RateCardRepositoryState {
         if let refreshTask { return await refreshTask.value }
@@ -247,6 +249,7 @@ public actor RateCardRepository {
         let task = Task<RateCardRepositoryState, Never> {
             do {
                 let result = try await client.fetch(cacheValidators: previous.validators)
+                try Task.checkCancellation()
                 let manifest: RateCardManifest
                 let validators: CacheValidators
                 switch result {
@@ -274,6 +277,8 @@ public actor RateCardRepository {
                     validators: validators,
                     errorMessage: nil
                 )
+            } catch where Task.isCancelled {
+                return previous
             } catch {
                 return RateCardRepositoryState(
                     manifest: previous.manifest,

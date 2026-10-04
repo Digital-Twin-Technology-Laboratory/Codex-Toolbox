@@ -27,38 +27,9 @@ struct ModelRadarSettingsView: View {
                     accessibilityHint: "打开模型厂商和基础模型筛选",
                     action: onOpenModelVisibility
                 )
-                settingsNavigationRow(
-                    title: "模型名称简称",
-                    summary: configuredAliasSummary,
-                    accessibilityHint: "打开全局模型简称设置",
-                    action: onOpenMenuBarAliases
-                )
                 Text("默认仅显示 GPT 系列；筛选和简称会统一应用于榜单、菜单栏、趋势和推荐。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            Section("菜单栏") {
-                Picker("默认展示", selection: menuBarMetricBinding) {
-                    ForEach(RankingMetric.allCases) { metric in
-                        Label(
-                            metric.displayName(overallMode: appModel.settings.overallRankingMode),
-                            systemImage: metric.systemImage
-                        )
-                            .tag(metric)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Picker("排名序号", selection: menuBarRankStyleBinding) {
-                    ForEach(MenuBarRankStyle.allCases) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-
-                Toggle("显示左侧图标", isOn: showsMenuBarIconBinding)
-                Toggle("显示后方详细数值", isOn: showsMenuBarDetailsBinding)
-
             }
 
             Section("榜单") {

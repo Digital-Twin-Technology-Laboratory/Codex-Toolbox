@@ -138,9 +138,17 @@ private struct SemanticVersion: Comparable {
         let normalized = rawValue
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
-        let withoutBuild = normalized.split(separator: "+", maxSplits: 1).first.map(String.init) ?? normalized
-        let parts = withoutBuild.split(separator: "-", maxSplits: 1).map(String.init)
-        let core = parts[0].split(separator: ".").compactMap { Int($0) }
+        // Preserve empty components so malformed metadata cannot disappear during parsing.
+        let buildParts = normalized.split(separator: "+", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let withoutBuild = buildParts.first, !withoutBuild.isEmpty,
+              buildParts.count == 1 || !buildParts[1].isEmpty else { return nil }
+        let parts = withoutBuild.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let corePart = parts.first,
+              parts.count == 1 || !parts[1].isEmpty else { return nil }
+        let components = corePart.split(separator: ".", omittingEmptySubsequences: false)
+        guard components.count == 3,
+              components.allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (48...57).contains($0) } }) else { return nil }
+        let core = components.compactMap { Int($0) }
         guard core.count == 3 else { return nil }
         major = core[0]
         minor = core[1]

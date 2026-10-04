@@ -36,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 updateManager: AppUpdateManager(isEnabled: false),
                 isDemoMode: true
             )
+        } else if ProcessInfo.processInfo.arguments.contains("--verification-settings") {
+            appModel = AppModel(settings: AppSettings(defaults: UserDefaults(suiteName: "io.github.zzzzzzjw.CodexToolbox.Verification")!), updateManager: AppUpdateManager(isEnabled: false))
         } else {
             appModel = AppModel()
         }

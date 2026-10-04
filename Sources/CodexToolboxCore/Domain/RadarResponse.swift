@@ -88,12 +88,19 @@ public struct ModelComparison: Decodable, Sendable {
 
 struct IntelligenceEfficiencyResponse: Decodable, Sendable {
     let schema: Int
+    let mode: String?
+    let benchmarkID: String?
+    let scoringMode: String?
+    let priceRollingWindow: Int?
     let sourceUpdatedAt: String?
     let points: [IntelligenceEfficiencyPoint]
     let history: [IntelligenceEfficiencyHistorySnapshot]
 
     private enum CodingKeys: String, CodingKey {
-        case schema
+        case schema, mode
+        case benchmarkID = "benchmark_id"
+        case scoringMode = "scoring_mode"
+        case priceRollingWindow = "price_rolling_window"
         case sourceUpdatedAt = "source_updated_at"
         case points
         case history
@@ -102,6 +109,10 @@ struct IntelligenceEfficiencyResponse: Decodable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schema = try container.decode(Int.self, forKey: .schema)
+        mode = try container.decodeIfPresent(String.self, forKey: .mode)
+        benchmarkID = try container.decodeIfPresent(String.self, forKey: .benchmarkID)
+        scoringMode = try container.decodeIfPresent(String.self, forKey: .scoringMode)
+        priceRollingWindow = try container.decodeIfPresent(Int.self, forKey: .priceRollingWindow)
         sourceUpdatedAt = try container.decodeIfPresent(String.self, forKey: .sourceUpdatedAt)
         points = try container.decodeIfPresent(
             LossyDecodableArray<IntelligenceEfficiencyPoint>.self,
@@ -183,6 +194,12 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
     let iq: Double?
     let passed: Int?
     let validTasks: Int?
+    let total: Int?
+    let priceAggregation: String?
+    let priceBasis: String?
+    let priceSamples: Int?
+    let durationSamples: Int?
+    let sourceUpdatedAt: String?
     let averagePriceUSD: Double?
     let averageMinutes: Double?
     let combinedCostIndex: Double?
@@ -193,6 +210,12 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
         case iq
         case passed
         case validTasks = "valid_tasks"
+        case total
+        case priceAggregation = "price_aggregation"
+        case priceBasis = "price_basis"
+        case priceSamples = "price_samples"
+        case durationSamples = "duration_samples"
+        case sourceUpdatedAt = "source_updated_at"
         case averagePriceUSD = "average_price_usd"
         case averageMinutes = "average_minutes"
         case combinedCostIndex = "combined_cost_index"
@@ -219,13 +242,15 @@ struct IntelligenceEfficiencyPoint: Decodable, Sendable {
             score: score,
             status: nil,
             passed: passed.flatMap { $0 >= 0 ? $0 : nil },
-            tasks: validTasks.flatMap { $0 >= 0 ? $0 : nil },
+            tasks: (total ?? validTasks).flatMap { $0 >= 0 ? $0 : nil },
             wallSeconds: wallSeconds,
             costUSD: cost,
             combinedCostIndex: combinedCostIndex.flatMap { value in
                 guard let value = Self.finite(value), value >= 0 else { return nil }
                 return value
-            }
+            },
+            priceAggregation: priceAggregation, priceBasis: priceBasis,
+            priceSamples: priceSamples, durationSamples: durationSamples
         )
     }
 

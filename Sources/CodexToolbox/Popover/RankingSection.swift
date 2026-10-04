@@ -208,7 +208,7 @@ struct RankingSection: View {
         case .iq:
             return "Radar IQ 分数 · 越高越好"
         case .cost:
-            return "平均费用 · 越低越好"
+            return "费用 · 越低越好（详见每项统计口径）"
         case .duration:
             return "平均耗时 · 越低越好"
         case .overall:

@@ -1,6 +1,13 @@
 import Foundation
 
 public enum MetricFormatter {
+    public static func nativeCredits(_ value: String?) -> String {
+        guard let value else { return "未提供" }
+        let parsed = NSDecimalNumber(string: value, locale: Locale(identifier: "en_US_POSIX"))
+        guard !parsed.decimalValue.isNaN else { return "未提供" }
+        return parsed.stringValue
+    }
+
     public static func benchmarkDateLabel(
         _ dateKey: String,
         includesDetailedTime: Bool = true
@@ -186,5 +193,40 @@ public enum MetricFormatter {
         formatter.minimumSignificantDigits = 1
         formatter.maximumSignificantDigits = 4
         return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+}
+
+public extension MetricFormatter {
+    static func sourceDate(_ value: String) -> Date? {
+        (try? Date(value, strategy: .iso8601)) ?? ISO8601DateFormatter().date(from: value)
+    }
+
+    static func chineseAccountDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.dateFormat = "yyyy年M月d日 EEEE HH:mm"
+        return formatter.string(from: date)
+    }
+
+    static func menuBarTokens(_ tokens: Int64, format: MenuBarNumberFormat) -> String {
+        if format == .abbreviated, tokens >= 1000 { return abbreviatedNumber(Double(tokens)) }
+        return tokens.formatted(.number.locale(Locale(identifier: "en_US")).grouping(.automatic))
+    }
+
+    static func menuBarAPICost(_ amount: Decimal?, precision: CostEstimatePrecision?, format: MenuBarNumberFormat) -> String {
+        guard let amount else { return "—" }
+        let value = NSDecimalNumber(decimal: amount).doubleValue
+        guard format == .abbreviated, value >= 1000 else { return apiCost(amount, precision: precision) }
+        let prefix = precision == .lowerBound ? "≥" : precision == .approximate ? "≈" : ""
+        return prefix + "$" + abbreviatedNumber(value)
+    }
+
+    private static func abbreviatedNumber(_ value: Double) -> String {
+        let units: [(Double, String)] = [(1e9, "B"), (1e6, "M"), (1e3, "K")]
+        // Promote values that round across a unit boundary (999,999 -> 1M).
+        let unit = units.first { value >= $0.0 || (value / ($0.0 / 1000) * 10).rounded() >= 10000 } ?? (1, "")
+        return (value / unit.0).formatted(.number.locale(Locale(identifier: "en_US")).grouping(.never).precision(.fractionLength(0...1))) + unit.1
     }
 }

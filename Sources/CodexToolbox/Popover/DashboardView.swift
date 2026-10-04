@@ -36,6 +36,7 @@ struct DashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            ScrollViewReader { proxy in
             ScrollView {
                 dashboardContent
                     .background {
@@ -62,6 +63,19 @@ struct DashboardView: View {
                 }
             }
 
+            .onAppear {
+                interaction.expandedMetric = layoutState.focusedContent?.rankingMetric
+                if let module = layoutState.focusedContent?.module { proxy.scrollTo(module.id, anchor: .top) }
+            }
+            .onChange(of: layoutState.focusRequestID) { _, _ in
+                interaction.expandedMetric = layoutState.focusedContent?.rankingMetric
+                Task { @MainActor in
+                    await Task.yield()
+                    if let module = layoutState.focusedContent?.module { proxy.scrollTo(module.id, anchor: .top) }
+                }
+            }
+            }
+
             Divider()
             footer
                 .padding(.horizontal, 12)
@@ -83,7 +97,7 @@ struct DashboardView: View {
         .task { await appModel.start() }
         .onAppear {
             scheduleScrollIndicatorUpdate()
-            Task { await appModel.refreshIfNeeded() }
+            Task { await appModel.refreshAllIfNeeded() }
         }
         .onDisappear {
             scrollIndicatorDebounceTask?.cancel()
@@ -130,12 +144,17 @@ struct DashboardView: View {
         }
     }
 
+    private var visibleModules: [ToolboxModule] {
+        appModel.settings.dashboardModuleOrder.filter {
+            !appModel.settings.hiddenDashboardModules.contains($0) || layoutState.temporarilyVisible.contains($0)
+        }
+    }
     @ViewBuilder
     private var dashboardContent: some View {
         VStack(spacing: 15) {
             dashboardBrand
 
-            if appModel.settings.dashboardConfiguration.visibleModules.isEmpty {
+            if visibleModules.isEmpty {
                 ContentUnavailableView {
                     Label("看板模块已全部隐藏", systemImage: "rectangle.3.group.slash")
                 } description: {
@@ -143,9 +162,9 @@ struct DashboardView: View {
                 }
                 .frame(minHeight: DashboardLayout.emptyContentHeight)
             } else {
-                ForEach(appModel.settings.dashboardConfiguration.visibleModules) { module in
+                ForEach(visibleModules) { module in
                     moduleSection(module)
-                    if module != appModel.settings.dashboardConfiguration.visibleModules.last {
+                    if module != visibleModules.last {
                         Divider().padding(.horizontal, 2)
                     }
                 }
@@ -182,7 +201,7 @@ struct DashboardView: View {
     }
 
     private func moduleSection(_ module: ToolboxModule) -> some View {
-        let collapsed = appModel.settings.collapsedDashboardModules.contains(module)
+        let collapsed = (appModel.settings.collapsedDashboardModules.contains(module) || layoutState.temporarilyCollapsed.contains(module)) && !layoutState.temporarilyExpanded.contains(module)
         return VStack(spacing: 10) {
             DashboardModuleHeader(
                 module: module,
@@ -193,7 +212,17 @@ struct DashboardView: View {
                 refresh: { refresh(module) },
                 toggleCollapsed: {
                     withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
-                        appModel.settings.setDashboardModule(module, isCollapsed: !collapsed)
+                        if layoutState.focusedContent?.module == module {
+                            if collapsed {
+                                layoutState.temporarilyExpanded.insert(module)
+                                layoutState.temporarilyCollapsed.remove(module)
+                            } else {
+                                layoutState.temporarilyExpanded.remove(module)
+                                layoutState.temporarilyCollapsed.insert(module)
+                            }
+                        } else {
+                            appModel.settings.setDashboardModule(module, isCollapsed: !collapsed)
+                        }
                     }
                 }
             )
@@ -203,6 +232,7 @@ struct DashboardView: View {
                     .transition(ToolboxMotion.dashboardContentTransition(reduceMotion: reduceMotion))
             }
         }
+        .id(module.id)
     }
 
     @ViewBuilder
@@ -211,7 +241,7 @@ struct DashboardView: View {
         case .modelRadar:
             modelRadarContent
         case .tokenUsage:
-            TokenUsageModuleView(appModel: appModel)
+            TokenUsageModuleView(appModel: appModel, focusedContent: layoutState.focusedContent)
         case .resetCredits:
             ResetCreditsModuleView(appModel: appModel)
         }
@@ -382,8 +412,8 @@ struct DashboardView: View {
     private func moduleSubtitle(_ module: ToolboxModule) -> String {
         switch module {
         case .modelRadar: "Codex Radar 模型榜单"
-        case .tokenUsage: "当前 Mac 的本机原始 Token"
-        case .resetCredits: "账户只读查询，不会自动使用"
+        case .tokenUsage: "本机用量、任务排行与每日趋势"
+        case .resetCredits: "套餐剩余额度、重置时间与重置卡"
         }
     }
 
@@ -392,21 +422,18 @@ struct DashboardView: View {
         case .modelRadar:
             return nil
         case .tokenUsage:
-            if appModel.isUsageInitialLoading { return "正在读取…" }
-            guard let summary = appModel.usageHistory?.summary(for: dayKey(Date())) else {
-                return "今日 0"
-            }
-            let suffix = summary.isComplete ? "" : " · 不完整"
-            let cost = appModel.settings.showsAPICostEstimatesInMenuBar
-                ? summary.totalCostUSD.map {
-                    " · \(MetricFormatter.apiCost($0, precision: summary.costPrecision))"
-                } ?? ""
-                : ""
-            return "今日 \(summary.totalTokens.formatted(.number.grouping(.automatic)))\(cost)\(suffix)"
+            return DashboardSummaryFormatter.usage(
+                appModel.usageHistory?.summary(for: dayKey(Date())),
+                isLoading: appModel.isUsageInitialLoading,
+                showsCost: appModel.settings.showsLocalCostEstimates
+            )
         case .resetCredits:
-            if appModel.isResetCreditsInitialLoading { return "正在读取…" }
-            guard let snapshot = appModel.resetCreditsSnapshot else { return "暂无数据" }
-            return "可用 \(snapshot.availableCount) 张"
+            return DashboardSummaryFormatter.account(
+                appModel.resetCreditsSnapshot,
+                isLoading: appModel.isResetCreditsInitialLoading,
+                isStale: appModel.isResetCreditsStale,
+                now: Date()
+            )
         }
     }
 
@@ -432,7 +459,9 @@ struct DashboardView: View {
         Task {
             switch module {
             case .modelRadar: await appModel.refresh()
-            case .tokenUsage: await appModel.refreshUsage()
+            case .tokenUsage:
+                await appModel.refreshUsage()
+                await appModel.refreshNativeTaskQuota(force: true)
             case .resetCredits: await appModel.refreshResetCredits()
             }
         }
