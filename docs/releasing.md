@@ -23,7 +23,7 @@ appcast.xml
 
 ## 候选版准备与正式发布
 
-1.4.0 当前候选构建为 Build 58。候选分支为 `codex/1.4.0`，本地候选附件位于 `dist/candidates/1.4.0-build58/`。最终证据见 [准备记录](verification/v1.4.0-release-readiness.md)。
+1.4.0 正式构建为 Build 58，于 2026-10-05 按用户明确指令发布。发布沿用 `codex/1.4.0` 已通过本地及远端 CI 验证的源码和签名公证产物；原始候选附件保存在 `dist/candidates/1.4.0-build58/`。证据见 [准备记录](verification/v1.4.0-release-readiness.md)。
 
 准备阶段仅提交、推送候选分支，生成本地签名公证附件和 Appcast；不创建 `v1.4.0` 标签或公开 Release，不上传更新源。用户明确下达发布指令后再执行正式流程。
 

@@ -6,16 +6,18 @@
 
 ## [Unreleased]
 
-### 1.4.0 / Build 58（候选版，尚未发布）
+## [1.4.0] - 2026-10-05
 
-#### 新增
+Build 58。
+
+### 新增
 
 - 固定三个独立菜单栏槽位，可启停、自选内容并重复选择；支持四种模型榜单、今日 Token、账户剩余额度，以及开启成本实验后的今日 API 等值成本。
 - 新增菜单栏设置页与顶部即时预览；榜单、Token 和额度分别设置，提供完整数字/K/M/B、进度条/圆圈、彩色/单色等选项。
 - 账户模块扩展为“账户额度&重置卡”，展示套餐类型、实际支持的额度窗口、剩余比例、北京时间重置日期和重置卡；套餐名称适配浅色与深色配色。
 - 新增固定版本的只读原生任务查询组件、账户身份校验与账户隔离的 90 天快照账本。完整当日数据使用 `=`，部分差值或校准估算使用 `≈`，缺失数据不记作零。
 
-#### 调整
+### 调整
 
 - 点击不同菜单栏项目定位并临时展开对应看板模块；保留原有布局、菜单栏位置和旧设置迁移。
 - “Token 用量”更名为“用量分析”，保留本机任务排行、每日趋势及所有可读取的本机账户/API 历史。
@@ -23,7 +25,7 @@
 - 最新榜单接入 Radar metrics schema 3，保留真实费用聚合方式、计分样本与来源日期；不兼容的历史费用不混入趋势。
 - 同步远端 main 的 API 价格清单，完善辅助组件的锁定依赖、许可声明、双架构打包与验证。
 
-#### 修复
+### 修复
 
 - 任务名称优先使用 Codex 当前侧栏名称，改名后同步更新；归档或 rollout 缺失不改变已有 Token，总量不因改名重复累计。
 - 修复跨日缺测、延迟、修正、套餐变化和账户切换可能造成的任务额度误归属；只展示实际支持的窗口，并保留受约束的旧观测近似估算。
@@ -314,7 +316,8 @@
 
 - 完善缺失指标、未知字段和并列排名的容错行为。
 
-[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/compare/v1.2.0...v1.2.1

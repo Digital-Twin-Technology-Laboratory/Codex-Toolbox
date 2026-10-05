@@ -12,14 +12,14 @@
 Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时提供本机用量分析与账户额度、重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
 
 > [!TIP]
-> **1.4.0 / Build 58 正在准备发布，新增多菜单栏与账户额度，并改进每日任务用量。** 当前公开正式版仍为 v1.3.1；版本状态与正式附件以 Releases 页面为准。候选版说明见 [1.4.0 更新日志](docs/releases/v1.4.0.md)。
+> **v1.4.0 / Build 58 已正式发布，新增多菜单栏与账户额度，并改进每日任务用量。** 前往 [正式发布页](https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v1.4.0) 下载安装包，或查看 [1.4.0 更新日志](docs/releases/v1.4.0.md)。
 
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
 
 ## 应用预览
 
-现有截图来自此前版本；1.4.0 的界面变化以候选版与发布说明为准。
+现有截图来自此前版本；1.4.0 的界面变化以正式版与发布说明为准。
 
 <p align="center">
   <img src="docs/assets/screenshots/dashboard.png" width="390" alt="Codex Toolbox 模型智商看板，显示智商、费用、耗时与综合排名">
