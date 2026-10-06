@@ -27,6 +27,7 @@ public enum CostHistoryBuilder {
         for benchmark in benchmarks {
             guard
                 let latest = benchmark.latest,
+                !latest.date.isEmpty,
                 let cost = latest.costUSD,
                 cost.isFinite
             else { continue }

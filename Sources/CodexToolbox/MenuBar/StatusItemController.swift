@@ -42,6 +42,7 @@ final class StatusItemController: NSObject {
         withObservationTracking {
             _ = appModel.settings.menuBarConfiguration
             _ = appModel.settings.experimentalLocalCostEstimatesEnabled
+            _ = appModel.radarScoreLabel
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.reconcileItems()
@@ -59,8 +60,8 @@ final class StatusItemController: NSObject {
             let content = configuration.content.resolved(localCostEstimatesEnabled: appModel.settings.experimentalLocalCostEstimatesEnabled)
             if let entry = entries[configuration.id] {
                 entry.item.isVisible = configuration.isEnabled
-                entry.button.setAccessibilityLabel("Codex Toolbox：\(content.displayName)")
-                entry.button.toolTip = content.displayName
+                entry.button.setAccessibilityLabel("Codex Toolbox：\((content == .iq ? appModel.radarScoreLabel : content.displayName))")
+                entry.button.toolTip = (content == .iq ? appModel.radarScoreLabel : content.displayName)
                 continue
             }
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -70,8 +71,8 @@ final class StatusItemController: NSObject {
             button.identifier = NSUserInterfaceItemIdentifier(configuration.id.uuidString)
             button.target = self
             button.action = #selector(statusItemClicked(_:))
-            button.setAccessibilityLabel("Codex Toolbox：\(content.displayName)")
-            button.toolTip = content.displayName
+            button.setAccessibilityLabel("Codex Toolbox：\((content == .iq ? appModel.radarScoreLabel : content.displayName))")
+            button.toolTip = (content == .iq ? appModel.radarScoreLabel : content.displayName)
             let hostingView = StatusLabelHostingView(rootView: MenuBarLabel(
                 appModel: appModel, itemID: configuration.id,
                 onPreferredWidthChange: { [weak self] width in

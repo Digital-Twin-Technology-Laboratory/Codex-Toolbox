@@ -45,6 +45,7 @@ struct RankingSection: View {
     @StateObject private var interaction = RankingSectionInteractionState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dashboardTheme) private var dashboardTheme
+    @Environment(\.radarScoreLabel) private var scoreLabel
 
     private var visibleRankings: [RankedModel] {
         Array(rankings.prefix(presentation.rowLimit))
@@ -145,13 +146,13 @@ struct RankingSection: View {
 
             HStack(spacing: RankingTableLayout.metricSpacing) {
                 ForEach(auxiliaryMetrics, id: \.self) { auxiliaryMetric in
-                    Text(auxiliaryMetric.displayName)
+                    Text(auxiliaryMetric.displayName(scoreLabel: scoreLabel))
                         .frame(width: auxiliaryColumnWidth, alignment: .trailing)
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
 
-            Text(metric.displayName(overallMode: overallMode))
+            Text(metric.displayName(scoreLabel: scoreLabel, overallMode: overallMode))
                 .foregroundStyle(tint.opacity(0.82))
                 .frame(width: RankingTableLayout.primaryValueWidth, alignment: .trailing)
         }
@@ -195,7 +196,7 @@ struct RankingSection: View {
     }
 
     private var rankingTitle: String {
-        metric.rankingTitle(overallMode: overallMode)
+        metric == .iq ? scoreLabel + "榜" : metric.rankingTitle(overallMode: overallMode)
     }
 
     private var tint: Color {
@@ -206,7 +207,7 @@ struct RankingSection: View {
         guard presentation == .expanded else { return nil }
         switch metric {
         case .iq:
-            return "Radar IQ 分数 · 越高越好"
+            return scoreLabel + " · 越高越好"
         case .cost:
             return "费用 · 越低越好（详见每项统计口径）"
         case .duration:
@@ -214,7 +215,7 @@ struct RankingSection: View {
         case .overall:
             switch overallMode {
             case .localWeighted:
-                return "本地 IQ / 费用 / 耗时加权 · 越高越好"
+                return "本地评分 / 费用 / 耗时加权 · 越高越好"
             case .radarCostEfficiency:
                 return "Radar 费用 + 耗时指数 · 越低越好"
             }

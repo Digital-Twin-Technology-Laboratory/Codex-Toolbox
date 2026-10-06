@@ -33,6 +33,7 @@ struct RankRow: View {
     let compactModelName: String
 
     @Environment(\.dashboardTheme) private var dashboardTheme
+    @Environment(\.radarScoreLabel) private var scoreLabel
 
     var body: some View {
         Group {
@@ -178,7 +179,7 @@ struct RankRow: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .accessibilityLabel(metric.displayName)
+        .accessibilityLabel(metric.displayName(scoreLabel: scoreLabel))
         .accessibilityValue(
             ranked.benchmark.value(for: metric).map {
                 MetricFormatter.detailValue($0, metric: metric)
@@ -189,7 +190,7 @@ struct RankRow: View {
     private var expandedMetricSummary: String {
         expandedMetrics.compactMap { metric in
             ranked.benchmark.value(for: metric).map {
-                "\(metric.displayName) \(MetricFormatter.detailValue($0, metric: metric))"
+                "\(metric.displayName(scoreLabel: scoreLabel)) \(MetricFormatter.detailValue($0, metric: metric))"
             }
         }
         .joined(separator: "  ·  ")
@@ -200,7 +201,7 @@ struct RankRow: View {
     }
 
     private var accessibilityDescription: String {
-        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric, overallMode: effectiveOverallMode))"
+        let primary = "第 \(ranked.position) 名，\(ranked.benchmark.label)，\(ranked.metric.displayName(scoreLabel: scoreLabel, overallMode: effectiveOverallMode)) \(MetricFormatter.detailValue(ranked.value, metric: ranked.metric, overallMode: effectiveOverallMode))"
         let status = statusText.map { "，\($0)" } ?? ""
         guard shouldShowExpandedMetrics else { return primary + status }
         return "\(primary)\(status)，其他指标：\(expandedMetricSummary)"

@@ -94,6 +94,7 @@ struct DashboardView: View {
             DashboardRootBackground()
         }
         .environment(\.dashboardTheme, appModel.settings.effectiveDashboardTheme)
+        .environment(\.radarScoreLabel, appModel.radarScoreLabel)
         .task { await appModel.start() }
         .onAppear {
             scheduleScrollIndicatorUpdate()

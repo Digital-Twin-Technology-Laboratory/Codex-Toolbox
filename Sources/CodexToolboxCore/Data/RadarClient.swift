@@ -20,7 +20,8 @@ public struct RadarSnapshot: Codable, Hashable, Sendable {
     public let aggregationMode: String?
     public let scoringMode: String?
     public let priceRollingWindow: Int?
-    public var semanticsKey: String { [benchmarkID ?? "legacy", aggregationMode ?? "legacy", scoringMode ?? "legacy", priceRollingWindow.map(String.init) ?? "legacy"].joined(separator: "|") }
+    public let managed: ManagedRadarMetadata?
+    public var semanticsKey: String { managed?.dataset.semanticsKey ?? [benchmarkID ?? "legacy", aggregationMode ?? "legacy", scoringMode ?? "legacy", priceRollingWindow.map(String.init) ?? "legacy"].joined(separator: "|") }
 
     public init(
         schemaVersion: String,
@@ -28,7 +29,8 @@ public struct RadarSnapshot: Codable, Hashable, Sendable {
         fetchedAt: Date,
         benchmarks: [ModelBenchmark],
         validators: CacheValidators,
-        benchmarkID: String? = nil, aggregationMode: String? = nil, scoringMode: String? = nil, priceRollingWindow: Int? = nil
+        benchmarkID: String? = nil, aggregationMode: String? = nil, scoringMode: String? = nil, priceRollingWindow: Int? = nil,
+        managed: ManagedRadarMetadata? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.sourceMonitoredAt = sourceMonitoredAt
@@ -36,6 +38,7 @@ public struct RadarSnapshot: Codable, Hashable, Sendable {
         self.benchmarks = benchmarks
         self.validators = validators
         self.benchmarkID = benchmarkID; self.aggregationMode = aggregationMode; self.scoringMode = scoringMode; self.priceRollingWindow = priceRollingWindow
+        self.managed = managed
     }
 }
 
@@ -61,7 +64,7 @@ public enum RadarClientError: Error, LocalizedError, Sendable, Equatable {
         case let .httpStatus(code):
             "数据服务暂时不可用（HTTP \(code)）。"
         case let .invalidPayload(message):
-            "无法读取 CodexRadar 数据：\(message)"
+            "无法读取榜单数据：\(message)"
         case .notModifiedWithoutCache:
             "服务端未返回新数据，但本地缓存不存在。"
         }

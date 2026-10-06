@@ -1,0 +1,45 @@
+{
+  "dataset": {
+    "id": "deep-swe",
+    "name": "DeepSWE（旧基准）",
+    "scoreLabel": "Radar IQ",
+    "semanticsKey": "deep-swe|equal_latest_3|binary-majority|3"
+  },
+  "sourceUpdatedAt": "2026-10-06T08:00:00Z",
+  "status": "historical",
+  "sources": [
+    {
+      "name": "Codex Radar · DeepSWE",
+      "url": "https://api.codexradar.com/api/v1/table?benchmark=deep-swe"
+    }
+  ],
+  "models": [
+    {
+      "id": "gpt_6_sol_high",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "high",
+      "label": "gpt-6-sol high",
+      "recentDays": [],
+      "latest": {
+        "date": "2026-10-06T08:00:00Z",
+        "score": 100.0,
+        "passed": 2,
+        "tasks": 3,
+        "cost_usd": 2,
+        "wall_seconds": 120.0,
+        "combined_cost_index": null,
+        "priceAggregation": "median",
+        "priceBasis": "latest_3_actual_runs",
+        "priceSamples": 3,
+        "durationSamples": 3
+      }
+    }
+  ],
+  "schemaVersion": "codex-toolbox.radar.v1",
+  "revision": 1,
+  "generation": 1,
+  "publishedAt": "2026-10-06T08:00:00Z",
+  "checkedAt": "2026-10-06T08:00:00Z",
+  "lastSuccessAt": "2026-10-06T08:00:00Z",
+  "change": "sync"
+}

@@ -12,7 +12,7 @@ struct StatusHeaderView: View {
                     .foregroundStyle(tint)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Codex 雷达数据日期")
+                    Text(appModel.snapshot?.managed?.dataset.name ?? "Codex 雷达数据日期")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
 
@@ -26,7 +26,7 @@ struct StatusHeaderView: View {
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .monospacedDigit()
                     } else {
-                        Text("暂无数据日期")
+                        Text(appModel.snapshot?.benchmarks.isEmpty == false ? "源数据日期未提供" : "暂无数据日期")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -35,16 +35,29 @@ struct StatusHeaderView: View {
 
                 Spacer()
 
-                if appModel.isStale {
-                    Label("缓存", systemImage: "clock.arrow.circlepath")
+                if appModel.isStale || appModel.snapshot?.managed?.status == "no_data" {
+                    Label(appModel.radarStatusLabel, systemImage: "clock.arrow.circlepath")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("当前显示上次成功获取的模型数据")
+                        .accessibilityLabel(appModel.radarStatusLabel)
                 }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .adaptiveDashboardInsetSurface(tint: .blue)
+        .help(syncDetails)
+    }
+
+    private var syncDetails: String {
+        var details = [appModel.radarStatusLabel]
+        if let managed = appModel.snapshot?.managed {
+            details.append("网站检查：" + MetricFormatter.benchmarkDateLabel(managed.checkedAt, includesDetailedTime: true))
+            details.append(contentsOf: managed.sources.map { "来源：" + $0.name })
+        }
+        if let checked = appModel.repositoryState.checkedAt {
+            details.append("客户端检查：" + checked.formatted(date: .numeric, time: .standard))
+        }
+        return details.joined(separator: "\n")
     }
 
     private var tint: Color {

@@ -42,9 +42,15 @@ if let index = CommandLine.arguments.firstIndex(of: "--native-analytics-helper")
 }
 
 if CommandLine.arguments.contains("--live-radar") {
-    let result = try await URLSessionRadarClient().fetch(cacheValidators: nil)
+    let endpointIndex = CommandLine.arguments.firstIndex(of: "--radar-endpoint")
+    let endpoint = endpointIndex.flatMap { index in
+        CommandLine.arguments.indices.contains(index + 1) ? URL(string: CommandLine.arguments[index + 1]) : nil
+    } ?? AppMetadata.radarJSONURL
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.timeoutIntervalForResource = 30
+    let result = try await URLSessionRadarClient(session: URLSession(configuration: configuration), endpoint: endpoint, usesManagedFeed: true).fetch(cacheValidators: nil)
     guard case let .modified(snapshot) = result else { fatalError("Expected fresh radar") }
-    print("Live radar verified: schema=\(snapshot.schemaVersion), source=\(snapshot.sourceMonitoredAt ?? "unavailable"), models=\(snapshot.benchmarks.count), historyRecords=\(snapshot.benchmarks.reduce(0) { $0 + $1.recentDays.count }), aggregations=\(Set(snapshot.benchmarks.compactMap { $0.latest?.priceAggregation }).sorted())")
+    print("Live radar verified: schema=\(snapshot.schemaVersion), source=\(snapshot.sourceMonitoredAt ?? "unavailable"), models=\(snapshot.benchmarks.count), historyRecords=\(snapshot.benchmarks.reduce(0) { $0 + $1.recentDays.count }), aggregations=\(Set(snapshot.benchmarks.compactMap { $0.latest?.priceAggregation }).sorted()), scoreLabel=\(snapshot.managed?.dataset.scoreLabel ?? "legacy"), status=\(snapshot.managed?.status ?? "legacy"), costRows=\(RankingEngine.rank(snapshot.benchmarks, by: .cost).count), overallRows=\(RankingEngine.rank(snapshot.benchmarks, by: .overall).count)")
     exit(0)
 }
 

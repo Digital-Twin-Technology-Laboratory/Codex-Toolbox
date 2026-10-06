@@ -7,6 +7,7 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async throws -> Void
     private let retryDelay: @Sendable (Int) -> Duration?
+    private let usesManagedFeed: Bool
 
     public convenience init(endpoint: URL = AppMetadata.radarJSONURL) {
         let configuration = URLSessionConfiguration.ephemeral
@@ -14,13 +15,14 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
         configuration.timeoutIntervalForResource = 30
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.waitsForConnectivity = true
-        self.init(session: URLSession(configuration: configuration), endpoint: endpoint, historyEndpoint: endpoint == AppMetadata.radarJSONURL ? AppMetadata.radarHistoryURL : nil)
+        self.init(session: URLSession(configuration: configuration), endpoint: endpoint)
     }
 
     public init(
         session: URLSession,
         endpoint: URL = AppMetadata.radarJSONURL,
         historyEndpoint: URL? = nil,
+        usesManagedFeed: Bool? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
             try await Task.sleep(for: duration)
@@ -30,7 +32,8 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
     ) {
         self.session = session
         self.endpoint = endpoint
-        historyLoader = historyEndpoint.map { RadarHistoryLoader(session: session, endpoint: $0) }
+        self.usesManagedFeed = usesManagedFeed ?? (endpoint == AppMetadata.radarJSONURL)
+        historyLoader = self.usesManagedFeed ? nil : historyEndpoint.map { RadarHistoryLoader(session: session, endpoint: $0) }
         self.now = now
         self.sleep = sleep
         self.retryDelay = retryDelay
@@ -73,8 +76,8 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
             throw RadarClientError.invalidResponse
         }
         let validators = CacheValidators(
-            etag: http.value(forHTTPHeaderField: "ETag") ?? cacheValidators?.etag,
-            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified
+            etag: http.value(forHTTPHeaderField: "ETag") ?? (http.statusCode == 304 ? cacheValidators?.etag : nil),
+            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? (http.statusCode == 304 ? cacheValidators?.lastModified : nil)
         )
 
         if http.statusCode == 304 {
@@ -85,6 +88,13 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
         }
 
         do {
+            guard data.count <= 16 * 1024 * 1024 else {
+                throw RadarClientError.invalidPayload("榜单响应过大。")
+            }
+            if usesManagedFeed {
+                return .modified(try JSONDecoder().decode(ManagedRadarFeed.self, from: data)
+                    .snapshot(fetchedAt: now(), validators: validators))
+            }
             let response = try JSONDecoder().decode(IntelligenceEfficiencyResponse.self, from: data)
             guard (2...3).contains(response.schema) else {
                 throw RadarClientError.invalidPayload("不支持的数据版本：\(response.schema)")

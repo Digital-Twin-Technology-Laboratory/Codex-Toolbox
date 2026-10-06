@@ -1,0 +1,40 @@
+{
+  "dataset": {
+    "id": "radar-bench-test",
+    "name": "Radar Bench",
+    "scoreLabel": "Radar Bench 分数",
+    "semanticsKey": "radar-bench-test|abc|equal-task-100"
+  },
+  "sourceUpdatedAt": null,
+  "status": "current",
+  "sources": [
+    {
+      "name": "Codex Radar · Radar Bench",
+      "url": "https://codexradar.com/api/radar-bench-score"
+    }
+  ],
+  "models": [
+    {
+      "id": "gpt_future_high",
+      "model": "gpt-future",
+      "reasoningEffort": "high",
+      "label": "gpt-future high",
+      "recentDays": [],
+      "latest": {
+        "date": "",
+        "score": 80,
+        "tasks": 64,
+        "cost_usd": null,
+        "wall_seconds": null,
+        "combined_cost_index": null
+      }
+    }
+  ],
+  "schemaVersion": "codex-toolbox.radar.v1",
+  "revision": 1,
+  "generation": 1,
+  "publishedAt": "2026-10-06T08:00:00Z",
+  "checkedAt": "2026-10-06T08:00:00Z",
+  "lastSuccessAt": "2026-10-06T08:00:00Z",
+  "change": "sync"
+}

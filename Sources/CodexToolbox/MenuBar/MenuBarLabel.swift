@@ -91,8 +91,8 @@ struct MenuBarLabel: View {
             stateLabel("正在刷新", systemImage: "brain.head.profile")
                 .accessibilityLabel("正在刷新 Codex 模型数据")
         } else {
-            stateLabel("数据不可用", systemImage: "exclamationmark.triangle")
-                .accessibilityLabel("Codex 模型数据不可用")
+            stateLabel("暂无数据", systemImage: selectedContent.systemImage)
+                .accessibilityLabel("当前基准的所选指标暂无数据")
         }
     }
 
@@ -151,7 +151,7 @@ struct MenuBarLabel: View {
     private var accessibilitySummary: String {
         ranking.map { ranked in
             "第 \(ranked.position) 名 \(ranked.benchmark.label) "
-                + "\(ranked.metric.displayName(overallMode: ranked.overallMode ?? appModel.settings.overallRankingMode)) "
+                + "\(ranked.metric.displayName(scoreLabel: appModel.radarScoreLabel, overallMode: ranked.overallMode ?? appModel.settings.overallRankingMode)) "
                 + MetricFormatter.detailValue(
                     ranked.value,
                     metric: ranked.metric,

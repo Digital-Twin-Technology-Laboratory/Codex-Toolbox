@@ -85,6 +85,7 @@ struct TrendChartView: View {
     @StateObject private var state = TrendChartState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dashboardTheme) private var dashboardTheme
+    @Environment(\.radarScoreLabel) private var scoreLabel
 
     private let availableMetrics: [RankingMetric] = [.iq, .cost, .duration]
     private let seriesColors: [Color] = [.blue, .green, .orange, .purple, .pink]
@@ -160,7 +161,7 @@ struct TrendChartView: View {
             HStack(alignment: .center, spacing: 8) {
                 Picker("趋势指标", selection: $state.metric) {
                     ForEach(availableMetrics) { metric in
-                        Text(metric.displayName).tag(metric)
+                        Text(metric.displayName(scoreLabel: scoreLabel)).tag(metric)
                     }
                 }
                 .labelsHidden()
@@ -353,7 +354,7 @@ struct TrendChartView: View {
             data.selectedModelIDs.count >= ModelTrendSeriesConfiguration.maximumCount
                 || !hasUnselectedModel(in: data)
         )
-        .accessibilityLabel("添加 \(state.metric.displayName) 趋势曲线")
+        .accessibilityLabel("添加 \(state.metric.displayName(scoreLabel: scoreLabel)) 趋势曲线")
     }
 
     private var trendSourceRevision: TrendChartSourceRevision {
@@ -536,6 +537,7 @@ struct TrendChartView: View {
 }
 
 private struct TrendPlotView: View {
+    @Environment(\.radarScoreLabel) private var scoreLabel
     let data: TrendSeriesData
     let metric: RankingMetric
     let seriesColors: [Color]
@@ -549,7 +551,7 @@ private struct TrendPlotView: View {
                     let seriesIndex = data.selectedModelIDs.firstIndex(of: point.modelID) ?? 0
                     LineMark(
                         x: .value("日期", day),
-                        y: .value(metric.displayName, point.value),
+                        y: .value(metric.displayName(scoreLabel: scoreLabel), point.value),
                         series: .value("模型", point.modelID)
                     )
                     .foregroundStyle(by: .value("模型", point.modelID))
@@ -558,7 +560,7 @@ private struct TrendPlotView: View {
 
                     PointMark(
                         x: .value("日期", day),
-                        y: .value(metric.displayName, point.value)
+                        y: .value(metric.displayName(scoreLabel: scoreLabel), point.value)
                     )
                     .foregroundStyle(by: .value("模型", point.modelID))
                     .symbol(by: .value("模型", point.modelID))
@@ -626,7 +628,7 @@ private struct TrendPlotView: View {
         .onChange(of: data.selectedModelIDs) { _, _ in
             hoveredDay = nil
         }
-        .accessibilityLabel("\(metric.displayName) 模型变化趋势")
+        .accessibilityLabel("\(metric.displayName(scoreLabel: scoreLabel)) 模型变化趋势")
         .accessibilityHint("将鼠标停留在数据点附近可查看该日详情")
     }
 

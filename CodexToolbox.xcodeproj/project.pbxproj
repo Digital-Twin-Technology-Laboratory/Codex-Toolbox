@@ -30,6 +30,7 @@
 		2CB605E7F0B3C4B86271642C /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2261FB337803F7F9BC3234ED /* EmptyStateView.swift */; };
 		2CEDEF05CD4B569CE2EFD785 /* RankingWeightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5A27224C5DD557E1E01D892 /* RankingWeightsTests.swift */; };
 		312CBC140DE9D00F647F8013 /* StationRecommendationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13EDC540F158180EC57F0B87 /* StationRecommendationRepository.swift */; };
+		32B269F4129B33455AC2EE99 /* ManagedRadarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF9103DD27E23FCC325C72E /* ManagedRadarTests.swift */; };
 		3366326C3F7FBD1E01FB2841 /* GeneralDashboardSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD060F9540D6D4A7C34625D3 /* GeneralDashboardSettingsView.swift */; };
 		354FF8D1E3F2A822033C6BC3 /* intelligence-efficiency-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = 331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */; };
 		37C3B52F58B391CEF266C0FC /* RateCardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0F7217AAF21650EFC3E376 /* RateCardRepository.swift */; };
@@ -56,6 +57,7 @@
 		77EDAC3739CFE13A1B68837D /* StationRecommendation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734944FA55C78BB16542F3DF /* StationRecommendation.swift */; };
 		7AF917A5436AD26573A420C6 /* MenuBarConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8938FE7F57DF428258674FA1 /* MenuBarConfigurationTests.swift */; };
 		7DC2CABC10F0C3B70F3F46F8 /* AdaptiveVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DDB76A3B7BA7C292E387DE7 /* AdaptiveVisualStyle.swift */; };
+		7F0D38C44F575D8CA5621F31 /* RadarScoreLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB76659D2A03977A29354529 /* RadarScoreLabel.swift */; };
 		81C271E0BC21138453E5D472 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0E66722D8BAAD7AFB3CC18F2 /* Assets.xcassets */; };
 		88DC6598275B899370898D44 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90120F894D7D3D575570C42F /* AppSettings.swift */; };
 		8D14578AE1E4B6BD5CF3AEDB /* RankRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83937645D5F8E63F2B79BE8 /* RankRow.swift */; };
@@ -68,10 +70,12 @@
 		935F2C2D56B5252B8D40CB8B /* MenuBarConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3606A2694BB99AD9D65FFCE /* MenuBarConfiguration.swift */; };
 		94D198631C747E88C5D368E0 /* TokenUsageModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5359EDB1706D855FE9E9E59F /* TokenUsageModuleView.swift */; };
 		95FD5D5496776AB41B8DD239 /* DashboardModuleHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2EC0DBB4ED3C5B6ECA46F5 /* DashboardModuleHeader.swift */; };
+		98F129585030CB3F0BB8B10F /* managed-radar-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 244349D488BD8B37AA7531D8 /* managed-radar-v1.json */; };
 		9ADC39D62A171E52ED0C91D6 /* RadarClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04DB88CA844CD8A51F16DA6 /* RadarClient.swift */; };
 		9B4CB28F5338EA453CFA0D7E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A68445038C1E8DA0C8B7C00 /* AppModel.swift */; };
 		9DFF94FDF6C9DD86CB3B42EA /* DashboardThemeStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914FB122CF0E680FB934CDB8 /* DashboardThemeStyle.swift */; };
 		9E35589F10CDD30264FB0A77 /* ResetCreditsClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE8BEE46ECE7C46A22341C /* ResetCreditsClientTests.swift */; };
+		9FD79DFCBDE8F177B43F5E69 /* managed-radar-bench-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 81D7DD9124D3269DDA788AA3 /* managed-radar-bench-v1.json */; };
 		A1B9E780B880C120E463D255 /* libCodexToolboxCore.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 667B732144948E89B9D4F62F /* libCodexToolboxCore.a */; };
 		A23A102EA93047D219E5C9F4 /* ModelVisibilitySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEAFC43E8A6755A48695D16 /* ModelVisibilitySettingsView.swift */; };
 		A2769C18638A21BA92F36A63 /* ApplicationSupportLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */; };
@@ -82,6 +86,7 @@
 		AAF6A02C043E25850A91F0DD /* MenuBarSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75857D498B5AC7B1C8AAF95 /* MenuBarSettingsView.swift */; };
 		AE1609777F6D594577A314A0 /* StationRecommendationClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105CFCE44A4D6BF3B006DEC3 /* StationRecommendationClient.swift */; };
 		AEC9A8B9B56DEFC48B34D923 /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4478996E62316B4427B4EC9E /* MenuBarLabel.swift */; };
+		B78F571EBEB60436D41BFE9C /* ManagedRadarFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44070BF9A143B0B2DB688012 /* ManagedRadarFeed.swift */; };
 		B8629DD40119B6BF297C6F4E /* APIPriceCardRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2941BA2903DB71C9EC8BCB73 /* APIPriceCardRepository.swift */; };
 		B97E7D8EE911D3F784CA2C48 /* ResetCreditModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2747616944418EB798D60AD5 /* ResetCreditModels.swift */; };
 		BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */; };
@@ -162,6 +167,7 @@
 		2171DF25233B6149DB40E960 /* UsageLedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLedgerStore.swift; sourceTree = "<group>"; };
 		21978BA5266375FB04C79889 /* UpdateRecoveryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateRecoveryPolicyTests.swift; sourceTree = "<group>"; };
 		2261FB337803F7F9BC3234ED /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		244349D488BD8B37AA7531D8 /* managed-radar-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "managed-radar-v1.json"; sourceTree = "<group>"; };
 		253A0B279BF4C3C091999067 /* APIPriceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIPriceCard.swift; sourceTree = "<group>"; };
 		25C4F3A9DA27568B5FC764E9 /* DashboardTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardTheme.swift; sourceTree = "<group>"; };
 		266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseClientTests.swift; sourceTree = "<group>"; };
@@ -176,6 +182,7 @@
 		4140A880898FCB0A9F9810B8 /* StationRecommendationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRecommendationCard.swift; sourceTree = "<group>"; };
 		4182D800CC8F4C1660836158 /* CodexToolboxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexToolboxTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		41A2A9E70DF72107B54ECE83 /* RankingSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingSection.swift; sourceTree = "<group>"; };
+		44070BF9A143B0B2DB688012 /* ManagedRadarFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRadarFeed.swift; sourceTree = "<group>"; };
 		446BF33A5C31169BC5B8F6AA /* RankingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingEngine.swift; sourceTree = "<group>"; };
 		4478996E62316B4427B4EC9E /* MenuBarLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLabel.swift; sourceTree = "<group>"; };
 		44C5D72A2EFFAC0416B689C2 /* RankingEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingEngineTests.swift; sourceTree = "<group>"; };
@@ -206,10 +213,12 @@
 		7E4D100719EFF045AAC126E9 /* NativeAnalyticsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAnalyticsRepository.swift; sourceTree = "<group>"; };
 		7F28EBAD4A18CFA7F39D30BF /* QuotaIndicators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaIndicators.swift; sourceTree = "<group>"; };
 		7F9124FA061A7B59A28C8E48 /* api-price-card-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "api-price-card-v1.json"; sourceTree = "<group>"; };
+		81D7DD9124D3269DDA788AA3 /* managed-radar-bench-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "managed-radar-bench-v1.json"; sourceTree = "<group>"; };
 		83A725A51BAF23C75B09EF87 /* ResetCreditsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetCreditsSettingsView.swift; sourceTree = "<group>"; };
 		84F7449DFB6259977A9DD7A8 /* DashboardSummaryFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSummaryFormatterTests.swift; sourceTree = "<group>"; };
 		87CC8EBE3F4C8055A08287AF /* TrendPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendPoint.swift; sourceTree = "<group>"; };
 		8938FE7F57DF428258674FA1 /* MenuBarConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarConfigurationTests.swift; sourceTree = "<group>"; };
+		8CF9103DD27E23FCC325C72E /* ManagedRadarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedRadarTests.swift; sourceTree = "<group>"; };
 		8D0916F97C8C1593FAF3585D /* ModelBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelBenchmark.swift; sourceTree = "<group>"; };
 		90120F894D7D3D575570C42F /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		914FB122CF0E680FB934CDB8 /* DashboardThemeStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardThemeStyle.swift; sourceTree = "<group>"; };
@@ -224,6 +233,7 @@
 		A536364143A356355F6B5116 /* codex-rate-card-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "codex-rate-card-v1.json"; sourceTree = "<group>"; };
 		A5A27224C5DD557E1E01D892 /* RankingWeightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingWeightsTests.swift; sourceTree = "<group>"; };
 		A9B6E911D1F6CD26DE13B75D /* RefreshScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshScheduler.swift; sourceTree = "<group>"; };
+		AB76659D2A03977A29354529 /* RadarScoreLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarScoreLabel.swift; sourceTree = "<group>"; };
 		ACB9676956C6080A3FF503E4 /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
 		B099078A533B7CFC11096D88 /* AppUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateManager.swift; sourceTree = "<group>"; };
 		B75857D498B5AC7B1C8AAF95 /* MenuBarSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarSettingsView.swift; sourceTree = "<group>"; };
@@ -456,6 +466,7 @@
 			children = (
 				253A0B279BF4C3C091999067 /* APIPriceCard.swift */,
 				25C4F3A9DA27568B5FC764E9 /* DashboardTheme.swift */,
+				44070BF9A143B0B2DB688012 /* ManagedRadarFeed.swift */,
 				E3606A2694BB99AD9D65FFCE /* MenuBarConfiguration.swift */,
 				8D0916F97C8C1593FAF3585D /* ModelBenchmark.swift */,
 				66923E26C70902341D912CF9 /* ModelCatalog.swift */,
@@ -503,6 +514,8 @@
 			children = (
 				F72A142B26EF7BFD9E6FCE47 /* current-v2.json */,
 				331D4B620D5C3ABE4789AB32 /* intelligence-efficiency-v2.json */,
+				81D7DD9124D3269DDA788AA3 /* managed-radar-bench-v1.json */,
+				244349D488BD8B37AA7531D8 /* managed-radar-v1.json */,
 			);
 			path = Fixtures;
 			sourceTree = "<group>";
@@ -542,6 +555,7 @@
 				84F7449DFB6259977A9DD7A8 /* DashboardSummaryFormatterTests.swift */,
 				266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */,
 				0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */,
+				8CF9103DD27E23FCC325C72E /* ManagedRadarTests.swift */,
 				8938FE7F57DF428258674FA1 /* MenuBarConfigurationTests.swift */,
 				58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */,
 				4FFA0CD9B77F733909463932 /* ModelCatalogTests.swift */,
@@ -583,6 +597,7 @@
 				2C2EC0DBB4ED3C5B6ECA46F5 /* DashboardModuleHeader.swift */,
 				58FAFAA5A5425AA046088F30 /* DashboardView.swift */,
 				2261FB337803F7F9BC3234ED /* EmptyStateView.swift */,
+				AB76659D2A03977A29354529 /* RadarScoreLabel.swift */,
 				41A2A9E70DF72107B54ECE83 /* RankingSection.swift */,
 				E83937645D5F8E63F2B79BE8 /* RankRow.swift */,
 				BDB7DD73DDF26CDC4CEC946C /* ResetCreditsModuleView.swift */,
@@ -713,6 +728,8 @@
 			files = (
 				A9BCE646677BCAAC1FB6728E /* current-v2.json in Resources */,
 				354FF8D1E3F2A822033C6BC3 /* intelligence-efficiency-v2.json in Resources */,
+				9FD79DFCBDE8F177B43F5E69 /* managed-radar-bench-v1.json in Resources */,
+				98F129585030CB3F0BB8B10F /* managed-radar-v1.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -785,6 +802,7 @@
 				BE0EAD146806BE7130F518FA /* MetricStyle.swift in Sources */,
 				A23A102EA93047D219E5C9F4 /* ModelVisibilitySettingsView.swift in Sources */,
 				1E2C2F38C3633406D05FF81F /* QuotaIndicators.swift in Sources */,
+				7F0D38C44F575D8CA5621F31 /* RadarScoreLabel.swift in Sources */,
 				8D14578AE1E4B6BD5CF3AEDB /* RankRow.swift in Sources */,
 				0FA4755DF589AA28E722F033 /* RankingSection.swift in Sources */,
 				2C49FBFA0A23B54797FDF36B /* ResetCreditsModuleView.swift in Sources */,
@@ -812,6 +830,7 @@
 				658A385F650BBB5F5C9BF6DB /* DashboardSummaryFormatterTests.swift in Sources */,
 				9334398A3C124A7D92848BF9 /* GitHubReleaseClientTests.swift in Sources */,
 				BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */,
+				32B269F4129B33455AC2EE99 /* ManagedRadarTests.swift in Sources */,
 				7AF917A5436AD26573A420C6 /* MenuBarConfigurationTests.swift in Sources */,
 				FCE6BF0CC76BD8902B0C9300 /* MetricFormatterTests.swift in Sources */,
 				FC6D30030ABC9D7E1F6FFF86 /* ModelCatalogTests.swift in Sources */,
@@ -847,6 +866,7 @@
 				E61E28BB4A36C717E409F8AD /* DashboardTheme.swift in Sources */,
 				ECDBBBD1F961B79E0A3CD3AF /* GitHubReleaseClient.swift in Sources */,
 				D19D824A91248A611C52C7C1 /* LocalCodexUsageReader.swift in Sources */,
+				B78F571EBEB60436D41BFE9C /* ManagedRadarFeed.swift in Sources */,
 				935F2C2D56B5252B8D40CB8B /* MenuBarConfiguration.swift in Sources */,
 				8FC846ACD5A8539504C82CE6 /* MetricFormatter.swift in Sources */,
 				DCEC5B056D398F9B427788BD /* ModelBenchmark.swift in Sources */,

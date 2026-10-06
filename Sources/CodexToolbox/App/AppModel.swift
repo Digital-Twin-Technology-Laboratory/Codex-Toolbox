@@ -129,8 +129,20 @@ final class AppModel {
 
     var snapshot: RadarSnapshot? { repositoryState.snapshot }
     var costHistory: [CostHistoryPoint] { repositoryState.costHistory }
-    var isStale: Bool { repositoryState.isStale || (snapshot?.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate).map { Date().timeIntervalSince($0) > 24 * 3600 } ?? false) }
+    var isStale: Bool {
+        repositoryState.isStale
+            || (snapshot?.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate).map { Date().timeIntervalSince($0) > 24 * 3600 } ?? false)
+            || ((snapshot?.managed?.checkedAt).flatMap(MetricFormatter.sourceDate).map { Date().timeIntervalSince($0) > 6.5 * 3600 } ?? false)
+    }
     var errorMessage: String? { repositoryState.errorMessage }
+    var radarScoreLabel: String { snapshot?.managed?.dataset.scoreLabel ?? "Radar IQ" }
+    var radarStatusLabel: String {
+        if repositoryState.refreshFailed {
+            return snapshot?.benchmarks.isEmpty == false ? "刷新失败 · 本地缓存" : "连接异常 · 暂无成绩"
+        }
+        if isStale && snapshot?.managed?.status == "current" { return "历史数据" }
+        return snapshot?.managed?.statusLabel ?? (snapshot == nil ? "暂无成绩" : "历史数据")
+    }
     var isInitialLoading: Bool { !hasLoadedCache && snapshot == nil }
     var isUsageInitialLoading: Bool { usageHistory == nil && isRefreshingUsage }
     var isResetCreditsInitialLoading: Bool {

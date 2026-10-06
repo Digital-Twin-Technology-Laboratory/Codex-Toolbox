@@ -1,46 +1,18 @@
 # Codex Toolbox 数据源说明
 
-本文档主要记录模型智商模块的 Codex Radar 来源。Token 与重置卡的只读边界见 [privacy.md](privacy.md)。
+1.4.1 起，榜单与历史统一读取 `https://zjwspace.cn/api/codex-toolbox/v1/radar.json`。网站负责抓取、转换和校验，客户端只接受自有 v1 数据协议。协议与运维细节见 [managed-radar-v1.md](managed-radar-v1.md)。
 
-## 请求范围
-
-- 端点：`https://codexradar.com/data/intelligence-efficiency.json`
-- 可选站长推荐：`https://codexradar.com/api/radar-insights`（`schema = 1`，默认关闭）
-- 应用不抓取网页 HTML，不请求网页使用的原始任务表或需要 Key 的完整 API。
-- 默认请求频率为 30 分钟一次，最短可设为 15 分钟。
-- 客户端发送明确的 `User-Agent`、`Accept: application/json`、`If-None-Match` 和 `If-Modified-Since`。
-- 同一时刻的重复刷新会合并为一个网络请求。
-- 聚合快照由 Codex 雷达通过 CDN 发布，页面与应用看到的更新时间可能相差约 10 分钟；应用始终展示快照自己的 `source_updated_at`，不把本机下载时间冒充数据时间。
-
-## 字段依赖
-
-当前支持 `schema = 2`，核心数据位于 `points`：
-
-- `model`、`effort`、`iq`
-- `passed`、`valid_tasks`
-- `average_price_usd`、`average_minutes`
-- `combined_cost_index`（只由费用与耗时组成，越低越好）
-- 顶层 `source_updated_at`
-- `history[].at` 与其中同结构的 `points`
-
-应用把 `average_minutes` 转换为内部统一使用的秒数；费用和耗时均是每题平均值，不再使用旧 `current.json` 的累计值。未知字段和无效单点会被忽略；单个核心指标缺失时，该模型只会被排除出相应榜单，不会导致其他榜单或整份快照失效。整份快照没有任何有效模型时才判定刷新失败。
-
-## 历史、综合分与缓存迁移
-
-- 智商、费用和耗时趋势优先使用 `history` 中的同口径观察点。
-- 只有远端费用历史完全缺失时，才从安装后的新聚合快照继续积累平均费用，不做累计值换算或伪造。
-- 历史观察按快照时间排序，不依赖 CDN 返回的数组顺序。
-- 第四榜单默认仍是本地智商/费用/耗时加权百分位；用户可切换为 Radar `combined_cost_index`，此时标题明确改为“雷达成本效率”，不冒充综合智商分。
-- 新数据源使用 `radar-intelligence-efficiency-v2.json`；旧 `radar-latest.json` 和 Show Codex IQ 快照不会迁移、覆盖或删除，避免累计值与平均值混用。
-
-## 模型标识兼容
-
-已在旧快照出现的模型档位继续沿用原 ID，因此用户设置的菜单栏简称不会丢失。Sol ultra/max、Terra ultra、DeepSeek V4 Flash 等新增档位使用由 `model + effort` 生成的稳定 ID；未来出现未知模型时也不会因客户端没有硬编码名称而被整批过滤。
+- 客户端默认每 30 分钟刷新，沿用用户原有设置及按需刷新；同一时刻重复请求合并，支持 ETag/304。
+- 来源署名仍保留 Codex Radar。网站地址不代表原始评测由本站完成。
+- 源成绩日期、网站同步时间和客户端检查时间分别记录；上游未提供成绩日期时明确显示未提供，不将抓取时间冒充成绩时间。
+- 首版默认提供旧 DeepSWE 历史数据；恢复 85 个旧缓存档位的评分及 36 个 GPT 档位费用的数值对照通过。非 GPT 费用和 Radar 综合成本指数尚未验证恢复，因此不补造数值。
+- 新 Radar Bench 由服务端预览、验证后显式启用；只有评分时费用/耗时及相关综合榜暂无数据。不同基准及统计口径不拼接。
+- 服务端失败保留已发布快照；网站不可达时客户端保留本地缓存。1.4.0 的 `radar-intelligence-efficiency-v2.json` 仍可读取，旧上游 ETag 不发送给新网站。
+- 同口径历史由网站汇总；旧历史费用缺乏统计口径时不混入费用趋势。没有真实成绩日期时不生成趋势点。
+- 本次不改变默认关闭的站长推荐实验（仍使用其原独立接口），也不改变价格清单、账户、Token 或更新检查。它们不是榜单读取链路的一部分。
 
 ## 归属与授权状态
 
-应用弹窗和“关于”页固定显示：
+原始评测数据来自 [Codex 雷达](https://codexradar.com/)，Codex Toolbox 不是其官方客户端。公开 URL 可访问不等于自动获得再分发或商业使用授权；公开发布、大范围分发或商业使用前应核对提供方声明及所需授权。此说明不把服务端转换表述为拥有上游数据版权。
 
-> 数据来自 Codex 雷达 codexradar.com
-
-公开 URL 可访问不等于自动获得再分发或商业使用授权。当前代码并非 Codex 雷达官方客户端；在公开发布二进制、大范围分发或商业使用前，维护者应重新检查数据提供方当时的声明，并取得所需授权。
+网站只提供公开模型评测聚合结果，不上传用户的 Codex 账户、Token 日志、客户端偏好，也不发布原始逐题记录中的参与者资料。其他本地功能的只读边界见 [privacy.md](privacy.md)。

@@ -22,7 +22,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(AppMetadata.build(in: nil), "0")
         XCTAssertEqual(
             AppMetadata.radarJSONURL.absoluteString,
-            "https://codexradar.com/api/intelligence-efficiency-metrics"
+            "https://zjwspace.cn/api/codex-toolbox/v1/radar.json"
         )
     }
 }

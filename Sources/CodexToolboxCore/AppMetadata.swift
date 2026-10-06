@@ -5,7 +5,7 @@ public enum AppMetadata {
     public static let bundleIdentifier = "io.github.zzzzzzjw.ShowCodexIQ"
     public static let radarURL = URL(string: "https://codexradar.com/")!
     public static let radarJSONURL = URL(
-        string: "https://codexradar.com/api/intelligence-efficiency-metrics"
+        string: "https://zjwspace.cn/api/codex-toolbox/v1/radar.json"
     )!
     public static let radarHistoryURL = URL(string: "https://codexradar.com/data/intelligence-efficiency-codex.json")!
     public static let stationRecommendationsURL = URL(
