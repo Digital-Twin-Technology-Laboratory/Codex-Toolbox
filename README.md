@@ -94,9 +94,13 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录�
 
 - macOS 14.0 或更高版本
 - Apple Silicon 或 Intel Mac（Universal 2）
-- 模型排名需要访问 `https://codexradar.com/data/intelligence-efficiency.json`
+- 模型排名需要访问 `https://zjwspace.cn/api/codex-toolbox/v1/radar.json`
 - Token 模块需要当前 Mac 上可读取的 Codex 本地数据
 - 重置卡模块需要已安装并登录的 Codex 或 ChatGPT；其他模块不受影响
+
+## 1.4.1 榜单数据修复（候选版）
+
+榜单和兼容历史改读个人网站的稳定 v1 接口，网站负责适配上游变化。客户端保留有效缓存和用户偏好，区分历史成绩、同步异常和暂无数据，评分名称随服务端基准变化。本次未调整账户额度、Token 统计或其他实验功能；详见[候选版说明](docs/releases/v1.4.1.md)及[验证记录](docs/verification/v1.4.1.md)。正式发布仍待手动验收。
 
 ## 1.4.0 多菜单栏与账户额度
 
@@ -105,7 +109,7 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录�
 - “用量分析”保留本机任务排行和每日趋势，不再提供单独账户分析页面。本机所有可读取账户与 API 历史继续保留；不同统计口径不会互相替换或重复累计。
 - “账户额度&重置卡”展示套餐、剩余额度、中文北京时间与重置卡；看板样式独立于菜单栏。不查询套餐用量历史。
 - 固定版本只读组件区分 ChatGPT、API 与未登录，并读取当前账户的任务累计额度来建立日快照。缓存按账户隔离、拒收旧请求；历史 rollout 身份保持未知，近似校准不会回填账户归属。协议见 [NativeAnalytics](NativeAnalytics/README.md)。
-- 最新榜单直连 metrics schema 3，价格遵循实际聚合方式；日期栏保留原版格式。
+- 当时榜单直连 metrics schema 3；1.4.1 已改用网站稳定接口，见上节。
 
 ## 数据与隐私
 

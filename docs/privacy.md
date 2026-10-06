@@ -23,7 +23,9 @@ Codex Toolbox 不包含分析、广告或遥测 SDK，不调用模型处理 Toke
 
 ## 模型排名
 
-榜单请求 `https://codexradar.com/api/intelligence-efficiency-metrics`；用户开启站长推荐后，另外请求 `https://codexradar.com/api/radar-insights`。榜单另读取同口径的上游发布历史；这些来源只发送普通 GET 与 ETag/Last-Modified，缓存、错误状态相互隔离，不上传账户、Token、任务或设备信息。
+自 1.4.1 起，榜单和兼容历史统一请求 `https://zjwspace.cn/api/codex-toolbox/v1/radar.json`，由网站定时抓取、校验并发布上游聚合成绩，客户端刷新不触发上游抓取。请求只使用普通 GET 与 HTTP 缓存校验标识，不上传账户、Token、任务或设备信息。网站公开结果不包含原始参与者资料。
+
+用户开启默认关闭的站长推荐后，另外请求 `https://codexradar.com/api/radar-insights`；其缓存和错误状态与榜单相互隔离。
 
 ## 官方费率
 
