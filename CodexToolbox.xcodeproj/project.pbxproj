@@ -51,6 +51,7 @@
 		69C12EFFED18A1DCE2F223A8 /* RankingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446BF33A5C31169BC5B8F6AA /* RankingEngine.swift */; };
 		6A2952D1AB233EF03A693FF6 /* api-price-card-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F9124FA061A7B59A28C8E48 /* api-price-card-v1.json */; };
 		6B8E5522FE4CBD354AE6D7DC /* ModelRadarPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6FB33C022CCEB8BE655947 /* ModelRadarPreferences.swift */; };
+		6C53EDA8E3510CBC69B905E1 /* ManagedPublicDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B558FE21FAC32ACE1D3C5292 /* ManagedPublicDataTests.swift */; };
 		6CBF9D1C2B9AC1CEBEFF2C4A /* ResetCreditsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4764E357F2ABD8BAD8D2BF4E /* ResetCreditsClient.swift */; };
 		6D5EE5E82EDDEE9860D57378 /* DailyTaskQuotaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AC8C24134558A02EEECF67 /* DailyTaskQuotaTests.swift */; };
 		746809FDC1D27E1893C412D7 /* DashboardSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92010C87A159F47696CE3F9 /* DashboardSettingsView.swift */; };
@@ -122,7 +123,6 @@
 		FCE6BF0CC76BD8902B0C9300 /* MetricFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */; };
 		FDCF48E410CE0C37CCE45F85 /* RankingMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2B54B2B2831C335A9D8C085 /* RankingMetric.swift */; };
 		FE6BE64F0F5E9E11A8424319 /* NativeTaskQuota.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E810F14BE5CF3A4D98CA58 /* NativeTaskQuota.swift */; };
-		FE90213B45342F36EDB40C2D /* RadarHistoryLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611DEB97046BB4B69C7F253C /* RadarHistoryLoader.swift */; };
 		FEF21C43BEF422DDA7C4C1AD /* AppMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7CCDB7546E7F02992918C /* AppMetadata.swift */; };
 /* End PBXBuildFile section */
 
@@ -199,7 +199,6 @@
 		58FAFAA5A5425AA046088F30 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		5A07D23FF9C86034D7082DA8 /* StationRecommendationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRecommendationTests.swift; sourceTree = "<group>"; };
 		5B2A3C527FF036501C6386C9 /* NetworkRecoveryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkRecoveryPolicy.swift; sourceTree = "<group>"; };
-		611DEB97046BB4B69C7F253C /* RadarHistoryLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarHistoryLoader.swift; sourceTree = "<group>"; };
 		65872EFA2F09D0FC3D79D8C9 /* SnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotStore.swift; sourceTree = "<group>"; };
 		667B732144948E89B9D4F62F /* libCodexToolboxCore.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCodexToolboxCore.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		66923E26C70902341D912CF9 /* ModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelCatalog.swift; sourceTree = "<group>"; };
@@ -236,6 +235,7 @@
 		AB76659D2A03977A29354529 /* RadarScoreLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarScoreLabel.swift; sourceTree = "<group>"; };
 		ACB9676956C6080A3FF503E4 /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
 		B099078A533B7CFC11096D88 /* AppUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdateManager.swift; sourceTree = "<group>"; };
+		B558FE21FAC32ACE1D3C5292 /* ManagedPublicDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedPublicDataTests.swift; sourceTree = "<group>"; };
 		B75857D498B5AC7B1C8AAF95 /* MenuBarSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarSettingsView.swift; sourceTree = "<group>"; };
 		B7C5B9146B3A0D02AAA2D8EB /* CodexToolboxApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexToolboxApp.swift; sourceTree = "<group>"; };
 		B7FE8CAFD70220B4AEBA166B /* TokenUsageSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenUsageSettingsView.swift; sourceTree = "<group>"; };
@@ -398,7 +398,6 @@
 				2941BA2903DB71C9EC8BCB73 /* APIPriceCardRepository.swift */,
 				675695D575BCF43E22ADB551 /* ApplicationSupportLayout.swift */,
 				A04DB88CA844CD8A51F16DA6 /* RadarClient.swift */,
-				611DEB97046BB4B69C7F253C /* RadarHistoryLoader.swift */,
 				19A40743771F2B607DF7D4C1 /* RadarRepository.swift */,
 				9C0F7217AAF21650EFC3E376 /* RateCardRepository.swift */,
 				65872EFA2F09D0FC3D79D8C9 /* SnapshotStore.swift */,
@@ -555,6 +554,7 @@
 				84F7449DFB6259977A9DD7A8 /* DashboardSummaryFormatterTests.swift */,
 				266E0CE36A326DAEC2D306F7 /* GitHubReleaseClientTests.swift */,
 				0F5EFAEE3C5DFA8278567958 /* LocalCodexUsageReaderTests.swift */,
+				B558FE21FAC32ACE1D3C5292 /* ManagedPublicDataTests.swift */,
 				8CF9103DD27E23FCC325C72E /* ManagedRadarTests.swift */,
 				8938FE7F57DF428258674FA1 /* MenuBarConfigurationTests.swift */,
 				58373DF869E5DF084D7B39FC /* MetricFormatterTests.swift */,
@@ -830,6 +830,7 @@
 				658A385F650BBB5F5C9BF6DB /* DashboardSummaryFormatterTests.swift in Sources */,
 				9334398A3C124A7D92848BF9 /* GitHubReleaseClientTests.swift in Sources */,
 				BA414A6CA976DBB5547F489D /* LocalCodexUsageReaderTests.swift in Sources */,
+				6C53EDA8E3510CBC69B905E1 /* ManagedPublicDataTests.swift in Sources */,
 				32B269F4129B33455AC2EE99 /* ManagedRadarTests.swift in Sources */,
 				7AF917A5436AD26573A420C6 /* MenuBarConfigurationTests.swift in Sources */,
 				FCE6BF0CC76BD8902B0C9300 /* MetricFormatterTests.swift in Sources */,
@@ -877,7 +878,6 @@
 				FE6BE64F0F5E9E11A8424319 /* NativeTaskQuota.swift in Sources */,
 				E2667E97FF18A47559982E28 /* NetworkRecoveryPolicy.swift in Sources */,
 				9ADC39D62A171E52ED0C91D6 /* RadarClient.swift in Sources */,
-				FE90213B45342F36EDB40C2D /* RadarHistoryLoader.swift in Sources */,
 				E346708A70B9482FEF3BF82D /* RadarRepository.swift in Sources */,
 				11EC903049EB4B5280121B01 /* RadarResponse.swift in Sources */,
 				69C12EFFED18A1DCE2F223A8 /* RankingEngine.swift in Sources */,
