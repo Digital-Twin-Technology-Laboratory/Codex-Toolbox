@@ -83,6 +83,24 @@ final class SnapshotStoreTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    func testDuplicateCachedCostPointsKeepNewestWithoutCrashing() {
+        let old = CostHistoryPoint(modelID: "model", dateKey: "day", costUSD: 10, recordedAt: .distantPast)
+        let new = CostHistoryPoint(modelID: "model", dateKey: "day", costUSD: 12, recordedAt: Date())
+        let merged = CostHistoryBuilder.merging([new, old], benchmarks: [], recordedAt: Date())
+        XCTAssertEqual(merged, [new])
+    }
+
+    func testDuplicateCachedModelsAreRejectedBeforeRefresh() async throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("cache.json")
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let model = ModelBenchmark(id: "duplicate", label: "model", model: "model", reasoningEffort: "high", latest: nil, recentDays: [])
+        let snapshot = RadarSnapshot(schemaVersion: "2", sourceMonitoredAt: nil, fetchedAt: Date(), benchmarks: [model, model], validators: CacheValidators())
+        let store = SnapshotStore(fileURL: file)
+        try await store.save(StoredRadarState(snapshot: snapshot, costHistory: []))
+        do { _ = try await store.load(); XCTFail("Duplicate identities must not reach dictionary construction") }
+        catch { XCTAssertEqual(error as? RadarClientError, .invalidPayload("重复的模型档位。")) }
+    }
+
     private func fixtureSnapshot() -> RadarSnapshot {
         RadarSnapshot(
             schemaVersion: "2.0",

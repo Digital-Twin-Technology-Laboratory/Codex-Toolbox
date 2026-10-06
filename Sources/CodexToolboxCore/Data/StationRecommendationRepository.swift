@@ -83,7 +83,7 @@ public actor StationRecommendationRepository {
             state = StationRecommendationRepositoryState(
                 snapshot: snapshot,
                 isStale: snapshot.map {
-                    now().timeIntervalSince($0.fetchedAt) > Self.staleThreshold || $0.managed?.status == "upstream_error"
+                    now().timeIntervalSince($0.fetchedAt) > Self.staleThreshold || ($0.managed.map { $0.status != "current" } ?? false)
                 } ?? false,
                 errorMessage: nil
             )
@@ -113,9 +113,15 @@ public actor StationRecommendationRepository {
                 let snapshot: StationRecommendationSnapshot
                 switch result {
                 case let .modified(value):
-                    if let old = previous.snapshot?.managed, let new = value.managed,
-                       new.revision < old.revision {
-                        throw StationRecommendationClientError.invalidPayload("发布版本倒退，保留有效缓存。")
+                    if let oldSnapshot = previous.snapshot, let old = oldSnapshot.managed {
+                        guard let new = value.managed, new.revision >= old.revision, new.generation >= old.generation else {
+                            throw StationRecommendationClientError.invalidPayload("发布版本倒退，保留有效缓存。")
+                        }
+                        if new.revision == old.revision && (new != old || value.schema != oldSnapshot.schema
+                            || value.mode != oldSnapshot.mode || value.generatedAt != oldSnapshot.generatedAt
+                            || value.sourceUpdatedAt != oldSnapshot.sourceUpdatedAt || value.scenarios != oldSnapshot.scenarios) {
+                            throw StationRecommendationClientError.invalidPayload("同一发布版本的数据发生变化。")
+                        }
                     }
                     if let old = previous.snapshot, old.managed?.generation == value.managed?.generation,
                        let oldDate = old.sourceUpdatedAt.flatMap(MetricFormatter.sourceDate),
@@ -141,7 +147,7 @@ public actor StationRecommendationRepository {
                 try await store.save(snapshot)
                 return StationRecommendationRepositoryState(
                     snapshot: snapshot,
-                    isStale: snapshot.managed?.status == "upstream_error",
+                    isStale: snapshot.managed.map { $0.status != "current" } ?? false,
                     errorMessage: nil
                 )
             } catch {

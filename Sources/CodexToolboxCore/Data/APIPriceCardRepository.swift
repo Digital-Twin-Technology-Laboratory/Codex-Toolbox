@@ -77,8 +77,8 @@ public final class URLSessionAPIPriceCardClient: APIPriceCardReading, @unchecked
             throw APIPriceCardClientError.invalidResponse
         }
         let validators = CacheValidators(
-            etag: http.value(forHTTPHeaderField: "ETag") ?? cacheValidators?.etag,
-            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified,
+            etag: http.value(forHTTPHeaderField: "ETag") ?? (http.statusCode == 304 ? cacheValidators?.etag : nil),
+            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? (http.statusCode == 304 ? cacheValidators?.lastModified : nil),
             sourceURL: endpoint.absoluteString
         )
         if http.statusCode == 304 {

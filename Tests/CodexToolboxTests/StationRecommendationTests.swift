@@ -109,6 +109,37 @@ final class StationRecommendationTests: XCTestCase {
         XCTAssertEqual(requestCount, 0)
     }
 
+    func testManagedRecommendationRollbackStaysHistoricalAcross304AndRestart() async throws {
+        let old = managedSnapshot(revision: 1, generation: 1)
+        let rollback = managedSnapshot(revision: 2, generation: 2, status: "historical", date: "2026-08-01T00:00:00Z")
+        let store = StationStoreStub(snapshot: old)
+        let repository = StationRecommendationRepository(client: StationClientStub(behavior: .modified(rollback)), store: store)
+        _ = await repository.loadCached()
+        let updated = await repository.refresh()
+        XCTAssertEqual(updated.snapshot, rollback); XCTAssertTrue(updated.isStale)
+        let restarted = StationRecommendationRepository(client: StationClientStub(behavior: .notModified), store: store)
+        let cached = await restarted.loadCached()
+        let checked = await restarted.refresh()
+        XCTAssertTrue(cached.isStale); XCTAssertTrue(checked.isStale)
+    }
+
+    func testRecommendationRejectsGenerationRegressionAndRewrittenRevision() async {
+        let old = managedSnapshot(revision: 3, generation: 2)
+        for invalid in [managedSnapshot(revision: 4, generation: 1), managedSnapshot(revision: 3, generation: 2, date: "2026-08-12T00:00:00Z"), sampleSnapshot()] {
+            let repository = StationRecommendationRepository(client: StationClientStub(behavior: .modified(invalid)), store: StationStoreStub(snapshot: old))
+            _ = await repository.loadCached()
+            let failed = await repository.refresh()
+            XCTAssertEqual(failed.snapshot, old); XCTAssertTrue(failed.isStale); XCTAssertNotNil(failed.errorMessage)
+        }
+    }
+
+    private func managedSnapshot(revision: Int, generation: Int, status: String = "current", date: String = "2026-08-11T00:00:00Z") -> StationRecommendationSnapshot {
+        let sample = sampleSnapshot()
+        return StationRecommendationSnapshot(schema: sample.schema, mode: sample.mode, generatedAt: date,
+            sourceUpdatedAt: date, fetchedAt: Date(), scenarios: sample.scenarios, validators: CacheValidators(),
+            managed: ManagedRecommendationMetadata(revision: revision, generation: generation, status: status))
+    }
+
     private func sampleSnapshot() -> StationRecommendationSnapshot {
         StationRecommendationSnapshot(
             schema: 1,
@@ -150,7 +181,7 @@ private actor StationStoreStub: StationRecommendationStoring {
 }
 
 private actor StationClientStub: StationRecommendationReading {
-    enum Behavior: Sendable { case failure }
+    enum Behavior: Sendable { case failure, modified(StationRecommendationSnapshot), notModified }
     private let behavior: Behavior
     private var requests = 0
 
@@ -159,6 +190,8 @@ private actor StationClientStub: StationRecommendationReading {
     func fetch(cacheValidators: CacheValidators?) async throws -> StationRecommendationFetchResult {
         requests += 1
         switch behavior {
+        case let .modified(snapshot): return .modified(snapshot)
+        case .notModified: return .notModified(CacheValidators())
         case .failure:
             throw StationRecommendationClientError.httpStatus(503)
         }

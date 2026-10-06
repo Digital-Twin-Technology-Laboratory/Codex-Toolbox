@@ -23,7 +23,11 @@ public enum CostHistoryBuilder {
         recordedAt: Date,
         limitPerModel: Int = 90
     ) -> [CostHistoryPoint] {
-        var points = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        var points: [String: CostHistoryPoint] = [:]
+        for point in existing where point.costUSD.isFinite && point.costUSD >= 0 {
+            if let saved = points[point.id], saved.recordedAt > point.recordedAt { continue }
+            points[point.id] = point
+        }
         for benchmark in benchmarks {
             guard
                 let latest = benchmark.latest,
@@ -99,7 +103,7 @@ public actor SnapshotStore: SnapshotStoring {
     public func load() async throws -> StoredRadarState? {
         if fileManager.fileExists(atPath: fileURL.path) {
             let data = try Data(contentsOf: fileURL)
-            return try Self.decoder.decode(StoredRadarState.self, from: data)
+            return try Self.decode(data)
         }
         guard
             let legacyFileURL,
@@ -107,7 +111,7 @@ public actor SnapshotStore: SnapshotStoring {
         else { return nil }
 
         let data = try Data(contentsOf: legacyFileURL)
-        let state = try Self.decoder.decode(StoredRadarState.self, from: data)
+        let state = try Self.decode(data)
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -121,6 +125,14 @@ public actor SnapshotStore: SnapshotStoring {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let data = try Self.encoder.encode(state)
         try data.write(to: fileURL, options: .atomic)
+    }
+
+    private static func decode(_ data: Data) throws -> StoredRadarState {
+        let state = try decoder.decode(StoredRadarState.self, from: data)
+        guard Set(state.snapshot.benchmarks.map(\.id)).count == state.snapshot.benchmarks.count else {
+            throw RadarClientError.invalidPayload("重复的模型档位。")
+        }
+        return state
     }
 
     private static let encoder: JSONEncoder = {

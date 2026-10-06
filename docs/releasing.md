@@ -116,3 +116,9 @@ bash scripts/generate_appcast.sh \
 3. 脚本会重新执行 PKG 与 DMG 的签名、staple 和 Gatekeeper 门禁，生成 Ed25519 签名 appcast，确认本地 `main` 与 `origin/main` 没有分叉，推送 `main`，验证两个远端价格清单已可读取且与本地一致，再创建注释标签 `v1.4.0`，并上传两种格式、各自校验和与 `appcast.xml`，创建不带 `--prerelease` 的普通 GitHub Release。
 
 已发布的标签与附件不得覆盖；任何修复使用新版本号。
+
+## 1.4.1 / Build 63 准备状态
+
+最终候选的验证与限制见 [最终审查](verification/v1.4.1-final-audit.md)。准备的附件为 `Codex-Toolbox-1.4.1-universal.pkg`、`.pkg.sha256`、`Codex-Toolbox-1.4.1-universal.dmg`、`.dmg.sha256` 和 `appcast.xml`。公开发布须在用户手动验收并明确授权后，从最终提交的干净 main checkout 执行。既有工作区用户未跟踪文件不应删除。
+
+1.4.1 四类公共数据直接读取个人网站。两个 GitHub 价格文件继续作为旧版本兼容镜像；发布脚本检查网站快照保留所有内置历史。接口成功不等于上游数据更新，实际状态以后台源日期和诊断为准。
