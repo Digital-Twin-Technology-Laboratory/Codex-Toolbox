@@ -37,7 +37,7 @@ public enum DashboardSummaryFormatter {
         } else {
             quota = "额度暂无数据"
         }
-        return quota + " · 重置卡 \(snapshot.availableCount) 张" + (isStale ? " · 缓存" : "")
+        return quota + " · 重置卡 \(snapshot.availableCount) 张"
     }
 
     public static func remainingPercent(_ value: Double) -> String {

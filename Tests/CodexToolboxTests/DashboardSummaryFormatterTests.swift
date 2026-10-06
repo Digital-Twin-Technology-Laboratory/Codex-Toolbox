@@ -54,10 +54,10 @@ final class DashboardSummaryFormatterTests: XCTestCase {
         XCTAssertEqual(account([window(10_080, expiresIn: 0), window(300)]), "额度待更新 · 重置卡 2 张")
     }
 
-    func testMissingWindowCacheAndLoadingRemainExplicit() {
+    func testCachedSummaryOmitsCacheLabelButPreservesMissingExpiredAndLoadingStates() {
         XCTAssertEqual(account([]), "额度暂无数据 · 重置卡 2 张")
-        XCTAssertEqual(account([window(10_080)], stale: true), "周70% · 重置卡 2 张 · 缓存")
-        XCTAssertEqual(account([window(10_080, expiresIn: -1)], stale: true), "额度待更新 · 重置卡 2 张 · 缓存")
+        XCTAssertEqual(account([window(10_080)], stale: true), "周70% · 重置卡 2 张")
+        XCTAssertEqual(account([window(10_080, expiresIn: -1)], stale: true), "额度待更新 · 重置卡 2 张")
         XCTAssertEqual(DashboardSummaryFormatter.account(nil, isLoading: false, isStale: false, now: now), "暂无数据")
         XCTAssertEqual(DashboardSummaryFormatter.account(nil, isLoading: true, isStale: false, now: now), "正在读取…")
     }

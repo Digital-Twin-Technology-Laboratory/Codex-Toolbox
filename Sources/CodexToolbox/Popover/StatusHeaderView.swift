@@ -12,7 +12,7 @@ struct StatusHeaderView: View {
                     .foregroundStyle(tint)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(appModel.snapshot?.managed?.dataset.name ?? "Codex 雷达数据日期")
+                    Text("Codex 雷达数据日期")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
 
@@ -51,6 +51,7 @@ struct StatusHeaderView: View {
     private var syncDetails: String {
         var details = [appModel.radarStatusLabel]
         if let managed = appModel.snapshot?.managed {
+            details.append("评测基准：" + managed.dataset.name)
             details.append("网站检查：" + MetricFormatter.benchmarkDateLabel(managed.checkedAt, includesDetailedTime: true))
             details.append(contentsOf: managed.sources.map { "来源：" + $0.name })
         }
