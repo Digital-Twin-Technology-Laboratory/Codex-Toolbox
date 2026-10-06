@@ -37,10 +37,13 @@ final class RefreshSchedulerTests: XCTestCase {
         let stoppedCount = await counter.value()
         XCTAssertEqual(stoppedCount, 0)
 
+        let restarted = expectation(description: "Restarted scheduler runs its operation")
+        restarted.assertForOverFulfill = false
         await scheduler.configure(enabled: true, every: .milliseconds(10)) {
             await counter.increment()
+            restarted.fulfill()
         }
-        try await Task.sleep(for: .milliseconds(35))
+        await fulfillment(of: [restarted], timeout: 5)
         await scheduler.stop()
         let restartedCount = await counter.value()
         XCTAssertGreaterThanOrEqual(restartedCount, 1)
