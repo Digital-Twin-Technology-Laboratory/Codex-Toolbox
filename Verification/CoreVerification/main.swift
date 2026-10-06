@@ -41,6 +41,19 @@ if let index = CommandLine.arguments.firstIndex(of: "--native-analytics-helper")
     exit(0)
 }
 
+if let index = CommandLine.arguments.firstIndex(of: "--public-feeds-base"), CommandLine.arguments.indices.contains(index + 1) {
+    let base = URL(string: CommandLine.arguments[index + 1])!
+    let session = URLSession(configuration: .ephemeral)
+    let radar = try await URLSessionRadarClient(session: session, endpoint: base.appendingPathComponent("radar.json"), usesManagedFeed: true).fetch(cacheValidators: nil)
+    let recommendations = try await URLSessionStationRecommendationClient(session: session, endpoint: base.appendingPathComponent("recommendations.json")).fetch(cacheValidators: nil)
+    let rates = try await URLSessionRateCardClient(session: session, endpoint: base.appendingPathComponent("codex-rate-card.json")).fetch(cacheValidators: nil)
+    let prices = try await URLSessionAPIPriceCardClient(session: session, endpoint: base.appendingPathComponent("api-price-card.json")).fetch(cacheValidators: nil)
+    guard case let .modified(r) = radar, case let .modified(rec) = recommendations,
+          case let .modified(rate, _) = rates, case let .modified(price, _) = prices else { fatalError("Expected four feeds") }
+    print("Four public feeds verified: models=\(r.benchmarks.count), recommendations=\(rec.scenarios.count), rates=\(rate.currentVersion), prices=\(price.currentVersion)")
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--live-radar") {
     let endpointIndex = CommandLine.arguments.firstIndex(of: "--radar-endpoint")
     let endpoint = endpointIndex.flatMap { index in

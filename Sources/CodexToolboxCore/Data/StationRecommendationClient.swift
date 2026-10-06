@@ -53,6 +53,7 @@ public final class URLSessionStationRecommendationClient: StationRecommendationR
     }
 
     public func fetch(cacheValidators: CacheValidators?) async throws -> StationRecommendationFetchResult {
+        let cacheValidators = cacheValidators?.sourceURL == endpoint.absoluteString ? cacheValidators : nil
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
         request.timeoutInterval = 15
@@ -74,9 +75,13 @@ public final class URLSessionStationRecommendationClient: StationRecommendationR
         }
         let validators = CacheValidators(
             etag: http.value(forHTTPHeaderField: "ETag") ?? cacheValidators?.etag,
-            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified
+            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified,
+            sourceURL: endpoint.absoluteString
         )
-        if http.statusCode == 304 { return .notModified(validators) }
+        if http.statusCode == 304 {
+            guard cacheValidators != nil else { throw StationRecommendationClientError.invalidResponse }
+            return .notModified(validators)
+        }
         guard (200...299).contains(http.statusCode) else {
             throw StationRecommendationClientError.httpStatus(http.statusCode)
         }
@@ -87,6 +92,12 @@ public final class URLSessionStationRecommendationClient: StationRecommendationR
                 throw StationRecommendationClientError.invalidPayload(
                     "不支持的数据版本：\(payload.schema)"
                 )
+            }
+            if let managed = payload.managed {
+                guard managed.revision > 0, managed.generation > 0,
+                      ["current", "historical", "upstream_error"].contains(managed.status) else {
+                    throw StationRecommendationClientError.invalidPayload("无效的数据状态。")
+                }
             }
             let scenarios = payload.scenarios
             guard !scenarios.isEmpty else {
@@ -100,7 +111,8 @@ public final class URLSessionStationRecommendationClient: StationRecommendationR
                     sourceUpdatedAt: payload.sourceUpdatedAt,
                     fetchedAt: now(),
                     scenarios: scenarios,
-                    validators: validators
+                    validators: validators,
+                    managed: payload.managed
                 )
             )
         } catch let error as StationRecommendationClientError {

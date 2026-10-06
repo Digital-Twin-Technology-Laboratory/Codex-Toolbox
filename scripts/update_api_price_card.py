@@ -384,23 +384,9 @@ def main() -> int:
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
 
-    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    openai_rows = [
-        parse_openai_model_page(model_id, fetch(url), now.date().isoformat())
-        for model_id, url in OPENAI_MODEL_URLS.items()
-    ]
-    models_dev_rows = parse_models_dev(
-        fetch(MODELS_DEV_URL),
-        now.isoformat().replace("+00:00", "Z"),
-    )
-    updated, changed = apply_snapshot(manifest, openai_rows + models_dev_rows, now)
-    if changed and args.write:
-        args.manifest.write_text(
-            json.dumps(updated, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-    print("api-price-card-changed" if changed else "api-price-card-unchanged")
+    from mirror_public_manifests import mirror
+    changed = mirror("api-price-card", args.manifest, args.write)
+    print("owned-manifest-changed" if changed else "owned-manifest-unchanged")
     return 0
 
 

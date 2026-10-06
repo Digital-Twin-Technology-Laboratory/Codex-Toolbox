@@ -344,22 +344,9 @@ def main() -> int:
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
 
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    models, legacy = parse_rate_page(fetch(RATE_FETCH_URL))
-    fast = parse_speed_page(fetch(SPEED_SOURCE))
-    updated, changed = apply_snapshot(
-        manifest,
-        models,
-        legacy,
-        fast,
-        dt.datetime.now(dt.timezone.utc),
-    )
-    if changed and args.write:
-        args.manifest.write_text(
-            json.dumps(updated, ensure_ascii=False, indent=2, sort_keys=False) + "\n",
-            encoding="utf-8",
-        )
-    print("rate-card-changed" if changed else "rate-card-unchanged")
+    from mirror_public_manifests import mirror
+    changed = mirror("codex-rate-card", args.manifest, args.write)
+    print("owned-manifest-changed" if changed else "owned-manifest-unchanged")
     return 0
 
 

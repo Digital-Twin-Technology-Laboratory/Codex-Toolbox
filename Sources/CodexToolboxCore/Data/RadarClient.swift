@@ -4,9 +4,12 @@ public struct CacheValidators: Codable, Hashable, Sendable {
     public var etag: String?
     public var lastModified: String?
 
-    public init(etag: String? = nil, lastModified: String? = nil) {
+    public var sourceURL: String?
+
+    public init(etag: String? = nil, lastModified: String? = nil, sourceURL: String? = nil) {
         self.etag = etag
         self.lastModified = lastModified
+        self.sourceURL = sourceURL
     }
 }
 

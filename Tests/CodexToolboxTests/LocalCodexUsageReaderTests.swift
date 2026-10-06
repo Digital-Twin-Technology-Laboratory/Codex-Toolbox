@@ -38,7 +38,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(catalogue.threads.first?.title, "改名后的任务")
         XCTAssertEqual(second.summary(for: "2026-10-05")?.totalTokens, 10)
         XCTAssertEqual(second.summary(for: "2026-10-05")?.tasks.count, 1)
-        XCTAssertEqual(second.quotaObservations, first.quotaObservations)
+        XCTAssertEqual(second.quotaObservations.sorted { $0.tokenIncrement < $1.tokenIncrement }, first.quotaObservations.sorted { $0.tokenIncrement < $1.tokenIncrement })
         try FileManager.default.removeItem(at: rollout)
         try execute("UPDATE threads SET name = '历史任务的新名称' WHERE id = '\(root)';", in: handle)
         let missingRollout = try await reader.readUsage(now: now, calendar: calendar)

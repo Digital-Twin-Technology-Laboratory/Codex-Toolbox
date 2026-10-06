@@ -1,16 +1,15 @@
 name: Update Codex rate card
 
-# OpenAI Help Center currently challenges non-browser GitHub runners with HTTP
-# 403. Keep this verifier manual until an authoritative machine-readable source
-# is available; do not silently replace it with a third-party proxy.
 on:
+  schedule:
+    - cron: "13 */6 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: update-codex-rate-card
+  group: toolbox-public-manifest-mirror
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +27,7 @@ jobs:
       - name: Test strict parser
         run: python -m unittest discover -s Tests/RateCardScriptTests -v
 
-      - name: Fetch and validate official rates
+      - name: Mirror validated website rates
         run: python scripts/update_rate_card.py --write
 
       - name: Commit changed manifest only

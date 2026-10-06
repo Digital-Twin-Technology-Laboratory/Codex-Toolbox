@@ -47,6 +47,7 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
     }
 
     public func fetch(cacheValidators: CacheValidators?) async throws -> RateCardFetchResult {
+        let cacheValidators = cacheValidators?.sourceURL == endpoint.absoluteString ? cacheValidators : nil
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
         request.timeoutInterval = 15
@@ -76,9 +77,13 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         }
         let validators = CacheValidators(
             etag: http.value(forHTTPHeaderField: "ETag") ?? cacheValidators?.etag,
-            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified
+            lastModified: http.value(forHTTPHeaderField: "Last-Modified") ?? cacheValidators?.lastModified,
+            sourceURL: endpoint.absoluteString
         )
-        if http.statusCode == 304 { return .notModified(validators) }
+        if http.statusCode == 304 {
+            guard cacheValidators != nil else { throw RateCardClientError.invalidResponse }
+            return .notModified(validators)
+        }
         guard (200...299).contains(http.statusCode) else {
             throw RateCardClientError.httpStatus(http.statusCode)
         }

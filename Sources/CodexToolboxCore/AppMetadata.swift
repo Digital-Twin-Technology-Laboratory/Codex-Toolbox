@@ -7,18 +7,17 @@ public enum AppMetadata {
     public static let radarJSONURL = URL(
         string: "https://zjwspace.cn/api/codex-toolbox/v1/radar.json"
     )!
-    public static let radarHistoryURL = URL(string: "https://codexradar.com/data/intelligence-efficiency-codex.json")!
     public static let stationRecommendationsURL = URL(
-        string: "https://codexradar.com/api/radar-insights"
+        string: "https://zjwspace.cn/api/codex-toolbox/v1/recommendations.json"
     )!
     public static let repositoryURL = URL(
         string: "https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox"
     )!
     public static let rateCardManifestURL = URL(
-        string: "https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/Sources/CodexToolbox/Resources/codex-rate-card-v1.json"
+        string: "https://zjwspace.cn/api/codex-toolbox/v1/codex-rate-card.json"
     )!
     public static let apiPriceManifestURL = URL(
-        string: "https://raw.githubusercontent.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/main/Sources/CodexToolbox/Resources/api-price-card-v1.json"
+        string: "https://zjwspace.cn/api/codex-toolbox/v1/api-price-card.json"
     )!
     public static let releasesURL = repositoryURL.appendingPathComponent("releases")
     public static let latestReleasePageURL = releasesURL.appendingPathComponent("latest")

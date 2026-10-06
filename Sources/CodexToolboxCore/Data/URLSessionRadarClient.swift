@@ -3,7 +3,6 @@ import Foundation
 public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
     private let session: URLSession
     private let endpoint: URL
-    private let historyLoader: RadarHistoryLoader?
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async throws -> Void
     private let retryDelay: @Sendable (Int) -> Duration?
@@ -21,7 +20,6 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
     public init(
         session: URLSession,
         endpoint: URL = AppMetadata.radarJSONURL,
-        historyEndpoint: URL? = nil,
         usesManagedFeed: Bool? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { duration in
@@ -33,7 +31,6 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
         self.session = session
         self.endpoint = endpoint
         self.usesManagedFeed = usesManagedFeed ?? (endpoint == AppMetadata.radarJSONURL)
-        historyLoader = self.usesManagedFeed ? nil : historyEndpoint.map { RadarHistoryLoader(session: session, endpoint: $0) }
         self.now = now
         self.sleep = sleep
         self.retryDelay = retryDelay
@@ -102,11 +99,10 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
             guard let sourceUpdatedAt = response.normalizedSourceUpdatedAt, MetricFormatter.sourceDate(sourceUpdatedAt) != nil else {
                 throw RadarClientError.invalidPayload("聚合快照缺少 source_updated_at。")
             }
-            var benchmarks = response.benchmarks
+            let benchmarks = response.benchmarks
             guard !benchmarks.isEmpty else {
                 throw RadarClientError.invalidPayload("聚合快照没有可用的模型数据。")
             }
-            if let historyLoader, response.mode == "equal_latest_3", response.benchmarkID == "deep-swe" { benchmarks = await historyLoader.merging(into: benchmarks, sourceDate: sourceUpdatedAt) }
             return .modified(
                 RadarSnapshot(
                     schemaVersion: "intelligence-efficiency/\(response.schema)",

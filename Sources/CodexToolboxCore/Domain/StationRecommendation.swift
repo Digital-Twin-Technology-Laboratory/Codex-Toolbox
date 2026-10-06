@@ -113,6 +113,12 @@ public struct StationRecommendationScenario: Codable, Hashable, Identifiable, Se
     }
 }
 
+public struct ManagedRecommendationMetadata: Codable, Hashable, Sendable {
+    public let revision: Int
+    public let generation: Int
+    public let status: String
+}
+
 public struct StationRecommendationSnapshot: Codable, Hashable, Sendable {
     public let schema: Int
     public let mode: String
@@ -121,6 +127,7 @@ public struct StationRecommendationSnapshot: Codable, Hashable, Sendable {
     public let fetchedAt: Date
     public let scenarios: [StationRecommendationScenario]
     public let validators: CacheValidators
+    public let managed: ManagedRecommendationMetadata?
 
     public init(
         schema: Int,
@@ -129,7 +136,8 @@ public struct StationRecommendationSnapshot: Codable, Hashable, Sendable {
         sourceUpdatedAt: String?,
         fetchedAt: Date,
         scenarios: [StationRecommendationScenario],
-        validators: CacheValidators
+        validators: CacheValidators,
+        managed: ManagedRecommendationMetadata? = nil
     ) {
         self.schema = schema
         self.mode = mode
@@ -142,6 +150,7 @@ public struct StationRecommendationSnapshot: Codable, Hashable, Sendable {
         }
         self.scenarios = StationRecommendationScenarioKey.allCases.compactMap { byKey[$0] }
         self.validators = validators
+        self.managed = managed
     }
 
     public func scenario(for key: StationRecommendationScenarioKey) -> StationRecommendationScenario? {
@@ -155,9 +164,11 @@ struct StationRecommendationResponse: Decodable, Sendable {
     let generatedAt: String?
     let sourceUpdatedAt: String?
     let recommendations: [Recommendation]
+    let managed: ManagedRecommendationMetadata?
 
     private enum CodingKeys: String, CodingKey {
         case schema
+        case managed
         case mode
         case generatedAt = "generated_at"
         case sourceUpdatedAt = "source_updated_at"

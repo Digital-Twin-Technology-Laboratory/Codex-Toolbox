@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: update-api-price-card
+  group: toolbox-public-manifest-mirror
   cancel-in-progress: false
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       - name: Test strict price normalization
         run: python -m unittest discover -s Tests/APIPriceScriptTests -v
 
-      - name: Fetch and validate API prices
+      - name: Mirror validated website prices
         run: python scripts/update_api_price_card.py --write
 
       - name: Commit changed manifest only

@@ -83,7 +83,7 @@ public actor StationRecommendationRepository {
             state = StationRecommendationRepositoryState(
                 snapshot: snapshot,
                 isStale: snapshot.map {
-                    now().timeIntervalSince($0.fetchedAt) > Self.staleThreshold
+                    now().timeIntervalSince($0.fetchedAt) > Self.staleThreshold || $0.managed?.status == "upstream_error"
                 } ?? false,
                 errorMessage: nil
             )
@@ -112,6 +112,15 @@ public actor StationRecommendationRepository {
                 let snapshot: StationRecommendationSnapshot
                 switch result {
                 case let .modified(value):
+                    if let old = previous.snapshot?.managed, let new = value.managed,
+                       new.revision < old.revision {
+                        throw StationRecommendationClientError.invalidPayload("发布版本倒退，保留有效缓存。")
+                    }
+                    if let old = previous.snapshot, old.managed?.generation == value.managed?.generation,
+                       let oldDate = old.sourceUpdatedAt.flatMap(MetricFormatter.sourceDate),
+                       let newDate = value.sourceUpdatedAt.flatMap(MetricFormatter.sourceDate), newDate < oldDate {
+                        throw StationRecommendationClientError.invalidPayload("源数据日期倒退，保留有效缓存。")
+                    }
                     snapshot = value
                 case let .notModified(validators):
                     guard let cached = previous.snapshot else {
@@ -124,13 +133,14 @@ public actor StationRecommendationRepository {
                         sourceUpdatedAt: cached.sourceUpdatedAt,
                         fetchedAt: now(),
                         scenarios: cached.scenarios,
-                        validators: validators
+                        validators: validators,
+                        managed: cached.managed
                     )
                 }
                 try await store.save(snapshot)
                 return StationRecommendationRepositoryState(
                     snapshot: snapshot,
-                    isStale: false,
+                    isStale: snapshot.managed?.status == "upstream_error",
                     errorMessage: nil
                 )
             } catch {
