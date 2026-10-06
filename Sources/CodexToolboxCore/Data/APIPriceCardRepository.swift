@@ -70,6 +70,7 @@ public final class URLSessionAPIPriceCardClient: APIPriceCardReading, @unchecked
         } catch let error as CancellationError {
             throw error
         } catch {
+            PublicDataDiagnostics.record(error, feed: "api-price-card-network")
             throw APIPriceCardClientError.transport(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse else {
@@ -208,12 +209,13 @@ public actor APIPriceCardRepository {
                 errorMessage: nil
             )
         } catch {
+            PublicDataDiagnostics.record(error, feed: "api-price-card-cache")
             state = APIPriceCardRepositoryState(
                 manifest: bundledManifest,
                 source: .bundled,
                 fetchedAt: nil,
                 validators: CacheValidators(),
-                errorMessage: "API 价格缓存无法读取：\(error.localizedDescription)"
+                errorMessage: "价格更新失败，继续使用本地价格。"
             )
         }
         return state
@@ -262,12 +264,13 @@ public actor APIPriceCardRepository {
             } catch where Task.isCancelled {
                 return previous
             } catch {
+                PublicDataDiagnostics.record(error, feed: "api-price-card")
                 return APIPriceCardRepositoryState(
                     manifest: previous.manifest,
                     source: previous.source,
                     fetchedAt: previous.fetchedAt,
                     validators: previous.validators,
-                    errorMessage: error.localizedDescription
+                    errorMessage: "价格更新失败，继续使用本地价格。"
                 )
             }
         }

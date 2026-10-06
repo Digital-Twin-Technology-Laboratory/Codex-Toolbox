@@ -52,6 +52,7 @@ final class AppModel {
     var stationRecommendationState: StationRecommendationRepositoryState = .empty
     var rateCardState: RateCardRepositoryState
     var apiPriceCardState: APIPriceCardRepositoryState
+    let radarRefreshFeedback = RadarRefreshFeedback()
     var isRefreshing = false
     var isRefreshingStationRecommendations = false
     var isRefreshingRateCard = false
@@ -209,19 +210,17 @@ final class AppModel {
         updateManager.start()
     }
 
-    func refresh() async {
+    func refresh(manualFeedback: Bool = false) async {
         guard !isRefreshing else { return }
+        let feedbackID = radarRefreshFeedback.begin(manual: manualFeedback)
+        let previous = repositoryState.snapshot
         isRefreshing = true
-        if settings.showsStationRecommendations {
-            async let radar = repository.refresh()
-            async let station = stationRepository.refresh()
-            repositoryState = await radar
-            stationRecommendationState = await station
-        } else {
-            repositoryState = await repository.refresh()
-        }
+        async let station: Void = refreshStationRecommendations()
+        repositoryState = await repository.refresh()
         settings.migrateLegacyModelAliases(using: availableModels)
         isRefreshing = false
+        radarRefreshFeedback.finish(feedbackID, result: .comparing(previous: previous, current: repositoryState))
+        await station
     }
 
     func isModelVisible(model: String, reasoningEffort: String) -> Bool {

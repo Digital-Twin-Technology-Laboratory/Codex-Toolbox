@@ -70,6 +70,7 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         } catch let error as CancellationError {
             throw error
         } catch {
+            PublicDataDiagnostics.record(error, feed: "codex-rate-card-network")
             throw RateCardClientError.transport(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse else {
@@ -229,12 +230,13 @@ public actor RateCardRepository {
                 errorMessage: nil
             )
         } catch {
+            PublicDataDiagnostics.record(error, feed: "codex-rate-card-cache")
             state = RateCardRepositoryState(
                 manifest: bundledManifest,
                 source: .bundled,
                 fetchedAt: nil,
                 validators: CacheValidators(),
-                errorMessage: "官方费率缓存无法读取：\(error.localizedDescription)"
+                errorMessage: "费率更新失败，继续使用本地费率。"
             )
         }
         return state
@@ -285,12 +287,13 @@ public actor RateCardRepository {
             } catch where Task.isCancelled {
                 return previous
             } catch {
+                PublicDataDiagnostics.record(error, feed: "codex-rate-card")
                 return RateCardRepositoryState(
                     manifest: previous.manifest,
                     source: previous.source,
                     fetchedAt: previous.fetchedAt,
                     validators: previous.validators,
-                    errorMessage: error.localizedDescription
+                    errorMessage: "费率更新失败，继续使用本地费率。"
                 )
             }
         }

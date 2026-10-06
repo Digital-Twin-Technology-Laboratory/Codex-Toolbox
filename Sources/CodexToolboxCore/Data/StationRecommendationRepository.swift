@@ -88,6 +88,7 @@ public actor StationRecommendationRepository {
                 errorMessage: nil
             )
         } catch {
+            PublicDataDiagnostics.record(error, feed: "recommendations-cache")
             state = StationRecommendationRepositoryState(
                 snapshot: nil,
                 isStale: true,
@@ -144,6 +145,7 @@ public actor StationRecommendationRepository {
                     errorMessage: nil
                 )
             } catch {
+                PublicDataDiagnostics.record(error, feed: "recommendations")
                 return StationRecommendationRepositoryState(
                     snapshot: previous.snapshot,
                     isStale: previous.snapshot != nil,

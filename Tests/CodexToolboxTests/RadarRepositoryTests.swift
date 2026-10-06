@@ -41,7 +41,7 @@ final class RadarRepositoryTests: XCTestCase {
 
         XCTAssertEqual(failed.snapshot, cached.snapshot)
         XCTAssertTrue(failed.isStale)
-        XCTAssertNotNil(failed.errorMessage)
+        XCTAssertNil(failed.errorMessage)
     }
 
     func testTransientFailureWithCacheUsesStaleDataWithoutBanner() async throws {
@@ -105,7 +105,9 @@ final class RadarRepositoryTests: XCTestCase {
             schemaVersion: "2.0",
             sourceMonitoredAt: "2026-07-13T16:30:00+08:00",
             fetchedAt: Date(timeIntervalSince1970: 1_700_000_000),
-            benchmarks: [],
+            benchmarks: [ModelBenchmark(id: "model", label: "Model", model: "gpt-6-sol", reasoningEffort: "high",
+                latest: BenchmarkRecord(date: "2026-07-13T16:30:00+08:00", score: 100, status: nil,
+                                        passed: 1, tasks: 1, wallSeconds: 60, costUSD: 1), recentDays: [])],
             validators: CacheValidators(etag: "etag")
         )
     }

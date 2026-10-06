@@ -196,7 +196,7 @@ struct RankingSection: View {
     }
 
     private var rankingTitle: String {
-        metric == .iq ? scoreLabel + "榜" : metric.rankingTitle(overallMode: overallMode)
+        metric.rankingTitle(overallMode: overallMode)
     }
 
     private var tint: Color {

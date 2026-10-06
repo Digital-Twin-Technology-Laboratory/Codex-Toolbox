@@ -101,11 +101,13 @@ struct DashboardView: View {
             Task { await appModel.refreshAllIfNeeded() }
         }
         .onDisappear {
+            appModel.radarRefreshFeedback.clear()
             scrollIndicatorDebounceTask?.cancel()
             scrollIndicatorDebounceTask = nil
             interaction.collapseTrend()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
+            appModel.radarRefreshFeedback.clear()
             interaction.collapseTrend()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSPopover.willShowNotification)) { _ in
@@ -210,6 +212,7 @@ struct DashboardView: View {
                 collapsedSummary: moduleSummary(module),
                 isCollapsed: collapsed,
                 isRefreshing: isRefreshing(module),
+                refreshFeedback: module == .modelRadar ? appModel.radarRefreshFeedback.result : nil,
                 refresh: { refresh(module) },
                 toggleCollapsed: {
                     withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
@@ -250,7 +253,7 @@ struct DashboardView: View {
 
     @ViewBuilder
     private var modelRadarContent: some View {
-        if appModel.snapshot == nil, !appModel.isInitialLoading {
+        if appModel.availableModels.isEmpty, !appModel.isInitialLoading {
             RadarEmptyStateView(appModel: appModel)
                 .frame(maxWidth: .infinity, minHeight: 150)
         } else if appModel.snapshot != nil, appModel.visibleModels.isEmpty {
@@ -459,7 +462,7 @@ struct DashboardView: View {
     private func refresh(_ module: ToolboxModule) {
         Task {
             switch module {
-            case .modelRadar: await appModel.refresh()
+            case .modelRadar: await appModel.refresh(manualFeedback: true)
             case .tokenUsage:
                 await appModel.refreshUsage()
                 await appModel.refreshNativeTaskQuota(force: true)

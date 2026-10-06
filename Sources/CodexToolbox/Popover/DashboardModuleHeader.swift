@@ -7,6 +7,7 @@ struct DashboardModuleHeader: View {
     let collapsedSummary: String?
     let isCollapsed: Bool
     let isRefreshing: Bool
+    var refreshFeedback: RadarRefreshResult? = nil
     let refresh: () -> Void
     let toggleCollapsed: () -> Void
 
@@ -43,7 +44,7 @@ struct DashboardModuleHeader: View {
 
                     // Reserve the refresh control's hit region while letting
                     // the rest of the 44 pt row toggle the module.
-                    Color.clear.frame(width: 32, height: 32)
+                    Color.clear.frame(width: refreshFeedback == nil ? 32 : 100, height: 32)
 
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .bold))
@@ -57,6 +58,15 @@ struct DashboardModuleHeader: View {
             .help(isCollapsed ? "展开\(module.displayName)" : "折叠\(module.displayName)")
             .accessibilityLabel(toggleAccessibilityLabel)
             .accessibilityHint("也可点击整行标题切换")
+
+            if let refreshFeedback {
+                Text(refreshFeedback.message)
+                    .font(.caption)
+                    .foregroundStyle(refreshFeedback == .failed ? .orange : .secondary)
+                    .lineLimit(1)
+                    .padding(.trailing, 78)
+                    .allowsHitTesting(false)
+            }
 
             Button(action: refresh) {
                 Group {

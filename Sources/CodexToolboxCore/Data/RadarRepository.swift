@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 public struct RadarRepositoryState: Sendable, Equatable {
     public let snapshot: RadarSnapshot?
@@ -29,6 +30,68 @@ public struct RadarRepositoryState: Sendable, Equatable {
         self.errorMessage = errorMessage
         self.checkedAt = checkedAt
         self.refreshFailed = refreshFailed
+    }
+}
+
+public enum RadarRefreshResult: Sendable, Equatable {
+    case updated, unchanged, failed
+
+    public var message: String {
+        switch self {
+        case .updated: "刷新成功"
+        case .unchanged: "已是最新"
+        case .failed: "刷新失败"
+        }
+    }
+
+    public static func comparing(previous: RadarSnapshot?, current: RadarRepositoryState) -> Self {
+        guard !current.refreshFailed, let snapshot = current.snapshot,
+              !snapshot.benchmarks.isEmpty, snapshot.managed?.status != "no_data" else { return .failed }
+        guard let previous else { return .updated }
+        func models(_ snapshot: RadarSnapshot) -> [ModelBenchmark] {
+            snapshot.benchmarks.sorted { $0.id < $1.id }.map {
+                ModelBenchmark(id: $0.id, label: $0.label, model: $0.model, reasoningEffort: $0.reasoningEffort,
+                               latest: $0.latest, recentDays: $0.recentDays.sorted { $0.date < $1.date })
+            }
+        }
+        return previous.sourceMonitoredAt == snapshot.sourceMonitoredAt
+            && previous.managed?.dataset == snapshot.managed?.dataset
+            && previous.semanticsKey == snapshot.semanticsKey
+            && models(previous) == models(snapshot) ? .unchanged : .updated
+    }
+}
+
+@MainActor @Observable
+public final class RadarRefreshFeedback {
+    public private(set) var result: RadarRefreshResult?
+    private var requestID: UUID?
+    private var dismissal: Task<Void, Never>?
+    private let duration: Duration
+
+    public init(duration: Duration = .seconds(3)) { self.duration = duration }
+
+    public func begin(manual: Bool) -> UUID? {
+        clear()
+        requestID = manual ? UUID() : nil
+        return requestID
+    }
+
+    public func finish(_ id: UUID?, result: RadarRefreshResult) {
+        guard let id, id == requestID else { return }
+        dismissal?.cancel()
+        self.result = result
+        dismissal = Task { [weak self, duration] in
+            do { try await Task.sleep(for: duration) } catch { return }
+            guard let self, self.requestID == id else { return }
+            self.clear()
+        }
+    }
+
+    public func clear() {
+        dismissal?.cancel()
+        dismissal = nil
+        requestID = nil
+        result = nil
     }
 }
 
@@ -63,11 +126,12 @@ public actor RadarRepository {
                 errorMessage: nil
             )
         } catch {
+            PublicDataDiagnostics.record(error, feed: "radar-cache")
             state = RadarRepositoryState(
                 snapshot: nil,
                 costHistory: [],
                 isStale: true,
-                errorMessage: "本地缓存无法读取：\(error.localizedDescription)"
+                errorMessage: "暂时无法获取榜单数据，请稍后重试。"
             )
         }
         return state
@@ -150,17 +214,18 @@ public actor RadarRepository {
                     checkedAt: now()
                 )
             } catch {
-                let hasCache = previous.snapshot != nil
+                PublicDataDiagnostics.record(error, feed: "radar")
+                let hasCache = previous.snapshot?.benchmarks.isEmpty == false
                 let isTransient = NetworkRecoveryPolicy.failure(in: error) != nil
                 return RadarRepositoryState(
                     snapshot: previous.snapshot,
                     costHistory: previous.costHistory,
-                    isStale: hasCache,
-                    errorMessage: isTransient && hasCache
+                    isStale: previous.snapshot != nil,
+                    errorMessage: hasCache
                         ? nil
                         : isTransient
                             ? "网络暂不可用，恢复连接后请重试。"
-                            : error.localizedDescription,
+                            : "暂时无法获取榜单数据，请稍后重试。",
                     checkedAt: now(),
                     refreshFailed: true
                 )

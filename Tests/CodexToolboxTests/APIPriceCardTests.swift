@@ -15,6 +15,14 @@ final class APIPriceCardTests: XCTestCase {
         XCTAssertEqual(state.source, .bundled)
         XCTAssertNil(state.errorMessage)
     }
+    func testPriceFailureKeepsBundledPricesWithoutExposingTransportDetails() async {
+        let bundled = manifest(models: [])
+        let repository = APIPriceCardRepository(bundledManifest: bundled, client: FailedPriceClient(), store: CancellationPriceStore())
+        let result = await repository.refresh()
+        XCTAssertEqual(result.manifest, bundled)
+        XCTAssertEqual(result.errorMessage, "价格更新失败，继续使用本地价格。")
+    }
+
     func testOnlinePriceErrorsIdentifyFallbackInsteadOfGenericDataServer() {
         XCTAssertEqual(
             APIPriceCardClientError.httpStatus(404).localizedDescription,
@@ -386,4 +394,10 @@ private actor CancellationPriceStore: APIPriceCardStoring {
     private var stored: StoredAPIPriceCard?
     func load() -> StoredAPIPriceCard? { stored }
     func save(_ value: StoredAPIPriceCard) { stored = value }
+}
+
+private struct FailedPriceClient: APIPriceCardReading {
+    func fetch(cacheValidators: CacheValidators?) async throws -> APIPriceCardFetchResult {
+        throw APIPriceCardClientError.transport("SECRET")
+    }
 }

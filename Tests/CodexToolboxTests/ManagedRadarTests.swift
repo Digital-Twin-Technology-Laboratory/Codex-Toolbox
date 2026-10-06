@@ -177,6 +177,84 @@ final class ManagedRadarTests: XCTestCase {
         XCTAssertTrue(result.refreshFailed)
         XCTAssertTrue(result.isStale)
     }
+    func testRefreshResultIgnoresPublicationBookkeepingAndKeepsHistoricalStatus() async throws {
+        let original = try snapshot(payload())
+        let newer = try snapshot(payload {
+            $0["revision"] = 20; $0["checkedAt"] = "2026-10-06T12:00:00Z"
+            $0["publishedAt"] = "2026-10-06T12:00:00Z"; $0["status"] = "upstream_error"
+        })
+        let repository = RadarRepository(client: ManagedQueueClient([.modified(newer), .notModified(CacheValidators(etag: "new"))]), store: ManagedMemoryStore(original))
+        _ = await repository.loadCached()
+        let checked = await repository.refresh()
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: original, current: checked), .unchanged)
+        XCTAssertTrue(checked.isStale)
+        let unchanged = await repository.refresh()
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: newer, current: unchanged), .unchanged)
+        XCTAssertTrue(unchanged.isStale)
+    }
+
+    func testRefreshResultDetectsScoresHistoryDatasetAndSourceDate() throws {
+        let original = try snapshot(payload())
+        let edits: [(inout [String: Any]) -> Void] = [
+            { $0["sourceUpdatedAt"] = "2026-10-07T00:00:00Z" },
+            { var d = $0["dataset"] as! [String: Any]; d["scoreLabel"] = "New score"; $0["dataset"] = d },
+            { var m = $0["models"] as! [[String: Any]]; var record = m[0]["latest"] as! [String: Any]; record["score"] = 101; m[0]["latest"] = record; $0["models"] = m },
+            { var m = $0["models"] as! [[String: Any]]; m[0]["recentDays"] = [m[0]["latest"]!]; $0["models"] = m }
+        ]
+        for edit in edits {
+            let changed = try snapshot(payload(edit: edit))
+            let state = RadarRepositoryState(snapshot: changed, costHistory: [], isStale: false, errorMessage: nil)
+            XCTAssertEqual(RadarRefreshResult.comparing(previous: original, current: state), .updated)
+        }
+        let first = RadarRepositoryState(snapshot: original, costHistory: [], isStale: true, errorMessage: nil)
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: nil, current: first), .updated)
+    }
+
+    func testRefreshFailuresAndEmptyDataNeverReportSuccess() async throws {
+        let old = try snapshot(payload())
+        let invalid = try snapshot(payload { $0["revision"] = 1; $0["status"] = "current" })
+        let repo = RadarRepository(client: ManagedQueueClient([.modified(invalid)]), store: ManagedMemoryStore(old))
+        _ = await repo.loadCached()
+        let rejected = await repo.refresh()
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: old, current: rejected), .failed)
+        XCTAssertNil(rejected.errorMessage)
+        let empty = try snapshot(payload { $0["models"] = []; $0["status"] = "no_data" })
+        let emptyState = RadarRepositoryState(snapshot: empty, costHistory: [], isStale: false, errorMessage: nil)
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: old, current: emptyState), .failed)
+        let badStore = RadarRepository(client: ManagedQueueClient([.modified(old)]), store: FailingRadarSaveStore())
+        let failedSave = await badStore.refresh()
+        XCTAssertEqual(RadarRefreshResult.comparing(previous: nil, current: failedSave), .failed)
+        XCTAssertEqual(failedSave.errorMessage, "暂时无法获取榜单数据，请稍后重试。")
+    }
+
+    func testLocalDiagnosticsRetainSafeCausesWithoutRawPayloads() {
+        XCTAssertEqual(PublicDataDiagnostics.summary(RadarClientError.httpStatus(503)), "HTTP 503")
+        XCTAssertEqual(PublicDataDiagnostics.summary(RadarClientError.invalidPayload("无效的数据日期。")), "无效的数据日期。")
+        XCTAssertEqual(PublicDataDiagnostics.summary(RadarClientError.invalidPayload("SECRET")), "payload validation failed")
+        XCTAssertFalse(PublicDataDiagnostics.summary(APIPriceCardClientError.transport("SECRET")).contains("SECRET"))
+    }
+
+    @MainActor
+    func testFeedbackIgnoresAutomaticAndClosedRequestsAndExpires() async throws {
+        let feedback = RadarRefreshFeedback(duration: .milliseconds(20))
+        let automatic = feedback.begin(manual: false)
+        feedback.finish(automatic, result: .updated)
+        XCTAssertNil(feedback.result)
+        let closed = feedback.begin(manual: true)
+        feedback.clear()
+        feedback.finish(closed, result: .updated)
+        XCTAssertNil(feedback.result)
+        let old = feedback.begin(manual: true)
+        feedback.finish(old, result: .updated)
+        let current = feedback.begin(manual: true)
+        feedback.finish(old, result: .failed)
+        XCTAssertNil(feedback.result)
+        feedback.finish(current, result: .unchanged)
+        XCTAssertEqual(feedback.result, .unchanged)
+        try await Task.sleep(for: .milliseconds(80))
+        XCTAssertNil(feedback.result)
+    }
+
 }
 
 private actor ManagedMemoryStore: SnapshotStoring {
@@ -216,4 +294,9 @@ private final class ManagedURLProtocol: URLProtocol, @unchecked Sendable {
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     override func stopLoading() {}
+}
+
+private struct FailingRadarSaveStore: SnapshotStoring {
+    func load() async throws -> StoredRadarState? { nil }
+    func save(_ state: StoredRadarState) async throws { throw CocoaError(.fileWriteNoPermission) }
 }

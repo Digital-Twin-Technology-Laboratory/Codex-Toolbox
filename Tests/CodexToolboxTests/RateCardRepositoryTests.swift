@@ -39,7 +39,7 @@ final class RateCardRepositoryTests: XCTestCase {
         let state = await repository.refresh()
 
         XCTAssertEqual(state.manifest, bundled)
-        XCTAssertNotNil(state.errorMessage)
+        XCTAssertEqual(state.errorMessage, "费率更新失败，继续使用本地费率。")
     }
 
     func testBundledGenerationDateControlsSevenDayStaleStatus() {
