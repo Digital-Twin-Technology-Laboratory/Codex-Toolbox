@@ -4,7 +4,7 @@
 
 ## 数据协议 v1
 
-公开 `GET/HEAD https://zjwspace.cn/api/codex-toolbox/v1/radar.json`，JSON UTF-8，ETag 条件读取，缓存 60 秒。同步由定时进程运行，访问接口不会调用上游。除精确路径外没有公开管理/文件目录；写请求拒绝。
+公开 `GET/HEAD /api/codex-toolbox/v1/radar.json`，JSON UTF-8，ETag 条件读取，缓存 60 秒。同步由定时进程运行，访问接口不会调用上游。除精确路径外没有公开管理/文件目录；写请求拒绝。
 
 顶层字段：
 
