@@ -70,3 +70,12 @@ python3 -m server.toolbox_feed --root /srv/personal-site/toolbox-data resume
 运行 `python3 -m unittest server.test_toolbox_feed server.test_deploy_toolbox -v`。客户端协议测试使用两个服务端适配器生成的合成样本，真实数据另外校对，不把合成分数发布到线上。客户端冷启动、升级、断网、304、切换、回退和重启测试与 UI 手动验收分开记录。
 
 后期若上游变化，只修改服务端 adapter 并通过契约测试；既有 v1 支持的评分/缺失指标/基准切换无需发客户端。新增客户端未知的能力、反向评分尺度、不同维度或原生功能仍须评估新版协议和客户端更新。
+
+
+## 自动选源兼容性（2026-10-11）
+
+服务端自动模式在已审核基准间选择有效候选，使用现有activation和递增generation整体切换；客户端仍只读取同一v1接口。新源150分制保持上游值，费用是API等效均值；无完整费用/耗时证据的档位仅保留评分，不补造综合指标。
+
+新增可选sourceScoreDay/sourceDatePrecision、每档scoreDay及coverage/requiredTasks/scoreStatus/gradedRuns。每日桶不表示精确判分时间：sourceUpdatedAt为null，latest.date为空，每日评分放入recentDays，不生成费用历史。Build 63现有解码器忽略未知可选字段，仍能读取分数、均价、耗时和每日历史；界面无需改动。跨generation清理费用历史保持现有行为。
+
+服务端源失效时保留较新有效缓存，不能用在线旧表覆盖；备用源故障不改变有效主源状态。自动模式不取消管理员暂停/回滚。详见2026-10-11实施计划与服务端验证记录。

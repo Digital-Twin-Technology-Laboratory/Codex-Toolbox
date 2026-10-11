@@ -36,6 +36,47 @@ final class ManagedRadarTests: XCTestCase {
         XCTAssertTrue(CostHistoryBuilder.merging([], benchmarks: new.benchmarks, recordedAt: Date()).isEmpty)
     }
 
+    func testRealV5SummarySupportsScoresPricesAndDailyHistoryWithoutInventedDates() throws {
+        let new = try snapshot(payload("managed-radar-bench-v5.json"))
+        XCTAssertEqual(new.benchmarks.count, 33)
+        let sol = try XCTUnwrap(new.benchmarks.first { $0.model == "gpt-6.1-sol" && $0.reasoningEffort == "high" })
+        XCTAssertEqual(try XCTUnwrap(sol.latest?.score), 104.5646953046953, accuracy: 0.000001)
+        XCTAssertEqual(try XCTUnwrap(sol.latest?.costUSD), 0.48260188, accuracy: 0.00000001)
+        XCTAssertEqual(try XCTUnwrap(sol.latest?.wallSeconds), 1050.70824, accuracy: 0.00001)
+        XCTAssertEqual(sol.latest?.priceAggregation, "mean")
+        XCTAssertNil(sol.latest?.passed)
+        XCTAssertNil(new.sourceMonitoredAt)
+        XCTAssertEqual(sol.latest?.date, "")
+        XCTAssertEqual(sol.recentDays.last?.date, "2026-10-09T00:00:00.000Z")
+        XCTAssertTrue(sol.recentDays.allSatisfy { $0.costUSD == nil && $0.wallSeconds == nil })
+        XCTAssertTrue(CostHistoryBuilder.merging([], benchmarks: new.benchmarks, recordedAt: Date()).isEmpty)
+        for metric in [RankingMetric.iq, .cost, .duration, .overall] {
+            XCTAssertFalse(RankingEngine.rank(new.benchmarks, by: metric).isEmpty)
+        }
+    }
+
+    func testAutomaticNewOldNewSwitchKeepsGenerationAndHistoryIsolated() async throws {
+        let old = try snapshot(payload())
+        let new = try snapshot(payload("managed-radar-bench-v5.json"))
+        let fallback = try snapshot(payload {
+            $0["revision"] = 235; $0["generation"] = 3; $0["change"] = "activation"
+        })
+        let restored = try snapshot(payload("managed-radar-bench-v5.json") {
+            $0["revision"] = 236; $0["generation"] = 4; $0["change"] = "activation"
+        })
+        let repo = RadarRepository(client: ManagedQueueClient([.modified(new), .modified(fallback), .modified(restored), .notModified(CacheValidators(etag: "v5"))]), store: ManagedMemoryStore(old))
+        _ = await repo.loadCached()
+        for target in [new, fallback, restored] {
+            let result = await repo.refresh()
+            XCTAssertEqual(result.snapshot, target)
+            XCTAssertFalse(result.refreshFailed)
+            if target.managed?.dataset.id != "deep-swe" { XCTAssertTrue(result.costHistory.isEmpty) }
+        }
+        let checked = await repo.refresh()
+        XCTAssertEqual(checked.snapshot?.benchmarks, restored.benchmarks)
+        XCTAssertFalse(checked.refreshFailed)
+    }
+
     func testUnknownOptionalFieldsAreCompatible() throws {
         let result = try snapshot(payload { $0["futureField"] = ["new": true] })
         XCTAssertEqual(result.benchmarks.count, 1)

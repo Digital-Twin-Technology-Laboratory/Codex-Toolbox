@@ -1,0 +1,1293 @@
+{
+  "dataset": {
+    "id": "radar-bench-final64-20261004",
+    "name": "Radar Bench",
+    "scoreLabel": "Radar Bench 分数",
+    "semanticsKey": "radar-bench-final64-20261004|f75ff09b6117cd83d3ab6ea744fe379ac117676c042538d5df5e38489af27bc4|radar-bench-v2-last3-per-task-equal-weight-150"
+  },
+  "status": "current",
+  "sourceUpdatedAt": null,
+  "sourceDatePrecision": "day",
+  "sourceScoreDay": "2026-10-11T00:00:00.000Z",
+  "sources": [
+    {
+      "name": "Codex Radar · Radar Bench",
+      "url": "https://codexradar.com/api/radar-bench-score"
+    }
+  ],
+  "models": [
+    {
+      "id": "gpt_6_1_sol_low",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "low",
+      "label": "gpt-6.1-sol low",
+      "recentDays": [
+        {
+          "date": "2026-10-06T00:00:00.000Z",
+          "score": 112.5,
+          "coverage": 12,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-07T00:00:00.000Z",
+          "score": 110,
+          "coverage": 15,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-08T00:00:00.000Z",
+          "score": 84.24288987258913,
+          "coverage": 63,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 82.92659471832992,
+          "coverage": 64,
+          "requiredTasks": 64,
+          "scoreStatus": "complete"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 81.75471971832992,
+          "coverage": 64,
+          "requiredTasks": 64,
+          "scoreStatus": "complete"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 81.75471971832992,
+          "coverage": 64,
+          "requiredTasks": 64,
+          "scoreStatus": "complete"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 81.75471971832992,
+        "coverage": 64,
+        "requiredTasks": 64,
+        "scoreStatus": "complete",
+        "cost_usd": null,
+        "wall_seconds": null,
+        "tasks": 83,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 0,
+        "gradedRuns": 83
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_1_sol_medium",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "medium",
+      "label": "gpt-6.1-sol medium",
+      "recentDays": [
+        {
+          "date": "2026-10-06T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 76.91535461505127,
+          "coverage": 43,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 76.83022774327122,
+          "coverage": 45,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 78.34809039249373,
+          "coverage": 47,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 78.34809039249373,
+        "coverage": 47,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 622.5259591836735,
+        "tasks": 49,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 49,
+        "gradedRuns": 49
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_1_sol_high",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "label": "gpt-6.1-sol high",
+      "recentDays": [
+        {
+          "date": "2026-10-08T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 104.5646953046953,
+          "coverage": 50,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 104.5646953046953,
+        "coverage": 50,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.48260188,
+        "wall_seconds": 1050.70824,
+        "tasks": 50,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 50,
+        "durationSamples": 50,
+        "gradedRuns": 50
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_1_sol_xhigh",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-6.1-sol xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-06T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 91.1047619047619,
+          "coverage": 45,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 87.9942857142857,
+          "coverage": 50,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 87.9942857142857,
+        "coverage": 50,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": null,
+        "tasks": 50,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 0,
+        "gradedRuns": 50
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_1_sol_max",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "max",
+      "label": "gpt-6.1-sol max",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 114.09858874975156,
+          "coverage": 43,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 114.09858874975156,
+        "coverage": 43,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.6412236279069767,
+        "wall_seconds": 1250.5163488372093,
+        "tasks": 43,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 43,
+        "durationSamples": 43,
+        "gradedRuns": 43
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_1_sol_ultra",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "ultra",
+      "label": "gpt-6.1-sol ultra",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 118.71570172114636,
+          "coverage": 35,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 115.41804334000341,
+          "coverage": 36,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 115.41804334000341,
+        "coverage": 36,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 1460.5387777777778,
+        "tasks": 36,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 36,
+        "gradedRuns": 36
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_low",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "low",
+      "label": "gpt-6-astra low",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 99.89654669002495,
+          "coverage": 46,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 98.85919057794058,
+          "coverage": 48,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 98.85919057794058,
+        "coverage": 48,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 2.4748900833333334,
+        "wall_seconds": 545.9553958333333,
+        "tasks": 48,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 48,
+        "durationSamples": 48,
+        "gradedRuns": 48
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_medium",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "medium",
+      "label": "gpt-6-astra medium",
+      "recentDays": [
+        {
+          "date": "2026-10-08T00:00:00.000Z",
+          "score": 66.66666666666666,
+          "coverage": 9,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 90.08207841541176,
+          "coverage": 54,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 90.08207841541176,
+        "coverage": 54,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 2.2901241666666667,
+        "wall_seconds": 552.7514583333334,
+        "tasks": 72,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 72,
+        "durationSamples": 72,
+        "gradedRuns": 72
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_high",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "high",
+      "label": "gpt-6-astra high",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 111.97304941062372,
+          "coverage": 58,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 111.97304941062372,
+        "coverage": 58,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 2.3830517931034483,
+        "wall_seconds": 621.3463103448275,
+        "tasks": 58,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 58,
+        "durationSamples": 58,
+        "gradedRuns": 58
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_xhigh",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-6-astra xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 121.12650175007094,
+          "coverage": 62,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 121.12650175007094,
+        "coverage": 62,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 3.34928435483871,
+        "wall_seconds": 793.4473709677419,
+        "tasks": 62,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 62,
+        "durationSamples": 62,
+        "gradedRuns": 62
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_max",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "max",
+      "label": "gpt-6-astra max",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 113.67307692307693,
+          "coverage": 63,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 113.67307692307693,
+        "coverage": 63,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 4.302995936507937,
+        "wall_seconds": 1012.5661904761905,
+        "tasks": 63,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 63,
+        "durationSamples": 63,
+        "gradedRuns": 63
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_astra_ultra",
+      "model": "gpt-6-astra",
+      "reasoningEffort": "ultra",
+      "label": "gpt-6-astra ultra",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 111.64641630671774,
+          "coverage": 63,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 111.64641630671774,
+        "coverage": 63,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 608.2590317460317,
+        "tasks": 63,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 63,
+        "gradedRuns": 63
+      },
+      "scoreDay": "2026-10-09T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_low",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "low",
+      "label": "gpt-6-sol low",
+      "recentDays": [
+        {
+          "date": "2026-10-08T00:00:00.000Z",
+          "score": 150,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 29.954060212757803,
+          "coverage": 59,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 29.454825875878505,
+          "coverage": 60,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 29.454825875878505,
+        "coverage": 60,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.24039981666666668,
+        "wall_seconds": 338.94685,
+        "tasks": 60,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 60,
+        "durationSamples": 60,
+        "gradedRuns": 60
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_medium",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "medium",
+      "label": "gpt-6-sol medium",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 38.90103162704362,
+          "coverage": 58,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 36.987866137189016,
+          "coverage": 61,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 36.987866137189016,
+        "coverage": 61,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.5146695573770492,
+        "wall_seconds": 751.4621639344263,
+        "tasks": 61,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 61,
+        "durationSamples": 61,
+        "gradedRuns": 61
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_high",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "high",
+      "label": "gpt-6-sol high",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 61.47271062271062,
+          "coverage": 50,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 52.99371605406088,
+          "coverage": 58,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 52.99371605406088,
+        "coverage": 58,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 1.856760844827586,
+        "wall_seconds": 1891.3669827586207,
+        "tasks": 58,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 58,
+        "durationSamples": 58,
+        "gradedRuns": 58
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_xhigh",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-6-sol xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 56.37556321229791,
+          "coverage": 49,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 50.22550177095631,
+          "coverage": 55,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 50.22550177095631,
+        "coverage": 55,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 3.6648750363636364,
+        "wall_seconds": 2846.807472727273,
+        "tasks": 55,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 55,
+        "durationSamples": 55,
+        "gradedRuns": 55
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_max",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "max",
+      "label": "gpt-6-sol max",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 67.83181818181818,
+          "coverage": 50,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 65.2229020979021,
+          "coverage": 52,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 65.2229020979021,
+        "coverage": 52,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 3526.6355576923074,
+        "tasks": 52,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 52,
+        "gradedRuns": 52
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_sol_ultra",
+      "model": "gpt-6-sol",
+      "reasoningEffort": "ultra",
+      "label": "gpt-6-sol ultra",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 71.58214361815469,
+          "coverage": 38,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 68.63912403386087,
+          "coverage": 44,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 68.63912403386087,
+        "coverage": 44,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 2788.403,
+        "tasks": 44,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 44,
+        "gradedRuns": 44
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_luna_low",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "low",
+      "label": "gpt-6-luna low",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 3,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 18.039682539682538,
+          "coverage": 27,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 18.039682539682538,
+        "coverage": 27,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.011929925925925925,
+        "wall_seconds": 190.26281481481482,
+        "tasks": 27,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 27,
+        "durationSamples": 27,
+        "gradedRuns": 27
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_luna_medium",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "medium",
+      "label": "gpt-6-luna medium",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 2,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 31.132766125840917,
+          "coverage": 19,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 31.132766125840917,
+        "coverage": 19,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.028647210526315792,
+        "wall_seconds": 500.8952105263158,
+        "tasks": 19,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 19,
+        "durationSamples": 19,
+        "gradedRuns": 19
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_luna_high",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "high",
+      "label": "gpt-6-luna high",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 2,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 38.67521367521368,
+          "coverage": 18,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 38.67521367521368,
+        "coverage": 18,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.07190005555555555,
+        "wall_seconds": 975.2699444444445,
+        "tasks": 18,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 18,
+        "durationSamples": 18,
+        "gradedRuns": 18
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_luna_xhigh",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-6-luna xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 42.1978021978022,
+          "coverage": 13,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 42.1978021978022,
+        "coverage": 13,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.16214969230769233,
+        "wall_seconds": 1957.0176153846155,
+        "tasks": 13,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 13,
+        "durationSamples": 13,
+        "gradedRuns": 13
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_6_luna_max",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "max",
+      "label": "gpt-6-luna max",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 69.23076923076923,
+          "coverage": 13,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 63.39285714285714,
+          "coverage": 21,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 63.39285714285714,
+        "coverage": 21,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.13560476190476192,
+        "wall_seconds": 1746.0175714285713,
+        "tasks": 21,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 21,
+        "durationSamples": 21,
+        "gradedRuns": 21
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_low",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "low",
+      "label": "gpt-5.6-sol low",
+      "recentDays": [
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 19.67391304347826,
+          "coverage": 18,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 19.67391304347826,
+        "coverage": 18,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.4634285555555555,
+        "wall_seconds": 456.647,
+        "tasks": 18,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 18,
+        "durationSamples": 18,
+        "gradedRuns": 18
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_medium",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "medium",
+      "label": "gpt-5.6-sol medium",
+      "recentDays": [
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 33.76107199636611,
+          "coverage": 17,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 33.76107199636611,
+        "coverage": 17,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": 0.9672662352941176,
+        "wall_seconds": 675.8698823529412,
+        "tasks": 17,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 17,
+        "durationSamples": 17,
+        "gradedRuns": 17
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_high",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "high",
+      "label": "gpt-5.6-sol high",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 150,
+          "coverage": 4,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 71.94444444444444,
+          "coverage": 18,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 71.94444444444444,
+        "coverage": 18,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 1765.2433333333333,
+        "tasks": 18,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 18,
+        "gradedRuns": 18
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_xhigh",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-5.6-sol xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 75,
+          "coverage": 2,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 93.33333333333333,
+          "coverage": 12,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 93.33333333333333,
+        "coverage": 12,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 2570.8051666666665,
+        "tasks": 12,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 12,
+        "gradedRuns": 12
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_max",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "max",
+      "label": "gpt-5.6-sol max",
+      "recentDays": [
+        {
+          "date": "2026-10-09T00:00:00.000Z",
+          "score": 84.21043144117093,
+          "coverage": 29,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 90.37820349356114,
+          "coverage": 32,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 90.37820349356114,
+        "coverage": 32,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 1217.38203125,
+        "tasks": 32,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 32,
+        "gradedRuns": 32
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_sol_ultra",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "ultra",
+      "label": "gpt-5.6-sol ultra",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 100,
+          "coverage": 3,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        },
+        {
+          "date": "2026-10-11T00:00:00.000Z",
+          "score": 93.75,
+          "coverage": 8,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 93.75,
+        "coverage": 8,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 2599.28875,
+        "tasks": 8,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 8,
+        "gradedRuns": 8
+      },
+      "scoreDay": "2026-10-11T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_luna_low",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "low",
+      "label": "gpt-5.6-luna low",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 0,
+        "coverage": 1,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 125.278,
+        "tasks": 1,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 1,
+        "gradedRuns": 1
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_luna_medium",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "medium",
+      "label": "gpt-5.6-luna medium",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 75,
+          "coverage": 2,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 75,
+        "coverage": 2,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 330.3845,
+        "tasks": 2,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 2,
+        "gradedRuns": 2
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_luna_xhigh",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "xhigh",
+      "label": "gpt-5.6-luna xhigh",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 75,
+          "coverage": 2,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 75,
+        "coverage": 2,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 632.614,
+        "tasks": 2,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 2,
+        "gradedRuns": 2
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    },
+    {
+      "id": "gpt_56_luna_max",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "max",
+      "label": "gpt-5.6-luna max",
+      "recentDays": [
+        {
+          "date": "2026-10-10T00:00:00.000Z",
+          "score": 0,
+          "coverage": 1,
+          "requiredTasks": 64,
+          "scoreStatus": "provisional"
+        }
+      ],
+      "latest": {
+        "date": "",
+        "score": 0,
+        "coverage": 1,
+        "requiredTasks": 64,
+        "scoreStatus": "provisional",
+        "cost_usd": null,
+        "wall_seconds": 386.251,
+        "tasks": 1,
+        "combined_cost_index": null,
+        "priceAggregation": "mean",
+        "priceBasis": "official_standard_api_equivalent; no estimates or claimed cash charges",
+        "priceSamples": 0,
+        "durationSamples": 1,
+        "gradedRuns": 1
+      },
+      "scoreDay": "2026-10-10T00:00:00.000Z"
+    }
+  ],
+  "schemaVersion": "codex-toolbox.radar.v1",
+  "revision": 234,
+  "generation": 2,
+  "publishedAt": "2026-10-11T12:00:00Z",
+  "checkedAt": "2026-10-11T12:00:00Z",
+  "lastSuccessAt": "2026-10-11T12:00:00Z",
+  "change": "activation"
+}
