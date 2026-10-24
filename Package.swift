@@ -9,7 +9,8 @@ let package = Package(
     ],
     products: [
         .library(name: "CodexToolboxCore", targets: ["CodexToolboxCore"]),
-        .executable(name: "CoreVerification", targets: ["CoreVerification"])
+        .executable(name: "CoreVerification", targets: ["CoreVerification"]),
+        .executable(name: "ExportLegacyHistory", targets: ["ExportLegacyHistory"])
     ],
     targets: [
         .target(
@@ -20,6 +21,11 @@ let package = Package(
             name: "CoreVerification",
             dependencies: ["CodexToolboxCore"],
             path: "Verification/CoreVerification"
+        ),
+        .executableTarget(
+            name: "ExportLegacyHistory",
+            dependencies: ["CodexToolboxCore"],
+            path: "Verification/ExportLegacyHistory"
         ),
         .testTarget(
             name: "CodexToolboxTests",

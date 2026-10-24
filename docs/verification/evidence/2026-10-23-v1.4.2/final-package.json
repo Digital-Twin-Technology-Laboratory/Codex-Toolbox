@@ -1,0 +1,18 @@
+{
+  "file": "Codex-Toolbox-1.4.2-Build64-local-test-universal.pkg",
+  "bytes": 22717437,
+  "sha256": "fac83c9e10393c447af979feda30b51ca729b7e4e351bb101e0204321259c1ed",
+  "version": "1.4.2",
+  "build": 64,
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "signatures": "Developer ID Application and Installer verified",
+  "notarySubmissionID": "64aa4c7e-bc19-4634-a211-31106ed618b6",
+  "notaryStatus": "Accepted",
+  "stapleValidation": "passed",
+  "localSpctl": "accepted; source=Notarized Developer ID; override=security disabled",
+  "installed": false,
+  "published": false
+}

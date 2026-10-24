@@ -1,0 +1,36 @@
+{
+  "baseline": [
+    {
+      "cpu_seconds": 1.991911,
+      "outcome": "timeout",
+      "wall_seconds": 2.007293375
+    },
+    {
+      "cpu_seconds": 1.997015,
+      "outcome": "timeout",
+      "wall_seconds": 2.003445709
+    },
+    {
+      "cpu_seconds": 1.997791,
+      "outcome": "timeout",
+      "wall_seconds": 2.003449083
+    }
+  ],
+  "candidate": [
+    {
+      "cpu_seconds": 0.005033000000000001,
+      "outcome": "protocolIncompatible(\"app-server 响应不完整或超过限制\")",
+      "wall_seconds": 0.075294541
+    },
+    {
+      "cpu_seconds": 0.004435,
+      "outcome": "protocolIncompatible(\"app-server 响应不完整或超过限制\")",
+      "wall_seconds": 0.07434775
+    },
+    {
+      "cpu_seconds": 0.004344999999999999,
+      "outcome": "protocolIncompatible(\"app-server 响应不完整或超过限制\")",
+      "wall_seconds": 0.073172625
+    }
+  ]
+}

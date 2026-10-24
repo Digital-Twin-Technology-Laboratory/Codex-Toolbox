@@ -1,0 +1,19 @@
+# Observed 2026-10-22 approx 23:41:45–23:43:55 Asia/Shanghai; PID 62628; battery power.
+# Original probe used raw Mach CPU ticks divided by 1e9. CPU fields below corrected by timebase 125/3.
+# Approximate CPU values due to rounding of raw output. I/O and wakeup fields are unchanged.
+# Rows emitted at 15-second intervals or I/O/CPU bursts; missing rows are not necessarily zero.
+# App was left running; investigator did not click, force refresh, alter settings or restart it. Child processes excluded.
+pid=62628 duration=130; elapsed,cpu_ms,write_MiB,read_MiB,idle_wakeups,interrupt_wakeups
+9,990.00,55.656,55.652,0,3
+15,0.00,0.000,0.000,0,0
+30,0.00,0.000,0.000,0,0
+45,0.00,0.000,0.000,0,0
+60,0.00,0.000,0.000,0,0
+75,6.67,0.000,0.000,0,0
+78,999.58,55.652,0.000,0,3
+90,0.00,0.000,0.000,0,0
+105,0.00,0.000,0.000,0,0
+110,1006.25,55.793,0.305,0,0
+116,512.50,23.547,23.535,0,2
+120,1004.17,0.000,0.000,0,1
+total_cpu_s_approx=22.29 total_write_MiB=190.652 total_read_MiB=79.527 total_idle_wakeups=7 total_interrupt_wakeups=86

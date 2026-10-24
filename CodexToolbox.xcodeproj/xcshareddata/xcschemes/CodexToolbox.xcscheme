@@ -29,6 +29,20 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5973F89B954E7FF9D6968EF0"
+               BuildableName = "CodexToolboxAppTests.xctest"
+               BlueprintName = "CodexToolboxAppTests"
+               ReferencedContainer = "container:CodexToolbox.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "6D76142AB2FD25C349389550"
                BuildableName = "CodexToolboxTests.xctest"
                BlueprintName = "CodexToolboxTests"
@@ -61,6 +75,17 @@
                BlueprintIdentifier = "6D76142AB2FD25C349389550"
                BuildableName = "CodexToolboxTests.xctest"
                BlueprintName = "CodexToolboxTests"
+               ReferencedContainer = "container:CodexToolbox.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5973F89B954E7FF9D6968EF0"
+               BuildableName = "CodexToolboxAppTests.xctest"
+               BlueprintName = "CodexToolboxAppTests"
                ReferencedContainer = "container:CodexToolbox.xcodeproj">
             </BuildableReference>
          </TestableReference>

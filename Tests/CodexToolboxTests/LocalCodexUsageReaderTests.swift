@@ -44,6 +44,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         let missingRollout = try await reader.readUsage(now: now, calendar: calendar)
         XCTAssertEqual(missingRollout.summary(for: "2026-10-05")?.tasks.first?.title, "历史任务的新名称")
         XCTAssertEqual(missingRollout.summary(for: "2026-10-05")?.totalTokens, 10)
+        await reader.close()
     }
 
     func testBlankDisplayNameFallsBackAndExplicitGenericNameIsPreserved() async throws {
@@ -67,6 +68,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         try execute("UPDATE threads SET name = '任务 1';", in: handle)
         let named = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4_000_001))
         XCTAssertEqual(named.threads.first?.title, "任务 1")
+        await reader.close()
     }
 
     func testNativeCataloguePrefersCodexDisplayNameOverStoredInitialTitle() async throws {
@@ -81,6 +83,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
         let result = try await reader.nativeCatalogue(now: Date(timeIntervalSince1970: 4000001))
         XCTAssertEqual(result.threads.first?.title, "Native chat display name")
+        await reader.close()
     }
 
     func testNativeCatalogueIncludesArchivedDescendantsOnlyOnceAndExcludesOldRoots() async throws {
@@ -96,6 +99,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(result.threads.map(\.id), [root])
         XCTAssertEqual(Set(result.threads[0].descendantIDs), [child, grandchild])
         XCTAssertEqual(result.excludedCount, 0)
+        await reader.close()
     }
 
     func testSelectsLatestMostCompleteReadableDatabase() async throws {
@@ -135,6 +139,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         let selected = try await reader.selectedStateDatabase()
 
         XCTAssertEqual(selected.standardizedFileURL, mostComplete.standardizedFileURL)
+        await reader.close()
     }
 
     func testAggregatesRootsDeduplicatesIncrementsAndPreservesHistory() async throws {
@@ -222,9 +227,90 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertFalse(try XCTUnwrap(afterMissingFile.summary(for: "2026-07-18")).isComplete)
         XCTAssertTrue(afterMissingFile.warnings.contains { $0.contains("不可用") })
 
+        try await reader.exportLegacyHistory()
         let ledgerJSON = try String(contentsOf: ledger, encoding: .utf8)
         XCTAssertTrue(ledgerJSON.contains("\"schemaVersion\" : 7"))
         XCTAssertTrue(ledgerJSON.contains("\"parsedOffset\""))
+        await reader.close()
+    }
+
+    func testSameSizeRolloutReplacementRebuildsInsteadOfReturningStaleTokens() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("task.jsonl")
+        let database = workspace.appendingPathComponent("state_test.sqlite")
+        let first = tokenLine(timestamp: "2026-07-17T16:00:00Z", cumulative: 40, increment: 40) + "\n"
+        let replacement = tokenLine(timestamp: "2026-07-17T16:00:00Z", cumulative: 44, increment: 44) + "\n"
+        XCTAssertEqual(first.utf8.count, replacement.utf8.count)
+        try Data(first.utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Task", rollout.path, 10, 100)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database,
+            ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let initial = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(initial.summary(for: "2026-07-17")?.totalTokens, 40)
+        try Data(replacement.utf8).write(to: rollout, options: .atomic)
+        let rebuilt = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(rebuilt.summary(for: "2026-07-17")?.totalTokens, 44)
+        let rewritten = tokenLine(timestamp: "2026-07-17T16:00:00Z", cumulative: 200, increment: 200) + "\n"
+        let handle = try FileHandle(forWritingTo: rollout)
+        try handle.truncate(atOffset: 0); try handle.write(contentsOf: Data(rewritten.utf8)); try handle.close()
+        let largerReplacement = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(largerReplacement.summary(for: "2026-07-17")?.totalTokens, 200)
+        await reader.close()
+    }
+
+    func testFailedIncrementCommitRollsBackTokensAndCheckpointBeforeRetry() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("task.jsonl"), sourceDB = workspace.appendingPathComponent("state_test.sqlite")
+        let ledger = workspace.appendingPathComponent("ledger.json")
+        try Data((tokenLine(timestamp: "2026-07-17T16:00:00Z", cumulative: 10, increment: 10) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: sourceDB, threads: [("root", "Task", rollout.path, 10, 100)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: sourceDB, ledgerURL: ledger)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        _ = try await reader.readUsage(now: Date(), calendar: calendar)
+        try append(tokenLine(timestamp: "2026-07-17T16:01:00Z", cumulative: 25, increment: 15) + "\n", to: rollout)
+        var injection: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(ledger.appendingPathExtension("sqlite").path, &injection), SQLITE_OK)
+        defer { sqlite3_close(injection) }
+        // Fail after the header has changed, at the real database transaction seam.
+        XCTAssertEqual(sqlite3_exec(injection, "CREATE TRIGGER reject_event BEFORE INSERT ON records WHEN NEW.namespace LIKE 'quota/%' BEGIN SELECT RAISE(ABORT, 'injected failure'); END", nil, nil, nil), SQLITE_OK)
+        do { _ = try await reader.readUsage(now: Date(), calendar: calendar); XCTFail("Injected commit failure must propagate") }
+        catch { }
+        XCTAssertEqual(sqlite3_exec(injection, "DROP TRIGGER reject_event", nil, nil, nil), SQLITE_OK)
+        let retried = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(retried.summary(for: "2026-07-17")?.totalTokens, 25)
+        let reopened = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: sourceDB, ledgerURL: ledger)
+        let persisted = try await reopened.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(persisted.summary(for: "2026-07-17")?.totalTokens, 25)
+        XCTAssertEqual(persisted.quotaObservations.count, 2)
+        await reader.close()
+        await reopened.close()
+    }
+
+    func testUnchangedLongPartialLineDoesNotRewriteAndCompletesExactlyOnce() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("task.jsonl"), sourceDB = workspace.appendingPathComponent("state_test.sqlite")
+        let ledger = workspace.appendingPathComponent("ledger.json")
+        let longLine = "{\"type\":\"ignored\",\"payload\":\"" + String(repeating: "x", count: 2 * 1024 * 1024) + "\"}\n"
+        let pending = tokenLine(timestamp: "2026-07-17T16:01:00Z", cumulative: 25, increment: 15)
+        try Data((tokenLine(timestamp: "2026-07-17T16:00:00Z", cumulative: 10, increment: 10) + "\n" + longLine + pending).utf8).write(to: rollout)
+        try createDatabase(at: sourceDB, threads: [("root", "Task", rollout.path, 25, 100)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: sourceDB, ledgerURL: ledger)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let initial = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(initial.summary(for: "2026-07-17")?.totalTokens, 10)
+        let storeURL = ledger.appendingPathExtension("sqlite")
+        let before = try storeURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        _ = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(try storeURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, before)
+        try append("\n", to: rollout)
+        let completed = try await reader.readUsage(now: Date(), calendar: calendar)
+        XCTAssertEqual(completed.summary(for: "2026-07-17")?.totalTokens, 25)
+        XCTAssertEqual(completed.quotaObservations.count, 2)
+        await reader.close()
     }
 
     func testRolloutParserHandlesChunkBoundariesAndReusesEndCheckpoint() throws {
@@ -297,7 +383,9 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertNil(history.quotaObservations.last?.executionContext?.planType)
         XCTAssertEqual(history.quotaObservations.last?.executionContext?.hasAccountRateLimits, false)
         XCTAssertTrue(history.quotaObservations.allSatisfy { $0.accountKey == nil })
+        try await reader.exportLegacyHistory()
         XCTAssertFalse(try String(contentsOf: ledger, encoding: .utf8).contains("creator-only-not-payer"))
+        await reader.close()
     }
 
     func testExtractsSanitizedQuotaObservationsAndAggregatesThemToTheRoot() async throws {
@@ -349,12 +437,14 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(history.quotaObservations[0].executionContext?.planType, "prolite")
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.durationMinutes), [10_080, 10_080])
         XCTAssertEqual(history.quotaObservations.flatMap(\.windows).map(\.usedPercent), [12, 13])
+        try await reader.exportLegacyHistory()
         let ledgerText = try String(contentsOf: ledger, encoding: .utf8)
         XCTAssertTrue(ledgerText.contains("\"tokenBreakdown\""))
         XCTAssertTrue(ledgerText.contains("\"executionContext\""))
         XCTAssertFalse(ledgerText.contains("opaque-limit-id"))
         XCTAssertFalse(ledgerText.contains("must-not-persist"))
         XCTAssertTrue(ledgerText.contains("prolite"))
+        await reader.close()
     }
 
     func testAggregatesAPIEquivalentCostFromRawEventTimeComponents() async throws {
@@ -437,6 +527,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(disabled.summary(for: "2026-08-20")?.totalTokens, summary.totalTokens)
         XCTAssertNil(disabled.summary(for: "2026-08-20")?.totalCostUSD)
         XCTAssertNil(disabled.summary(for: "2026-08-20")?.totalCredits)
+        await reader.close()
     }
 
     func testQuotaUsageWeightingMatchesPublishedCodexRateCard() throws {
@@ -1005,6 +1096,7 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
         try await reader.clearHistory()
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: ledger.path))
+        await reader.close()
     }
 
     func testGenericDatabaseTitleFallsBackToConcreteConversationName() async throws {
@@ -1036,6 +1128,216 @@ final class LocalCodexUsageReaderTests: XCTestCase, @unchecked Sendable {
             history.summary(for: "2026-07-18")?.tasks.first?.title,
             "为 Codex Toolbox 修复菜单栏折叠摘要"
         )
+        await reader.close()
+    }
+
+    func testMixedRollbackAppendsRestartAndClear() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite"), ledgerURL = workspace.appendingPathComponent("ledger.json")
+        let rollout = workspace.appendingPathComponent("root.jsonl")
+        try Data((tokenLine(timestamp: "2026-10-05T01:00:00Z", cumulative: 10, increment: 10) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Task", rollout.path, 10, 1)], edges: [])
+        var legacy = VersionedUsageLedger(schemaVersion: 7, generatedAt: .distantPast, timezoneIdentifier: "Pacific/Honolulu",
+            threads: ["root": .init(threadID: "root", rootTaskID: "root", title: "Task", dailyTokens: ["2026-10-05": 10, "2026-10-04": 2], checkpoint: nil, isComplete: false, sourceTimezoneIdentifier: "GMT")], warnings: [])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; try encoder.encode(legacy).write(to: ledgerURL)
+        let exporter = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        try await exporter.exportLegacyHistory(); await exporter.close()
+        legacy.threads["root"]?.sourceTimezoneIdentifier = nil
+        legacy.threads["root"]?.dailyTokens["2026-10-05"] = 15
+        legacy.threads["root"]?.dailyTokens.removeValue(forKey: "2026-10-04")
+        try encoder.encode(legacy).write(to: ledgerURL, options: .atomic)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Pacific/Honolulu")!
+        let migrated = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(migrated.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 15)
+        XCTAssertNil(migrated.summary(for: "2026-10-04"))
+        try append(tokenLine(timestamp: "2026-10-06T12:00:00Z", cumulative: 17, increment: 7) + "\n", to: rollout)
+        let first = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(first.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 22)
+        XCTAssertTrue(first.quotaObservations.isEmpty)
+        await reader.close()
+        let reopened = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        try append(tokenLine(timestamp: "2026-10-06T13:00:00Z", cumulative: 20, increment: 3) + "\n", to: rollout)
+        let resumed = try await reopened.readUsage(calendar: calendar)
+        XCTAssertEqual(resumed.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 25)
+        try await reopened.clearHistory(); await reopened.close()
+        let cleared = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        try await cleared.exportLegacyHistory(); await cleared.close()
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        XCTAssertTrue(try decoder.decode(VersionedUsageLedger.self, from: Data(contentsOf: ledgerURL)).threads.isEmpty)
+    }
+
+    func testForeignDailyOnlyHistoryStillCollectsNewAppends() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite"), ledgerURL = workspace.appendingPathComponent("ledger.json")
+        let rollout = workspace.appendingPathComponent("root.jsonl")
+        try Data((tokenLine(timestamp: "2026-10-05T01:00:00Z", cumulative: 10, increment: 10) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Task", rollout.path, 10, 1)], edges: [])
+        let legacy = VersionedUsageLedger(schemaVersion: 7, generatedAt: .distantPast, timezoneIdentifier: "GMT",
+            threads: ["root": .init(threadID: "root", rootTaskID: "root", title: "Task", dailyTokens: ["2026-10-05": 10], checkpoint: nil, isComplete: true)], warnings: [])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; try encoder.encode(legacy).write(to: ledgerURL)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Pacific/Honolulu")!
+        _ = try await reader.readUsage(calendar: calendar)
+        try append(tokenLine(timestamp: "2026-10-06T12:00:00Z", cumulative: 17, increment: 7) + "\n", to: rollout)
+        let history = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(history.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 17, "Existing 10 tokens plus unquestionably appended 7 must remain visible")
+        await reader.close()
+        let reopened = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        try append(tokenLine(timestamp: "2026-10-06T13:00:00Z", cumulative: 20, increment: 3) + "\n", to: rollout)
+        let resumed = try await reopened.readUsage(calendar: calendar)
+        XCTAssertEqual(resumed.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 20)
+        XCTAssertTrue(resumed.quotaObservations.isEmpty, "Preserved foreign buckets cannot become precise current-zone quota evidence")
+        await reopened.close()
+    }
+
+    func testTimezoneChangeDoesNotTreatNewTokensAsProofOfDailyOnlyHistory() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite"), ledgerURL = workspace.appendingPathComponent("ledger.json")
+        let rollout = workspace.appendingPathComponent("root.jsonl")
+        try Data((tokenLine(timestamp: "2026-10-05T01:00:00Z", cumulative: 20, increment: 20) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Task", rollout.path, 20, 1)], edges: [])
+        let legacy = VersionedUsageLedger(schemaVersion: 7, generatedAt: .distantPast, timezoneIdentifier: "GMT",
+            threads: ["root": .init(threadID: "root", rootTaskID: "root", title: "Task", dailyTokens: ["2026-10-05": 10], checkpoint: nil, isComplete: true)], warnings: [])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; try encoder.encode(legacy).write(to: ledgerURL)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Pacific/Honolulu")!
+        let history = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(history.summary(for: "2026-10-05")?.totalTokens, 10)
+        XCTAssertNil(history.summary(for: "2026-10-04"))
+        await reader.close()
+    }
+
+    func testTimezoneChangeReplaysOnlyCompleteSourcesAndKeepsArchivedBuckets() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let database = workspace.appendingPathComponent("state_test.sqlite"), ledgerURL = workspace.appendingPathComponent("ledger.json")
+        let replay = workspace.appendingPathComponent("replay.jsonl"), missing = workspace.appendingPathComponent("missing.jsonl"), partial = workspace.appendingPathComponent("partial.jsonl")
+        for (url, count) in [(replay, Int64(10)), (missing, 20), (partial, 30)] {
+            try Data((tokenLine(timestamp: "2026-10-05T01:00:00Z", cumulative: count, increment: count) + "\n").utf8).write(to: url)
+        }
+        try createDatabase(at: database, threads: [("replay", "Replay", replay.path, 10, 1), ("missing", "Missing", missing.path, 20, 1), ("partial", "Partial", partial.path, 30, 1)], edges: [])
+        let legacy = VersionedUsageLedger(schemaVersion: 7, generatedAt: .distantPast, timezoneIdentifier: "GMT",
+            threads: ["archived": .init(threadID: "archived", rootTaskID: "archived", title: "Archived", dailyTokens: ["2026-10-05": 40], checkpoint: nil, isComplete: false)], warnings: [])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; try encoder.encode(legacy).write(to: ledgerURL)
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledgerURL)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        _ = try await reader.readUsage(calendar: calendar)
+        try FileManager.default.removeItem(at: missing)
+        try Data((tokenLine(timestamp: "2026-10-05T01:00:00Z", cumulative: 3, increment: 3) + "\n").utf8).write(to: partial, options: .atomic)
+        calendar.timeZone = TimeZone(identifier: "Pacific/Honolulu")!
+        let changed = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(changed.timezoneIdentifier, "Pacific/Honolulu")
+        XCTAssertEqual(changed.summary(for: "2026-10-04")?.totalTokens, 10)
+        XCTAssertEqual(changed.summary(for: "2026-10-05")?.totalTokens, 90)
+        XCTAssertEqual(changed.quotaObservations.filter { !$0.isAccountSnapshot }.count, 1)
+        try await reader.exportLegacyHistory()
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: ledgerURL)) as? [String: Any])
+        let threads = try XCTUnwrap(json["threads"] as? [String: [String: Any]])
+        XCTAssertEqual(threads["replay"]?["sourceTimezoneIdentifier"] as? String, "Pacific/Honolulu")
+        for id in ["missing", "partial", "archived"] { XCTAssertEqual(threads[id]?["sourceTimezoneIdentifier"] as? String, "GMT") }
+        let count = threads.values.reduce(0) { $0 + (($1["quotaObservations"] as? [Any])?.count ?? 0) }
+        XCTAssertEqual(count, 3, "Timezone changes never discard raw historical observations")
+        await reader.close()
+        await reader.close()
+    }
+
+    func testTokenOverflowRejectsWholeRefreshWithoutAdvancingCheckpoint() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("root.jsonl"), database = workspace.appendingPathComponent("state_test.sqlite"), ledger = workspace.appendingPathComponent("ledger.json")
+        try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 1, increment: 1) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Root", rollout.path, 1, 1)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledger)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        _ = try await reader.readUsage(calendar: calendar)
+        let before = try Data(contentsOf: ledger.appendingPathExtension("sqlite"))
+        try append(tokenLine(timestamp: "2026-10-05T00:01:00Z", cumulative: Int64.max, increment: Int64.max) + "\n", to: rollout)
+        do { _ = try await reader.readUsage(calendar: calendar); XCTFail("An unrepresentable sum must fail the refresh") } catch { }
+        XCTAssertEqual(try Data(contentsOf: ledger.appendingPathExtension("sqlite")), before)
+        let valid = tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 1, increment: 1) + "\n" + tokenLine(timestamp: "2026-10-05T00:01:00Z", cumulative: 3, increment: 2) + "\n"
+        try Data(valid.utf8).write(to: rollout, options: .atomic)
+        let recovered = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(recovered.summary(for: "2026-10-05")?.totalTokens, 3)
+        XCTAssertEqual(recovered.quotaObservations.count, 2)
+        await reader.close()
+        await reader.close()
+    }
+
+    func testGrowingUnterminatedLineReadsOnlyTheNewTailAndCompletesOnce() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("root.jsonl"), database = workspace.appendingPathComponent("state_test.sqlite")
+        let prefix = tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 10, increment: 10) + "\n" + "{\"type\":\"ignored\",\"padding\":\"" + String(repeating: "x", count: 2 * 1024 * 1024)
+        try Data(prefix.utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Root", rollout.path, 10, 1)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: workspace.appendingPathComponent("ledger.json"))
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        _ = try await reader.readUsage(calendar: calendar)
+        for _ in 0..<3 {
+            try append(String(repeating: "x", count: 16 * 1024), to: rollout)
+            let history = try await reader.readUsage(calendar: calendar)
+            let readBytes = await reader.rolloutBytesReadLastRefresh
+            XCTAssertLessThan(readBytes, 64 * 1024, "Growing tails must not reread the accumulated multi-megabyte line")
+            XCTAssertEqual(history.summary(for: "2026-10-05")?.totalTokens, 10)
+        }
+        try append("\"}\n" + tokenLine(timestamp: "2026-10-05T00:01:00Z", cumulative: 25, increment: 15) + "\n", to: rollout)
+        var injection: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(workspace.appendingPathComponent("ledger.json.sqlite").path, &injection), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(injection, "CREATE TRIGGER reject_tail BEFORE INSERT ON records WHEN NEW.namespace LIKE 'quota/%' BEGIN SELECT RAISE(ABORT, 'test'); END", nil, nil, nil), SQLITE_OK)
+        do { _ = try await reader.readUsage(calendar: calendar); XCTFail("Completing the buffered tail must not advance state after a failed commit") } catch { }
+        XCTAssertEqual(sqlite3_exec(injection, "DROP TRIGGER reject_tail", nil, nil, nil), SQLITE_OK)
+        sqlite3_close(injection)
+        let completed = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(completed.summary(for: "2026-10-05")?.totalTokens, 25)
+        XCTAssertEqual(completed.quotaObservations.count, 2)
+        _ = try await reader.readUsage(calendar: calendar)
+        let unchanged = await reader.rolloutBytesReadLastRefresh; XCTAssertEqual(unchanged, 0)
+        await reader.close()
+    }
+
+    func testCrossThreadAndCrossTaskTokenOverflowRejectsRefresh() async throws {
+        for sameRoot in [true, false] {
+            let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+            try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+            let first = workspace.appendingPathComponent("first.jsonl"), second = workspace.appendingPathComponent("second.jsonl"), database = workspace.appendingPathComponent("state_test.sqlite"), ledger = workspace.appendingPathComponent("ledger.json")
+            for url in [first, second] { try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 1, increment: 1) + "\n").utf8).write(to: url) }
+            try createDatabase(at: database, threads: [("first", "First", first.path, 1, 1), ("second", "Second", second.path, 1, 1)], edges: sameRoot ? [("first", "second")] : [])
+            let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledger)
+            var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            _ = try await reader.readUsage(calendar: calendar)
+            let before = try Data(contentsOf: ledger.appendingPathExtension("sqlite"))
+            try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: Int64.max, increment: Int64.max) + "\n").utf8).write(to: first, options: .atomic)
+            do { _ = try await reader.readUsage(calendar: calendar); XCTFail("Combined totals must reject overflow") } catch { }
+            XCTAssertEqual(try Data(contentsOf: ledger.appendingPathExtension("sqlite")), before)
+            await reader.close()
+        }
+    }
+
+    func testCancelledReaderRefreshLeavesCheckpointAndDatabaseUnchanged() async throws {
+        let workspace = temporaryDirectory(); defer { try? FileManager.default.removeItem(at: workspace) }
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let rollout = workspace.appendingPathComponent("root.jsonl"), database = workspace.appendingPathComponent("state_test.sqlite"), ledger = workspace.appendingPathComponent("ledger.json")
+        try Data((tokenLine(timestamp: "2026-10-05T00:00:00Z", cumulative: 1, increment: 1) + "\n").utf8).write(to: rollout)
+        try createDatabase(at: database, threads: [("root", "Root", rollout.path, 1, 1)], edges: [])
+        let reader = LocalCodexUsageReader(codexHome: workspace, stateDatabaseURL: database, ledgerURL: ledger)
+        let calendar = Calendar.current
+        _ = try await reader.readUsage(calendar: calendar)
+        let before = try Data(contentsOf: ledger.appendingPathExtension("sqlite"))
+        try append(tokenLine(timestamp: "2026-10-05T00:01:00Z", cumulative: 3, increment: 2) + "\n", to: rollout)
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await reader.readUsage(calendar: calendar)
+        }
+        do { _ = try await cancelled.value; XCTFail("Cancellation must escape the reader") }
+        catch is CancellationError { }
+        XCTAssertEqual(try Data(contentsOf: ledger.appendingPathExtension("sqlite")), before)
+        let recovered = try await reader.readUsage(calendar: calendar)
+        XCTAssertEqual(recovered.days.reduce(Int64(0)) { $0 + $1.totalTokens }, 3)
+        await reader.close()
     }
 
     private func temporaryDirectory() -> URL {

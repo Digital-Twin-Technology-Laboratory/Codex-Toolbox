@@ -1,0 +1,319 @@
+{
+  "quota": {
+    "1": {
+      "baseline": {
+        "days": 150,
+        "observations": 65251,
+        "snapshots": 34695,
+        "legacySeconds": 4.583821041,
+        "nativeSeconds": 0.139358584
+      },
+      "candidate": {
+        "days": 150,
+        "observations": 65251,
+        "snapshots": 34695,
+        "legacySeconds": 0.214908958,
+        "nativeSeconds": 0.143035084
+      },
+      "equalWithinTolerance": true
+    },
+    "5": {
+      "baseline": {
+        "days": 750,
+        "observations": 326255,
+        "snapshots": 173475,
+        "legacySeconds": 111.571729208,
+        "nativeSeconds": 0.922435417
+      },
+      "candidate": {
+        "days": 750,
+        "observations": 326255,
+        "snapshots": 173475,
+        "legacySeconds": 1.237536209,
+        "nativeSeconds": 0.74375825
+      },
+      "equalWithinTolerance": true
+    }
+  },
+  "storage": {
+    "1": {
+      "baseline": {
+        "measurements": {
+          "ledgerAppend": {
+            "bytesWritten": 58716160,
+            "cpuSeconds": 1.0084865416666666,
+            "wallSeconds": 1.0636990070343018
+          },
+          "ledgerIdenticalRetry": {
+            "bytesWritten": 58716160,
+            "cpuSeconds": 0.9751209166666674,
+            "wallSeconds": 0.9780230522155762
+          },
+          "ledgerInitialImport": {
+            "bytesWritten": 58716160,
+            "cpuSeconds": 0.9969382916666667,
+            "wallSeconds": 1.0039420127868652
+          },
+          "nativeAppend": {
+            "bytesWritten": 24752128,
+            "cpuSeconds": 0.47749162500000075,
+            "wallSeconds": 0.4793980121612549
+          },
+          "nativeIdenticalRetry": {
+            "bytesWritten": 24752128,
+            "cpuSeconds": 0.47223287499999955,
+            "wallSeconds": 0.4737190008163452
+          },
+          "nativeInitialImport": {
+            "bytesWritten": 0,
+            "cpuSeconds": 0.23130254166666697,
+            "wallSeconds": 0.2314389944076538
+          }
+        },
+        "nativeSnapshots": 34695,
+        "observations": 65251,
+        "scale": 1,
+        "threads": 838
+      },
+      "candidate": {
+        "measurements": {
+          "ledgerAppend": {
+            "bytesWritten": 163840,
+            "cpuSeconds": 0.0010327500000002487,
+            "wallSeconds": 0.00121307373046875
+          },
+          "ledgerIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 4.7000000000352316e-05,
+            "wallSeconds": 4.601478576660156e-05
+          },
+          "ledgerInitialImport": {
+            "bytesWritten": 127414272,
+            "cpuSeconds": 2.4540155833333333,
+            "wallSeconds": 2.5137239694595337
+          },
+          "nativeAppend": {
+            "bytesWritten": 102400,
+            "cpuSeconds": 0.0006363750000000223,
+            "wallSeconds": 0.0007059574127197266
+          },
+          "nativeIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 3.879166666642675e-05,
+            "wallSeconds": 3.993511199951172e-05
+          },
+          "nativeInitialImport": {
+            "bytesWritten": 138133504,
+            "cpuSeconds": 1.588834541666666,
+            "wallSeconds": 1.6026140451431274
+          }
+        },
+        "nativeSnapshots": 34695,
+        "observations": 65251,
+        "scale": 1,
+        "threads": 838
+      }
+    },
+    "5": {
+      "baseline": {
+        "measurements": {
+          "ledgerAppend": {
+            "bytesWritten": 294625280,
+            "cpuSeconds": 4.9154793333333355,
+            "wallSeconds": 5.005314946174622
+          },
+          "ledgerIdenticalRetry": {
+            "bytesWritten": 294625280,
+            "cpuSeconds": 4.844699708333334,
+            "wallSeconds": 4.854043006896973
+          },
+          "ledgerInitialImport": {
+            "bytesWritten": 294621184,
+            "cpuSeconds": 5.1199736666666675,
+            "wallSeconds": 5.278418064117432
+          },
+          "nativeAppend": {
+            "bytesWritten": 124579840,
+            "cpuSeconds": 2.3908730000000027,
+            "wallSeconds": 2.4294039011001587
+          },
+          "nativeIdenticalRetry": {
+            "bytesWritten": 124579840,
+            "cpuSeconds": 2.3870211666666634,
+            "wallSeconds": 2.391947031021118
+          },
+          "nativeInitialImport": {
+            "bytesWritten": 0,
+            "cpuSeconds": 1.1633862916666668,
+            "wallSeconds": 1.1667739152908325
+          }
+        },
+        "nativeSnapshots": 173475,
+        "observations": 326255,
+        "scale": 5,
+        "threads": 4190
+      },
+      "candidate": {
+        "measurements": {
+          "ledgerAppend": {
+            "bytesWritten": 102400,
+            "cpuSeconds": 0.0007438333333311675,
+            "wallSeconds": 0.0009639263153076172
+          },
+          "ledgerIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 2.879166666502897e-05,
+            "wallSeconds": 2.9087066650390625e-05
+          },
+          "ledgerInitialImport": {
+            "bytesWritten": 674267136,
+            "cpuSeconds": 12.630737708333331,
+            "wallSeconds": 12.987461924552917
+          },
+          "nativeAppend": {
+            "bytesWritten": 102400,
+            "cpuSeconds": 0.00047108333333412133,
+            "wallSeconds": 0.0006459951400756836
+          },
+          "nativeIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 2.5583333332690472e-05,
+            "wallSeconds": 2.5987625122070312e-05
+          },
+          "nativeInitialImport": {
+            "bytesWritten": 727908352,
+            "cpuSeconds": 8.527514666666665,
+            "wallSeconds": 8.748639941215515
+          }
+        },
+        "nativeSnapshots": 173475,
+        "observations": 326255,
+        "scale": 5,
+        "threads": 4190
+      }
+    }
+  },
+  "longThread": {
+    "1": {
+      "baseline": {
+        "days": 150,
+        "measurements": {
+          "initialRead": {
+            "bytesWritten": 18657280,
+            "cpuSeconds": 0.8737229583333332,
+            "wallSeconds": 0.8775620460510254
+          },
+          "rolloutAppend": {
+            "bytesWritten": 18657280,
+            "cpuSeconds": 0.5624699999999998,
+            "wallSeconds": 0.5521599054336548
+          },
+          "rolloutIdenticalRetry": {
+            "bytesWritten": 18657280,
+            "cpuSeconds": 0.5385919583333332,
+            "wallSeconds": 0.5419999361038208
+          }
+        },
+        "observations": 65250,
+        "scale": 1
+      },
+      "candidate": {
+        "days": 150,
+        "measurements": {
+          "initialRead": {
+            "bytesWritten": 21651456,
+            "cpuSeconds": 1.606812,
+            "wallSeconds": 1.61228609085083
+          },
+          "rolloutAppend": {
+            "bytesWritten": 237568,
+            "cpuSeconds": 0.1716186666666668,
+            "wallSeconds": 0.15975606441497803
+          },
+          "rolloutIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 0.12718008333333342,
+            "wallSeconds": 0.12738800048828125
+          }
+        },
+        "observations": 65250,
+        "scale": 1
+      }
+    },
+    "5": {
+      "baseline": {
+        "days": 750,
+        "measurements": {
+          "initialRead": {
+            "bytesWritten": 93548544,
+            "cpuSeconds": 4.419333083333333,
+            "wallSeconds": 4.471205949783325
+          },
+          "rolloutAppend": {
+            "bytesWritten": 93548544,
+            "cpuSeconds": 2.8478391666666667,
+            "wallSeconds": 2.8290730714797974
+          },
+          "rolloutIdenticalRetry": {
+            "bytesWritten": 93548544,
+            "cpuSeconds": 2.715333125,
+            "wallSeconds": 2.7332159280776978
+          }
+        },
+        "observations": 326250,
+        "scale": 5
+      },
+      "candidate": {
+        "days": 750,
+        "measurements": {
+          "initialRead": {
+            "bytesWritten": 112140288,
+            "cpuSeconds": 8.292807625,
+            "wallSeconds": 8.331912994384766
+          },
+          "rolloutAppend": {
+            "bytesWritten": 282624,
+            "cpuSeconds": 0.859641916666666,
+            "wallSeconds": 0.7916110754013062
+          },
+          "rolloutIdenticalRetry": {
+            "bytesWritten": 0,
+            "cpuSeconds": 0.6433355833333323,
+            "wallSeconds": 0.6436020135879517
+          }
+        },
+        "observations": 326250,
+        "scale": 5
+      }
+    }
+  },
+  "componentThresholdChecks": {
+    "storage-1-ledgerAppend": {
+      "writeReduction": 0.9972096267875828,
+      "cpuReduction": 0.9989759407217339
+    },
+    "storage-1-nativeAppend": {
+      "writeReduction": 0.9958629819626014,
+      "cpuReduction": 0.9986672541115249
+    },
+    "storage-5-ledgerAppend": {
+      "writeReduction": 0.9996524398720978,
+      "cpuReduction": 0.9998486753207796
+    },
+    "storage-5-nativeAppend": {
+      "writeReduction": 0.9991780371527207,
+      "cpuReduction": 0.9998029659737953
+    },
+    "storage-ledgerAppend-fiveTimesWriteRatio": 0.625,
+    "storage-nativeAppend-fiveTimesWriteRatio": 1.0,
+    "longThread-1-rolloutAppend": {
+      "writeReduction": 0.9872667398463227,
+      "cpuReduction": 0.6948838752881632
+    },
+    "longThread-5-rolloutAppend": {
+      "writeReduction": 0.9969788519637462,
+      "cpuReduction": 0.6981423927556774
+    },
+    "longThread-rolloutAppend-fiveTimesWriteRatio": 1.1896551724137931
+  }
+}

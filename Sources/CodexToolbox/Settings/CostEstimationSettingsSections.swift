@@ -134,7 +134,7 @@ struct CostEstimationSettingsSections: View {
     }
 
     private var todaySummary: DailyUsageSummary? {
-        appModel.usageHistory?.summary(for: dayKey(Date()))
+        appModel.usageSummary(for: dayKey(Date()))
     }
 
     private var currentCreditsText: String {

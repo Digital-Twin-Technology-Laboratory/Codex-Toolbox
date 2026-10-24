@@ -37,35 +37,30 @@ public struct ProcessNativeAnalyticsClient: NativeAuthenticationReading, NativeT
         return try NativeTaskUsageReport.decode(await request(body: body, timeout: 40, maximumBytes: 2 * 1024 * 1024))
     }
     private func request(body: Data, timeout: TimeInterval, maximumBytes: Int) async throws -> Data {
+        guard body.count <= 131_072 else { throw NativeAnalyticsError.invalidResponse }
         guard let executableURL, FileManager.default.isExecutableFile(atPath: executableURL.path) else { throw NativeAnalyticsError.helperUnavailable }
-        return try await Task.detached(priority: .utility) {
-            let process = Process(); process.executableURL = executableURL
-            let input = Pipe(); let output = Pipe()
-            process.standardInput = input; process.standardOutput = output; process.standardError = FileHandle.nullDevice
-            try process.run()
-            defer { if process.isRunning { process.terminate() }; try? output.fileHandleForReading.close() }
-            try input.fileHandleForWriting.write(contentsOf: body); try input.fileHandleForWriting.close()
-            let deadline = Date().addingTimeInterval(timeout)
-            let fd = output.fileHandleForReading.fileDescriptor
-            var bytes = Data(); var chunk = [UInt8](repeating: 0, count: 8192)
-            while Date() < deadline {
-                var descriptor = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
-                let polled = Darwin.poll(&descriptor, 1, 250)
-                if polled > 0 {
-                    let count = Darwin.read(fd, &chunk, chunk.count)
-                    if count == 0 { break }
-                    if count > 0 { bytes.append(contentsOf: chunk.prefix(count)) }
-                    if bytes.count > maximumBytes { throw NativeAnalyticsError.invalidResponse }
-                }
-                if Task.isCancelled { throw CancellationError() }
+        let bytes: Data
+        do {
+            bytes = try await BoundedProcess.run(
+                executableURL: executableURL, timeout: timeout,
+                maximumInputBytes: 131_072, maximumOutputBytes: maximumBytes
+            ) { channel in
+                try channel.send(body)
+                channel.closeInput()
+                return try channel.readToEnd()
             }
-            guard Date() < deadline else { throw NativeAnalyticsError.timeout }
-            struct Failure: Decodable { let error: String }
-            if let failure = try? JSONDecoder().decode(Failure.self, from: bytes) {
-                throw NativeAnalyticsError(rawValue: failure.error) ?? .accountUnavailable
+        } catch let error as ProcessExecutionError {
+            switch error {
+            case .launch: throw NativeAnalyticsError.helperUnavailable
+            case .timeout: throw NativeAnalyticsError.timeout
+            case .invalidResponse, .inputLimit, .outputLimit: throw NativeAnalyticsError.invalidResponse
             }
-            return bytes
-        }.value
+        }
+        struct Failure: Decodable { let error: String }
+        if let failure = try? JSONDecoder().decode(Failure.self, from: bytes) {
+            throw NativeAnalyticsError(rawValue: failure.error) ?? .accountUnavailable
+        }
+        return bytes
     }
 }
 public actor AccountIdentityRepository {

@@ -166,6 +166,7 @@ final class StatusItemController: NSObject {
         guard !popover.isShown, let entry = entries[id],
               let configuration = appModel.settings.menuBarConfiguration.items.first(where: { $0.id == id }) else { return }
         anchorID = id
+        appModel.setDashboardVisible(true)
         dashboardLayoutState.focus(configuration.content.resolved(localCostEstimatesEnabled: appModel.settings.experimentalLocalCostEstimatesEnabled), settings: appModel.settings)
         updateMaximumPopoverHeight()
         applyPendingPopoverSize()
@@ -173,6 +174,12 @@ final class StatusItemController: NSObject {
         popover.show(relativeTo: entry.button.bounds, of: entry.button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
         beginOutsideClickMonitoring()
+        Task { [weak self] in
+            guard let self else { return }
+            async let refresh: Void = appModel.refreshAllIfNeeded()
+            async let native: Void = appModel.refreshNativeTaskQuota(force: true)
+            _ = await (refresh, native)
+        }
     }
 
     private func closePopover() {
@@ -180,6 +187,7 @@ final class StatusItemController: NSObject {
             endOutsideClickMonitoring()
             return
         }
+        appModel.setDashboardVisible(false)
         popover.performClose(nil)
     }
 
@@ -233,6 +241,7 @@ final class StatusItemController: NSObject {
 extension StatusItemController: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         endOutsideClickMonitoring()
+        appModel.setDashboardVisible(false)
         dashboardLayoutState.endFocus()
     }
 }

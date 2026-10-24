@@ -1,0 +1,81 @@
+Sanitized system diagnostic summary; collected 2026-10-22 Asia/Shanghai.
+Reports describe file-backed memory dirtied, not final cache size or NAND bytes.
+Energy fields belong to sampled reports, not total battery drain.
+
+Codex Toolbox_2026-10-17-154311_MacBook-Pro.diag
+Date/Time:        2026-10-17 13:22:50.590 +0800
+End time:         2026-10-17 15:43:10.143 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           2156.18 MB of file backed memory dirtied over 8420 seconds (256.09 KB per second average), exceeding limit of 24.86 KB per second over 86400 seconds
+Duration:         8419.55s
+Version:          1.4.1 (63)
+End time:         2026-10-17 15:37:54.522 +0800
+Energy:           351.61 mWh
+Power Source:     3 samples on Battery, 47 samples on AC
+
+Codex Toolbox_2026-10-17-175620_MacBook-Pro.diag
+Date/Time:        2026-10-17 17:24:34.914 +0800
+End time:         2026-10-17 17:56:19.458 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           2175.59 MB of file backed memory dirtied over 1905 seconds (1142.32 KB per second average), exceeding limit of 24.86 KB per second over 86400 seconds
+Duration:         1904.54s
+Version:          1.4.1 (63)
+End time:         2026-10-17 17:55:11.337 +0800
+Energy:           312.60 mWh
+Power Source:     0 samples on Battery, 47 samples on AC
+
+Codex Toolbox_2026-10-17-235850_MacBook-Pro.diag
+Date/Time:        2026-10-17 18:15:24.250 +0800
+End time:         2026-10-17 23:58:49.781 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           8645.61 MB of file backed memory dirtied over 20606 seconds (419.58 KB per second average), exceeding limit of 99.42 KB per second over 86400 seconds
+Duration:         20605.53s
+Version:          1.4.1 (63)
+End time:         2026-10-17 23:58:45.738 +0800
+Energy:           1260.79 mWh
+Power Source:     1 samples on Battery, 180 samples on AC
+
+Codex Toolbox_2026-10-18-210319_MacBook-Pro.diag
+Date/Time:        2026-10-17 23:58:50.149 +0800
+End time:         2026-10-18 21:03:18.515 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           34.39 GB of file backed memory dirtied over 75868 seconds (453.25 KB per second average), exceeding limit of 397.68 KB per second over 86400 seconds
+Duration:         75868.37s
+Version:          1.4.1 (63)
+End time:         2026-10-18 20:58:23.484 +0800
+Energy:           5911.82 mWh
+Power Source:     49 samples on Battery, 710 samples on AC
+
+Codex Toolbox_2026-10-20-003500_MacBook-Pro.diag
+Date/Time:        2026-10-19 23:25:26.101 +0800
+End time:         2026-10-20 00:35:00.166 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           2160.86 MB of file backed memory dirtied over 4174 seconds (517.69 KB per second average), exceeding limit of 24.86 KB per second over 86400 seconds
+Duration:         4174.07s
+Version:          1.4.1 (63)
+End time:         2026-10-20 00:29:45.123 +0800
+Energy:           405.20 mWh
+Power Source:     43 samples on Battery, 0 samples on AC
+
+Codex Toolbox_2026-10-20-090140_MacBook-Pro.diag
+Date/Time:        2026-10-20 00:35:00.268 +0800
+End time:         2026-10-20 09:01:40.167 +0800
+Version:          1.4.1 (63)
+Event:            disk writes
+Action taken:     none
+Writes:           8598.39 MB of file backed memory dirtied over 30400 seconds (282.84 KB per second average), exceeding limit of 99.42 KB per second over 86400 seconds
+Duration:         30399.90s
+Version:          1.4.1 (63)
+End time:         2026-10-20 08:56:25.214 +0800
+Energy:           2126.29 mWh
+Power Source:     143 samples on Battery, 73 samples on AC

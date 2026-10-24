@@ -66,7 +66,9 @@ public final class URLSessionRateCardClient: RateCardReading, @unchecked Sendabl
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await BoundedHTTPResponse.data(for: request, session: session, maximumBytes: 8 * 1024 * 1024)
+        } catch is BoundedHTTPResponse.Failure {
+            throw RateCardClientError.invalidResponse
         } catch let error as CancellationError {
             throw error
         } catch {
@@ -112,31 +114,48 @@ public struct StoredRateCard: Codable, Hashable, Sendable {
 public protocol RateCardStoring: Sendable {
     func load() async throws -> StoredRateCard?
     func save(_ card: StoredRateCard) async throws
+    func saveCheck(_ card: StoredRateCard) async throws
+}
+
+public extension RateCardStoring {
+    func saveCheck(_ card: StoredRateCard) async throws { try await save(card) }
 }
 
 public actor RateCardStore: RateCardStoring {
     private let fileURL: URL
     private let fileManager: FileManager
+    private var persistence: PublicCachePersistence
 
     public init(fileURL: URL? = nil, fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.fileURL = fileURL ?? ApplicationSupportLayout(fileManager: fileManager).rateCardCacheURL
+        persistence = PublicCachePersistence(fileURL: self.fileURL)
     }
 
     public func load() async throws -> StoredRateCard? {
         guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
-        let stored = try Self.decoder.decode(StoredRateCard.self, from: Data(contentsOf: fileURL))
+        let data = try Data(contentsOf: fileURL)
+        let stored = try Self.decoder.decode(StoredRateCard.self, from: data)
         _ = try stored.manifest.validated()
-        return stored
+        guard let check = persistence.didLoad(data) else { return stored }
+        return StoredRateCard(manifest: stored.manifest, validators: check.validators, fetchedAt: check.fetchedAt)
     }
 
     public func save(_ card: StoredRateCard) async throws {
+        try Task.checkCancellation()
         _ = try card.manifest.validated()
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try Self.encoder.encode(card).write(to: fileURL, options: .atomic)
+        try persistence.save(Self.encoder.encode(card))
+    }
+
+    public func saveCheck(_ card: StoredRateCard) async throws {
+        try Task.checkCancellation()
+        if try !persistence.saveCheck(fetchedAt: card.fetchedAt, validators: card.validators) {
+            try await save(card)
+        }
     }
 
     private static let encoder: JSONEncoder = {
@@ -195,6 +214,8 @@ public actor RateCardRepository {
     private let now: @Sendable () -> Date
     private var state: RateCardRepositoryState
     private var refreshTask: Task<RateCardRepositoryState, Never>?
+    private var refreshID: UUID?
+    private var lifecycleGeneration: UInt64 = 0
 
     public init(
         bundledManifest: RateCardManifest,
@@ -244,20 +265,46 @@ public actor RateCardRepository {
 
     public func currentState() -> RateCardRepositoryState { state }
 
-    public func cancelRefresh() { refreshTask?.cancel() }
+
+    public func cancelRefresh(generation: UInt64? = nil) {
+        guard advanceGeneration(to: generation) else { return }
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshID = nil
+    }
+
+    private func advanceGeneration(to generation: UInt64?) -> Bool {
+        guard let generation else { return true }
+        guard generation >= lifecycleGeneration else { return false }
+        if generation > lifecycleGeneration {
+            lifecycleGeneration = generation
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshID = nil
+        }
+        return true
+    }
 
     @discardableResult
-    public func refresh() async -> RateCardRepositoryState {
-        if let refreshTask { return await refreshTask.value }
+    public func refresh(generation: UInt64? = nil) async -> RateCardRepositoryState {
+        guard advanceGeneration(to: generation), !Task.isCancelled else { return state }
+        if let refreshTask {
+            let joinedID = refreshID
+            let joined = await refreshTask.value
+            return refreshID == joinedID ? joined : state
+        }
+        let id = UUID()
         let previous = state
         let client = client
         let store = store
         let now = now
         let task = Task<RateCardRepositoryState, Never> {
             do {
+                try Task.checkCancellation()
                 let result = try await client.fetch(cacheValidators: previous.validators)
                 try Task.checkCancellation()
                 let manifest: RateCardManifest
+                let unchanged: Bool
                 let validators: CacheValidators
                 switch result {
                 case let .modified(value, newValidators):
@@ -265,9 +312,11 @@ public actor RateCardRepository {
                         throw RateCardValidationError.invalidVersions
                     }
                     manifest = value
+                    unchanged = value == previous.manifest
                     validators = newValidators
                 case let .notModified(newValidators):
                     manifest = previous.manifest
+                    unchanged = true
                     validators = newValidators
                 }
                 let fetchedAt = now()
@@ -276,7 +325,10 @@ public actor RateCardRepository {
                     validators: validators,
                     fetchedAt: fetchedAt
                 )
-                try await store.save(stored)
+                try Task.checkCancellation()
+                if unchanged { try await store.saveCheck(stored) }
+                else { try await store.save(stored) }
+                try Task.checkCancellation()
                 return RateCardRepositoryState(
                     manifest: manifest,
                     source: .remote,
@@ -298,9 +350,15 @@ public actor RateCardRepository {
             }
         }
         refreshTask = task
-        let refreshed = await task.value
-        state = refreshed
+        refreshID = id
+        let refreshed = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: { task.cancel() }
+        guard refreshID == id else { return state }
         refreshTask = nil
+        refreshID = nil
+        guard !task.isCancelled else { return state }
+        state = refreshed
         return refreshed
     }
 }

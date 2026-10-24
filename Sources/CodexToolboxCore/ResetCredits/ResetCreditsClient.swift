@@ -117,99 +117,47 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
         } else {
             throw ResetCreditsError.codexNotInstalled
         }
-        let timeout = timeout
-        return try await Task.detached(priority: .utility) {
-            try Self.performRequest(
-                executableURL: executableURL,
-                method: method,
-                timeout: timeout
-            )
-        }.value
-    }
-
-    private static func performRequest(
-        executableURL: URL,
-        method: String,
-        timeout: TimeInterval
-    ) throws -> Data {
-        let process = Process()
-        let input = Pipe()
-        let output = Pipe()
-        let errorOutput = Pipe()
-        process.executableURL = executableURL
-        process.arguments = ["app-server", "--listen", "stdio://"]
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = errorOutput
         do {
-            try process.run()
-        } catch {
-            throw ResetCreditsError.launchFailed(error.localizedDescription)
+            return try await BoundedProcess.run(
+                executableURL: executableURL, arguments: ["app-server", "--listen", "stdio://"],
+                timeout: timeout, maximumInputBytes: 16_384, maximumOutputBytes: 2 * 1024 * 1024
+            ) { channel in
+                try Self.send([
+                    "id": 1, "method": "initialize",
+                    "params": [
+                        "clientInfo": ["name": "Codex Toolbox", "version": AppMetadata.version],
+                        "capabilities": ["experimentalApi": true]
+                    ]
+                ], to: channel)
+                _ = try Self.waitForResponse(id: 1, channel: channel)
+                try Self.send(["method": "initialized"], to: channel)
+                try Self.send(["id": 2, "method": method], to: channel)
+                let response = try Self.waitForResponse(id: 2, channel: channel)
+                guard let result = response["result"] as? [String: Any] else {
+                    throw ResetCreditsError.protocolIncompatible("响应缺少 result 对象")
+                }
+                return try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+            }
+        } catch let error as ProcessExecutionError {
+            switch error {
+            case let .launch(message): throw ResetCreditsError.launchFailed(message)
+            case .timeout: throw ResetCreditsError.timeout
+            case .invalidResponse, .inputLimit, .outputLimit:
+                throw ResetCreditsError.protocolIncompatible("app-server 响应不完整或超过限制")
+            }
         }
-
-        defer {
-            try? input.fileHandleForWriting.close()
-            if process.isRunning { process.terminate() }
-            let stopDeadline = Date().addingTimeInterval(2)
-            while process.isRunning, Date() < stopDeadline { usleep(20_000) }
-            if process.isRunning { Darwin.kill(process.processIdentifier, SIGKILL) }
-        }
-
-        var stdoutBuffer = Data()
-        var stderrText = ""
-        try send([
-            "id": 1,
-            "method": "initialize",
-            "params": [
-                "clientInfo": ["name": "Codex Toolbox", "version": AppMetadata.version],
-                "capabilities": ["experimentalApi": true]
-            ]
-        ], to: input.fileHandleForWriting)
-        _ = try waitForResponse(
-            id: 1,
-            process: process,
-            outputFD: output.fileHandleForReading.fileDescriptor,
-            errorFD: errorOutput.fileHandleForReading.fileDescriptor,
-            deadline: Date().addingTimeInterval(timeout),
-            stdoutBuffer: &stdoutBuffer,
-            stderrText: &stderrText
-        )
-        try send(["method": "initialized"], to: input.fileHandleForWriting)
-        try send(["id": 2, "method": method], to: input.fileHandleForWriting)
-        let response = try waitForResponse(
-            id: 2,
-            process: process,
-            outputFD: output.fileHandleForReading.fileDescriptor,
-            errorFD: errorOutput.fileHandleForReading.fileDescriptor,
-            deadline: Date().addingTimeInterval(timeout),
-            stdoutBuffer: &stdoutBuffer,
-            stderrText: &stderrText
-        )
-        guard let result = response["result"] as? [String: Any] else {
-            throw ResetCreditsError.protocolIncompatible("响应缺少 result 对象")
-        }
-        return try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
     }
 
-    private static func send(_ object: [String: Any], to handle: FileHandle) throws {
+    private static func send(_ object: [String: Any], to channel: ProcessChannel) throws {
         var data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
         data.append(0x0A)
-        try handle.write(contentsOf: data)
+        try channel.send(data)
     }
 
-    private static func waitForResponse(
-        id: Int,
-        process: Process,
-        outputFD: Int32,
-        errorFD: Int32,
-        deadline: Date,
-        stdoutBuffer: inout Data,
-        stderrText: inout String
-    ) throws -> [String: Any] {
-        while Date() < deadline {
-            while let newline = stdoutBuffer.firstIndex(of: 0x0A) {
-                let line = Data(stdoutBuffer[..<newline])
-                stdoutBuffer.removeSubrange(stdoutBuffer.startIndex...newline)
+    private static func waitForResponse(id: Int, channel: ProcessChannel) throws -> [String: Any] {
+        do {
+            while true {
+                let line = try channel.readLine()
                 guard let message = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
                       (message["id"] as? NSNumber)?.intValue == id else { continue }
                 if let error = message["error"] {
@@ -225,49 +173,13 @@ public actor ProcessCodexAppServerTransport: CodexAppServerRequesting {
                 }
                 return message
             }
-
-            var descriptors = [
-                pollfd(fd: outputFD, events: Int16(POLLIN), revents: 0),
-                pollfd(fd: errorFD, events: Int16(POLLIN), revents: 0)
-            ]
-            let remaining = max(1, Int32(deadline.timeIntervalSinceNow * 1_000))
-            let pollResult = descriptors.withUnsafeMutableBufferPointer {
-                Darwin.poll($0.baseAddress, nfds_t($0.count), remaining)
+        } catch let error as ProcessExecutionError {
+            if channel.errorText.localizedCaseInsensitiveContains("login")
+                || channel.errorText.localizedCaseInsensitiveContains("auth") {
+                throw ResetCreditsError.notLoggedIn(channel.errorText)
             }
-            if pollResult < 0, errno != EINTR {
-                throw ResetCreditsError.protocolIncompatible(String(cString: strerror(errno)))
-            }
-            if pollResult == 0 { break }
-            if descriptors[0].revents & Int16(POLLIN) != 0 {
-                stdoutBuffer.append(try readAvailable(from: outputFD))
-            }
-            if descriptors[1].revents & Int16(POLLIN) != 0 {
-                let errorData = try readAvailable(from: errorFD)
-                stderrText += String(decoding: errorData, as: UTF8.self)
-                if stderrText.count > 4_096 { stderrText = String(stderrText.suffix(4_096)) }
-            }
-            if !process.isRunning, stdoutBuffer.isEmpty {
-                let detail = stderrText.isEmpty ? "app-server 已退出" : stderrText
-                throw ResetCreditsError.protocolIncompatible(detail)
-            }
+            throw error
         }
-        if !stderrText.isEmpty,
-           stderrText.localizedCaseInsensitiveContains("login")
-            || stderrText.localizedCaseInsensitiveContains("auth") {
-            throw ResetCreditsError.notLoggedIn(stderrText)
-        }
-        throw ResetCreditsError.timeout
-    }
-
-    private static func readAvailable(from descriptor: Int32) throws -> Data {
-        var bytes = [UInt8](repeating: 0, count: 8_192)
-        let count = bytes.withUnsafeMutableBytes {
-            Darwin.read(descriptor, $0.baseAddress, $0.count)
-        }
-        if count < 0, errno != EAGAIN, errno != EINTR {
-            throw ResetCreditsError.protocolIncompatible(String(cString: strerror(errno)))
-        }
-        return count > 0 ? Data(bytes.prefix(count)) : Data()
     }
 
     private static func serverDescription(_ error: Any) -> String {
@@ -312,7 +224,7 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
         guard let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ResetCreditsError.protocolIncompatible("rateLimits/read 结果不是 JSON 对象")
         }
-        let quotaWindows = Self.quotaWindows(from: result["rateLimits"])
+        let quotaWindows = try Self.quotaWindows(from: result["rateLimits"])
         let rateLimits = result["rateLimits"] as? [String: Any]
         let planType = (rateLimits?["planType"] as? String)
             ?? (rateLimits?["plan_type"] as? String)
@@ -326,7 +238,15 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
                 fetchedAt: now()
             )
         }
-        let availableCount = (container["availableCount"] as? NSNumber)?.intValue ?? 0
+        let availableCount: Int
+        if let number = container["availableCount"] as? NSNumber {
+            guard let count = Int(exactly: number.doubleValue), count >= 0 else {
+                throw ResetCreditsError.protocolIncompatible("重置额度数量无法表示")
+            }
+            availableCount = count
+        } else {
+            availableCount = 0
+        }
         let rows = container["credits"] as? [[String: Any]] ?? []
         let credits = rows.enumerated().map { index, row in
             ResetCreditSummary(
@@ -383,12 +303,19 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
         }
     }
 
-    private static func quotaWindows(from value: Any?) -> [AccountQuotaWindow] {
+    private static func quotaWindows(from value: Any?) throws -> [AccountQuotaWindow] {
         guard let container = value as? [String: Any] else { return [] }
         var seenDurations = Set<Int>()
-        return ["primary", "secondary"].compactMap { key in
-            guard let row = container[key] as? [String: Any],
-                  let duration = (row["windowDurationMins"] as? NSNumber)?.intValue,
+        return try ["primary", "secondary"].compactMap { key in
+            guard let row = container[key] as? [String: Any] else { return nil }
+            if let rawDate = row["resetsAt"], !(rawDate is NSNull), date(rawDate) == nil {
+                throw ResetCreditsError.protocolIncompatible("额度重置时间无法表示")
+            }
+            guard let number = row["windowDurationMins"] as? NSNumber else { return nil }
+            guard let duration = Int(exactly: number.doubleValue) else {
+                throw ResetCreditsError.protocolIncompatible("额度周期无法表示")
+            }
+            guard
                   duration > 0,
                   let usedPercent = (row["usedPercent"] as? NSNumber)?.doubleValue,
                   usedPercent.isFinite,
@@ -404,9 +331,11 @@ public actor ResetCreditsClient: AccountRateLimitsReading {
 
     private static func date(_ value: Any?) -> Date? {
         if let number = value as? NSNumber {
-            return Date(timeIntervalSince1970: number.doubleValue)
+            let date = Date(timeIntervalSince1970: number.doubleValue)
+            return AccountQuotaWindow.isSupportedDate(date) ? date : nil
         }
         guard let string = value as? String else { return nil }
-        return try? Date(string, strategy: .iso8601)
+        guard let date = try? Date(string, strategy: .iso8601), AccountQuotaWindow.isSupportedDate(date) else { return nil }
+        return date
     }
 }

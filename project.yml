@@ -85,19 +85,42 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.CodexToolboxTests
         GENERATE_INFOPLIST_FILE: YES
+  CodexToolboxAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/CodexToolboxAppTests
+      - path: Sources/CodexToolbox/App/AppModel.swift
+      - path: Sources/CodexToolbox/App/DemoDashboardData.swift
+      - path: Sources/CodexToolbox/Updates/AppUpdateManager.swift
+      - path: Sources/CodexToolbox/Resources/codex-rate-card-v1.json
+        buildPhase: resources
+      - path: Sources/CodexToolbox/Resources/api-price-card-v1.json
+        buildPhase: resources
+    dependencies:
+      - target: CodexToolboxCore
+      - package: Sparkle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.zzzzzzjw.CodexToolboxAppTests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   CodexToolbox:
     build:
       targets:
         CodexToolbox: all
         CodexToolboxTests: [test]
+        CodexToolboxAppTests: [test]
     test:
       targets:
         - CodexToolboxTests
+        - CodexToolboxAppTests
   CodexToolboxCoreTests:
     build:
       targets:
         CodexToolboxTests: [test]
+        CodexToolboxAppTests: [test]
     test:
       targets:
         - CodexToolboxTests
+        - CodexToolboxAppTests

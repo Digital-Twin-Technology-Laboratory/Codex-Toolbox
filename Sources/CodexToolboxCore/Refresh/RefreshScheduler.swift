@@ -13,8 +13,42 @@ public enum RefreshPolicy {
 
 public actor RefreshScheduler {
     private var task: Task<Void, Never>?
+    private var configuredDuration: Duration?
+    private var latestGeneration: UInt64 = 0
+    private let sleep: @Sendable (Duration) async throws -> Void
 
-    public init() {}
+    public init(sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.sleep = sleep
+    }
+
+    public func configureIfChanged(
+        enabled: Bool,
+        interval: RefreshInterval,
+        generation: UInt64? = nil,
+        operation: @escaping @Sendable () async -> Void
+    ) {
+        configureIfChanged(enabled: enabled, everyMinutes: interval.rawValue, generation: generation, operation: operation)
+    }
+
+    public func configureIfChanged(
+        enabled: Bool,
+        everyMinutes: Int,
+        generation: UInt64? = nil,
+        operation: @escaping @Sendable () async -> Void
+    ) {
+        configureIfChanged(enabled: enabled, every: .seconds(max(1, everyMinutes) * 60), generation: generation, operation: operation)
+    }
+
+    func configureIfChanged(
+        enabled: Bool,
+        every duration: Duration,
+        generation: UInt64? = nil,
+        operation: @escaping @Sendable () async -> Void
+    ) {
+        guard accepts(generation) else { return }
+        guard enabled ? configuredDuration != duration : task != nil else { return }
+        configure(enabled: enabled, every: duration, operation: operation)
+    }
 
     public func configure(
         enabled: Bool,
@@ -47,12 +81,15 @@ public actor RefreshScheduler {
     ) {
         task?.cancel()
         task = nil
+        configuredDuration = nil
         guard enabled else { return }
+        configuredDuration = duration
 
+        let sleep = sleep
         task = Task {
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: duration)
+                    try await sleep(duration)
                 } catch {
                     return
                 }
@@ -62,8 +99,17 @@ public actor RefreshScheduler {
         }
     }
 
-    public func stop() {
+    private func accepts(_ generation: UInt64?) -> Bool {
+        guard let generation else { return true }
+        guard generation >= latestGeneration else { return false }
+        latestGeneration = generation
+        return true
+    }
+
+    public func stop(generation: UInt64? = nil) {
+        guard accepts(generation) else { return }
         task?.cancel()
         task = nil
+        configuredDuration = nil
     }
 }

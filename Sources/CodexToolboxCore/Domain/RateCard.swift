@@ -25,9 +25,11 @@ public struct UsageTokenBreakdown: Codable, Hashable, Sendable {
     }
 
     public var hasConsistentComponents: Bool {
-        cachedInputTokens <= inputTokens
-            && reasoningOutputTokens <= outputTokens
-            && (cacheWriteInputTokens.map { cachedInputTokens + $0 <= inputTokens } ?? true)
+        guard inputTokens >= 0, cachedInputTokens >= 0, outputTokens >= 0,
+              reasoningOutputTokens >= 0, totalTokens >= 0,
+              cachedInputTokens <= inputTokens, reasoningOutputTokens <= outputTokens,
+              !inputTokens.addingReportingOverflow(outputTokens).overflow else { return false }
+        return cacheWriteInputTokens.map { $0 >= 0 && $0 <= inputTokens - cachedInputTokens } ?? true
     }
 }
 
@@ -243,6 +245,7 @@ public struct RateCardManifest: Codable, Hashable, Sendable {
             guard let multiplier = version.fastMultiplier(for: modelID) else { return nil }
             credits *= multiplier
         }
+        guard credits.isFinite else { return nil }
         return TokenCreditEstimate(
             credits: credits,
             precision: precision,

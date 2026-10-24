@@ -1,0 +1,18 @@
+{
+  "baselineCommit": "8e12091545ce9f6c82711a433cd098695c651340",
+  "version": "1.4.2",
+  "build": 64,
+  "swiftPM": 273,
+  "xcodeCore": 273,
+  "xcodeAppModel": 8,
+  "rust": 3,
+  "pythonRateCard": 3,
+  "pythonAPIPrice": 6,
+  "coreVerification": "passed",
+  "universalBuild": "arm64 x86_64 passed",
+  "testLogSHA256": "a5a8f5cc733caf2f97dff7dd1faa23d8c8b85419543b61dacf1e74695d1f26b6",
+  "sourceManifestSHA256": "ff4498831f7e0840b94b2ec9a22bf63bb89dac6d109d837313e695612d8959e9",
+  "independentStorageReviewTests": 46,
+  "installed": false,
+  "deviceAcceptance": "pending"
+}

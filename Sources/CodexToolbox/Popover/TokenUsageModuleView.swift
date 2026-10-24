@@ -51,8 +51,8 @@ struct TokenUsageModuleView: View {
         }
         .onAppear {
             focusTodayIfNeeded()
-            updateQuotaPriorities()
-            Task { await appModel.refreshNativeTaskQuota(force: true) }
+            updateQuotaPriorities(refresh: false)
+            if appModel.isDashboardVisible { Task { await appModel.refreshNativeTaskQuota(force: true) } }
         }
         .onChange(of: focusedContent) { _, _ in focusTodayIfNeeded() }
         .onChange(of: selectedSummaryDateKey) { _, _ in updateQuotaPriorities() }
@@ -426,7 +426,7 @@ struct TokenUsageModuleView: View {
     }
 
     private var selectedSummary: DailyUsageSummary? {
-        appModel.usageHistory?.summary(for: selectedSummaryDateKey)
+        appModel.usageSummary(for: selectedSummaryDateKey)
     }
 
     private var isViewingToday: Bool {
@@ -523,8 +523,8 @@ struct TokenUsageModuleView: View {
         return details.joined(separator: "；")
     }
 
-    private func updateQuotaPriorities() {
-        appModel.prioritizeNativeQuotaTasks(Set(selectedSummary?.tasks.map(\.rootTaskID) ?? []))
+    private func updateQuotaPriorities(refresh: Bool = true) {
+        appModel.prioritizeNativeQuotaTasks(Set(selectedSummary?.tasks.map(\.rootTaskID) ?? []), refresh: refresh)
     }
 
     private func quotaEstimateHelp(taskIDs: Set<String>) -> String {
@@ -548,30 +548,16 @@ struct TokenUsageModuleView: View {
         return String(format: "%.1f%%", value)
     }
 
-    private var trendPoints: [TokenTrendPoint] {
-        let calendar = Calendar.current
-        let range = appModel.settings.usageTrendRange.rawValue
-        return (0..<range).reversed().compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
-            let key = dayKey(date)
-            return TokenTrendPoint(
-                date: date,
-                dateKey: key,
-                tokens: appModel.usageHistory?.summary(for: key)?.totalTokens ?? 0,
-                costUSD: appModel.usageHistory?.summary(for: key)?.totalCostUSD.map {
-                    NSDecimalNumber(decimal: $0).doubleValue
-                },
-                costPrecision: appModel.usageHistory?.summary(for: key)?.costPrecision
-            )
-        }
+    private var trendPoints: [UsageTrendPoint] {
+        Array((appModel.usagePresentation?.trendPoints ?? []).suffix(appModel.settings.usageTrendRange.rawValue))
     }
 
-    private var hoveredPoint: TokenTrendPoint? {
+    private var hoveredPoint: UsageTrendPoint? {
         guard let hoveredDateKey else { return nil }
         return trendPoints.first { $0.dateKey == hoveredDateKey }
     }
 
-    private var selectedPoint: TokenTrendPoint? {
+    private var selectedPoint: UsageTrendPoint? {
         guard let selectedDateKey else { return nil }
         return trendPoints.first { $0.dateKey == selectedDateKey }
     }
@@ -593,7 +579,7 @@ struct TokenUsageModuleView: View {
     private func selectDate(_ dateKey: String) {
         // Empty trend slots do not render a usable bar and should not replace
         // today's task list when the user taps the chart background.
-        guard appModel.usageHistory?.summary(for: dateKey) != nil else { return }
+        guard appModel.usageSummary(for: dateKey) != nil else { return }
         withAnimation(ToolboxMotion.dashboard(reduceMotion: reduceMotion)) {
             selectedDateKey = dateKey == todayDateKey ? nil : dateKey
             isTaskListExpanded = false
@@ -662,7 +648,7 @@ struct TokenUsageModuleView: View {
         return "按输入、输出与缓存分项估算；已定价 Token 覆盖率 \(String(format: "%.1f%%", task.costCoverage * 100))，并非订阅账单"
     }
 
-    private func trendValue(_ point: TokenTrendPoint) -> Double? {
+    private func trendValue(_ point: UsageTrendPoint) -> Double? {
         switch trendMetric {
         case .tokens: return Double(point.tokens)
         case .cost: return point.costUSD
@@ -678,7 +664,7 @@ struct TokenUsageModuleView: View {
         }
     }
 
-    private func trendPointLabel(_ point: TokenTrendPoint) -> String {
+    private func trendPointLabel(_ point: UsageTrendPoint) -> String {
         switch trendMetric {
         case .tokens: return "\(format(point.tokens)) Token"
         case .cost:
@@ -700,15 +686,6 @@ struct TokenUsageModuleView: View {
 
 private enum TaskHeaderControlMetrics {
     static let height: CGFloat = 26
-}
-
-private struct TokenTrendPoint: Identifiable {
-    let date: Date
-    let dateKey: String
-    let tokens: Int64
-    let costUSD: Double?
-    let costPrecision: CostEstimatePrecision?
-    var id: String { dateKey }
 }
 
 private enum UsageTrendMetric: String, CaseIterable, Identifiable {

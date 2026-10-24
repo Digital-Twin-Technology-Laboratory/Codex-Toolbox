@@ -5,11 +5,15 @@ import SwiftUI
 private struct TrendChartSourceRevision: Hashable, Sendable {
     let metric: RankingMetric
     let rangeDays: Int
-    let snapshotFetchedAt: Date?
-    let sourceMonitoredAt: String?
-    let benchmarkCount: Int
-    let costHistoryCount: Int
+    let contentRevision: UUID
+    let visibleModelIDs: [String]
     let timeZoneIdentifier: String
+    let today: Date
+}
+
+private struct TrendChartTaskID: Hashable {
+    let revision: TrendChartSourceRevision
+    let active: Bool
 }
 
 private struct TrendChartLoadInput: Sendable {
@@ -31,50 +35,42 @@ private final class TrendChartState: ObservableObject {
     private var sourceData: TrendSeriesSourceData?
     private var requestedModelIDs: [String] = []
     private var cache: [TrendChartSourceRevision: TrendSeriesSourceData] = [:]
+    private let worker = LatestValueWorker<TrendChartLoadInput, TrendSeriesSourceData>(priority: .userInitiated) { input in
+        let result = TrendSeriesBuilder.prepare(benchmarks: input.benchmarks, costHistory: input.costHistory,
+            rankedModelIDs: input.rankedModelIDs, metric: input.metric, days: input.days,
+            now: input.now, calendar: input.calendar)
+        try Task.checkCancellation()
+        return result
+    }
 
     func select(modelIDs: [String]) {
         guard requestedModelIDs != modelIDs || data == nil else { return }
         requestedModelIDs = modelIDs
-        if let sourceData {
-            data = sourceData.selecting(savedModelIDs: modelIDs)
-        }
+        if let sourceData { data = sourceData.selecting(savedModelIDs: modelIDs) }
     }
 
-    func load(input: TrendChartLoadInput, revision: TrendChartSourceRevision) async {
-        guard loadedRevision != revision else { return }
+    func cancel() { worker.cancel() }
 
+    func load(input: TrendChartLoadInput, revision: TrendChartSourceRevision) {
+        worker.cancel()
+        guard loadedRevision != revision else { return }
         if let cached = cache[revision] {
             sourceData = cached
             data = cached.selecting(savedModelIDs: requestedModelIDs)
             loadedRevision = revision
             return
         }
-
-        if loadedRevision?.metric != revision.metric {
-            sourceData = nil
-            data = nil
+        if loadedRevision?.metric != revision.metric { sourceData = nil; data = nil }
+        worker.submit(input) { [weak self] prepared in
+            guard let self else { return }
+            self.cache = self.cache.filter { $0.key.metric != revision.metric }
+            self.cache[revision] = prepared
+            self.sourceData = prepared
+            self.data = prepared.selecting(savedModelIDs: self.requestedModelIDs)
+            self.loadedRevision = revision
         }
-
-        let worker = Task.detached(priority: .userInitiated) {
-            TrendSeriesBuilder.prepare(
-                benchmarks: input.benchmarks,
-                costHistory: input.costHistory,
-                rankedModelIDs: input.rankedModelIDs,
-                metric: input.metric,
-                days: input.days,
-                now: input.now,
-                calendar: input.calendar
-            )
-        }
-        let prepared = await worker.value
-        guard !Task.isCancelled else { return }
-
-        cache = cache.filter { $0.key.metric != revision.metric }
-        cache[revision] = prepared
-        sourceData = prepared
-        data = prepared.selecting(savedModelIDs: requestedModelIDs)
-        loadedRevision = revision
     }
+
 }
 
 struct TrendChartView: View {
@@ -119,9 +115,11 @@ struct TrendChartView: View {
         .task(id: savedModelIDs) {
             state.select(modelIDs: savedModelIDs)
         }
-        .task(id: revision) {
-            await state.load(input: trendLoadInput, revision: revision)
+        .task(id: TrendChartTaskID(revision: revision, active: appModel.isDashboardVisible)) {
+            if appModel.isDashboardVisible { state.load(input: trendLoadInput, revision: revision) }
+            else { state.cancel() }
         }
+        .onDisappear { state.cancel() }
     }
 
     private var trendEntry: some View {
@@ -358,19 +356,10 @@ struct TrendChartView: View {
     }
 
     private var trendSourceRevision: TrendChartSourceRevision {
-        let snapshot = appModel.snapshot
-        let benchmarks = appModel.visibleModels
-        let costHistory = appModel.costHistory
         let calendar = Calendar.current
-        return TrendChartSourceRevision(
-            metric: state.metric,
-            rangeDays: appModel.settings.modelTrendRange.rawValue,
-            snapshotFetchedAt: snapshot?.fetchedAt,
-            sourceMonitoredAt: snapshot?.sourceMonitoredAt,
-            benchmarkCount: benchmarks.count,
-            costHistoryCount: costHistory.count,
-            timeZoneIdentifier: calendar.timeZone.identifier
-        )
+        return TrendChartSourceRevision(metric: state.metric, rangeDays: appModel.settings.modelTrendRange.rawValue,
+            contentRevision: appModel.radarContentRevision, visibleModelIDs: appModel.visibleModels.map(\.id),
+            timeZoneIdentifier: calendar.timeZone.identifier, today: calendar.startOfDay(for: Date()))
     }
 
     private var trendLoadInput: TrendChartLoadInput {

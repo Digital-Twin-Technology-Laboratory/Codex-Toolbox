@@ -362,10 +362,13 @@ public struct APIPriceManifest: Codable, Hashable, Sendable {
                 rate: price.outputUSDPerMillion
             )
         )
-        let pricedTokens = fresh
-            + (cachedRate == nil ? 0 : cached)
-            + (cacheWriteRate == nil ? 0 : cacheWrite)
-            + breakdown.outputTokens
+        var pricedTokens = fresh
+        for component in [cachedRate == nil ? 0 : cached, cacheWriteRate == nil ? 0 : cacheWrite, breakdown.outputTokens] {
+            let sum = pricedTokens.addingReportingOverflow(component)
+            guard !sum.overflow else { return nil }
+            pricedTokens = sum.partialValue
+        }
+        guard !calculated.totalUSD.isNaN else { return nil }
         let isPartiallyPriced = pricedTokens < breakdown.totalTokens
         return TokenCostEstimate(
             amountUSD: calculated.totalUSD,

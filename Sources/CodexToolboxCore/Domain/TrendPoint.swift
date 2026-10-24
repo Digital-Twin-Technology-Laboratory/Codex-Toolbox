@@ -195,7 +195,8 @@ public enum TrendSeriesBuilder {
             now: now,
             calendar: calendar
         )
-        let pointsByModelID = Dictionary(grouping: allRecentPoints, by: \.modelID)
+        let preparedPoints = Task.isCancelled ? [] : allRecentPoints
+        let pointsByModelID = Dictionary(grouping: preparedPoints, by: \.modelID)
         let drawableModelIDs = Set(
             pointsByModelID
                 .compactMap { modelID, points in
@@ -254,13 +255,14 @@ public enum TrendPointBuilder {
         modelIDs: [String],
         calendar: Calendar = .current
     ) -> [TrendPoint] {
-        guard metric != .overall else { return [] }
+        guard !Task.isCancelled, metric != .overall else { return [] }
 
         let selected = Set(modelIDs)
         let dateParser = SourceDateParser(calendar: calendar)
         return benchmarks
             .filter { selected.contains($0.id) }
-            .flatMap { benchmark in
+            .flatMap { benchmark -> [TrendPoint] in
+                guard !Task.isCancelled else { return [] }
                 let remotePoints = remotePoints(
                     for: benchmark,
                     metric: metric,
@@ -282,6 +284,7 @@ public enum TrendPointBuilder {
         var latestByDay: [DailyKey: TrendPoint] = [:]
 
         for point in points where point.value.isFinite {
+            guard !Task.isCancelled else { return [] }
             guard let recordedAt = point.recordedAt ?? point.day else { continue }
             let day = calendar.startOfDay(for: recordedAt)
             let normalized = TrendPoint(
@@ -442,6 +445,7 @@ public enum TrendPointBuilder {
         dateParser: SourceDateParser
     ) -> [TrendPoint] {
         let observations = benchmark.recentDays.enumerated().compactMap { index, record -> TrendPoint? in
+            guard !Task.isCancelled else { return nil }
             guard let value = value(in: record, for: metric), value.isFinite,
                   let recordedAt = dateParser.date(from: record.date) else { return nil }
             return TrendPoint(
@@ -463,7 +467,7 @@ public enum TrendPointBuilder {
         calendar: Calendar
     ) -> [TrendPoint] {
         let observations = costHistory
-            .filter { $0.modelID == benchmark.id && $0.costUSD.isFinite }
+            .filter { !Task.isCancelled && $0.modelID == benchmark.id && $0.costUSD.isFinite }
             .sorted {
                 if $0.recordedAt != $1.recordedAt { return $0.recordedAt < $1.recordedAt }
                 return $0.dateKey < $1.dateKey

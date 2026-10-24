@@ -5,6 +5,7 @@ public enum LocalCodexUsageError: LocalizedError, Sendable {
     case stateDatabaseNotFound(URL)
     case unreadableStateDatabase(String)
     case unsupportedLedgerSchema(Int)
+    case tokenTotalOutOfRange
 
     public var errorDescription: String? {
         switch self {
@@ -12,9 +13,19 @@ public enum LocalCodexUsageError: LocalizedError, Sendable {
             "在 \(home.path) 中未找到可读取的 Codex 状态数据库。"
         case let .unreadableStateDatabase(message):
             "Codex 状态数据库不可读取：\(message)"
+        case .tokenTotalOutOfRange:
+            "Token 历史数据超出可统计范围。"
         case let .unsupportedLedgerSchema(version):
             "Token 历史账本版本不受支持（schemaVersion \(version)）。"
         }
+    }
+}
+
+private enum TokenLedgerArithmetic {
+    static func adding(_ lhs: Int64, _ rhs: Int64) throws -> Int64 {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        guard lhs >= 0, rhs >= 0, !overflow else { throw LocalCodexUsageError.tokenTotalOutOfRange }
+        return sum
     }
 }
 
@@ -87,16 +98,82 @@ private struct DatabaseScore: Comparable, Sendable {
     }
 }
 
+struct StateDatabaseReadFailure: Error {
+    let code: Int32
+    let message: String
+
+    /// Codex removes `-wal`/`-shm` when its last connection closes; a read that
+    /// races that cleanup fails briefly with CANTOPEN or BUSY.
+    var isTransient: Bool {
+        [SQLITE_CANTOPEN, SQLITE_BUSY, SQLITE_LOCKED].contains(code & 0xff)
+    }
+}
+
+enum StateDatabaseRetry {
+    static let delays: [TimeInterval] = [0.05, 0.2]
+
+    static func run<T>(
+        delays: [TimeInterval] = delays,
+        canRetry: () -> Bool = { true },
+        sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
+        _ body: () throws -> T
+    ) throws -> T {
+        var attempt = 0
+        while true {
+            do {
+                return try body()
+            } catch let failure as StateDatabaseReadFailure {
+                guard failure.isTransient, attempt < delays.count, canRetry() else { throw failure }
+                try Task.checkCancellation()
+                sleep(delays[attempt])
+                attempt += 1
+            }
+        }
+    }
+}
+
 private final class ReadOnlySQLiteDatabase {
     private var handle: OpaquePointer?
 
-    init(url: URL) throws {
-        let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
-        guard sqlite3_open_v2(url.path, &handle, flags, nil) == SQLITE_OK else {
+    static func read<T>(_ url: URL, _ body: (ReadOnlySQLiteDatabase) throws -> T) throws -> T {
+        do {
+            return try StateDatabaseRetry.run(canRetry: { FileManager.default.fileExists(atPath: url.path) }) {
+                do {
+                    return try body(ReadOnlySQLiteDatabase(url: url, immutable: false))
+                } catch let failure as StateDatabaseReadFailure
+                    where failure.code & 0xff == SQLITE_CANTOPEN && !hasPendingWAL(url) {
+                    // A read-only connection cannot recreate the -wal/-shm files that Codex
+                    // removes on close. Without WAL content the main file is fully checkpointed.
+                    return try body(ReadOnlySQLiteDatabase(url: url, immutable: true))
+                }
+            }
+        } catch let failure as StateDatabaseReadFailure {
+            throw LocalCodexUsageError.unreadableStateDatabase(failure.message)
+        }
+    }
+
+    private static func hasPendingWAL(_ url: URL) -> Bool {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path + "-wal")
+        return ((attributes?[.size] as? NSNumber)?.int64Value ?? 0) > 0
+    }
+
+    private init(url: URL, immutable: Bool) throws {
+        var flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
+        var location = url.path
+        if immutable {
+            var components = URLComponents()
+            components.scheme = "file"
+            components.path = url.path
+            components.query = "immutable=1"
+            location = components.string ?? location
+            flags |= SQLITE_OPEN_URI
+        }
+        let result = sqlite3_open_v2(location, &handle, flags, nil)
+        guard result == SQLITE_OK else {
             let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
             if let handle { sqlite3_close(handle) }
             handle = nil
-            throw LocalCodexUsageError.unreadableStateDatabase(message)
+            throw StateDatabaseReadFailure(code: result, message: message)
         }
     }
 
@@ -110,7 +187,7 @@ private final class ReadOnlySQLiteDatabase {
             "COALESCE(SUM(tokens_used), 0) FROM threads"
         )
         defer { sqlite3_finalize(statement) }
-        guard sqlite3_step(statement) == SQLITE_ROW else { throw databaseError() }
+        guard try step(statement) else { throw databaseError() }
         return DatabaseScore(
             latestUpdate: sqlite3_column_int64(statement, 0),
             taskCount: sqlite3_column_int64(statement, 1),
@@ -133,7 +210,7 @@ private final class ReadOnlySQLiteDatabase {
         )
         defer { sqlite3_finalize(statement) }
         var threads: [String: CodexThreadRow] = [:]
-        while sqlite3_step(statement) == SQLITE_ROW {
+        while try step(statement) {
             let id = text(statement, column: 0)
             guard !id.isEmpty else { continue }
             threads[id] = CodexThreadRow(
@@ -155,7 +232,7 @@ private final class ReadOnlySQLiteDatabase {
             "SELECT parent_thread_id, child_thread_id FROM thread_spawn_edges"
         ) {
             defer { sqlite3_finalize(edgeStatement) }
-            while sqlite3_step(edgeStatement) == SQLITE_ROW {
+            while try step(edgeStatement) {
                 let parent = text(edgeStatement, column: 0)
                 let child = text(edgeStatement, column: 1)
                 if !parent.isEmpty, !child.isEmpty { parents[child] = parent }
@@ -175,7 +252,7 @@ private final class ReadOnlySQLiteDatabase {
         let stmt = try prepare("SELECT id FROM threads WHERE updated_at >= \(Int64(since.timeIntervalSince1970)) ORDER BY updated_at DESC, id")
         defer { sqlite3_finalize(stmt) }
         var active: [String] = []
-        while sqlite3_step(stmt) == SQLITE_ROW {
+        while try step(stmt) {
             active.append(text(stmt, column: 0))
         }
         var seenRoots = Set<String>()
@@ -216,7 +293,7 @@ private final class ReadOnlySQLiteDatabase {
         let statement = try prepare("PRAGMA table_info(\(table))")
         defer { sqlite3_finalize(statement) }
         var columns: Set<String> = []
-        while sqlite3_step(statement) == SQLITE_ROW {
+        while try step(statement) {
             columns.insert(text(statement, column: 1))
         }
         return columns
@@ -232,15 +309,33 @@ private final class ReadOnlySQLiteDatabase {
         return statement
     }
 
+    /// A failed step must not look like the end of the table.
+    private func step(_ statement: OpaquePointer) throws -> Bool {
+        switch sqlite3_step(statement) {
+        case SQLITE_ROW: return true
+        case SQLITE_DONE: return false
+        default: throw databaseError()
+        }
+    }
+
     private func text(_ statement: OpaquePointer, column: Int32) -> String {
         guard let value = sqlite3_column_text(statement, column) else { return "" }
         return String(cString: value)
     }
 
-    private func databaseError() -> LocalCodexUsageError {
+    private func databaseError() -> StateDatabaseReadFailure {
         let message = handle.map { String(cString: sqlite3_errmsg($0)) } ?? "unknown error"
-        return .unreadableStateDatabase(message)
+        return StateDatabaseReadFailure(code: handle.map(sqlite3_errcode) ?? SQLITE_ERROR, message: message)
     }
+}
+
+struct RolloutPendingData: Sendable {
+    var path: String
+    var fileIdentity: UInt64?
+    var parsedOffset: UInt64
+    var observedOffset: UInt64
+    var modifiedAt: Date?
+    var data: Data
 }
 
 struct ParsedRollout: Sendable {
@@ -249,6 +344,8 @@ struct ParsedRollout: Sendable {
     let checkpoint: UsageRolloutCheckpoint
     let damagedLineCount: Int
     let resumedFromCheckpoint: Bool
+    var pending: RolloutPendingData? = nil
+    var bytesRead: Int = 0
 }
 
 enum QuotaUsageWeighting {
@@ -328,25 +425,46 @@ enum RolloutTokenParser {
         previous: ThreadUsageLedgerEntry?,
         calendar: Calendar,
         rateCard: RateCardManifest? = nil,
-        rateCardMode: RateCardMode = .automatic
+        rateCardMode: RateCardMode = .automatic,
+        pending: RolloutPendingData? = nil
     ) throws -> ParsedRollout {
+        try Task.checkCancellation()
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
         let currentSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let previousCheckpoint = previous?.checkpoint
+        let fileIdentity = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
+        let modifiedAt = attributes[.modificationDate] as? Date
         if let previousCheckpoint,
            previousCheckpoint.path == fileURL.path,
-           currentSize == Int64(previousCheckpoint.parsedOffset) {
+           currentSize == previousCheckpoint.fileSize,
+           previousCheckpoint.fileIdentity != nil,
+           previousCheckpoint.fileIdentity == fileIdentity,
+           previousCheckpoint.modifiedAt == modifiedAt {
             return ParsedRollout(
                 dailyTokens: previous?.dailyTokens ?? [:],
                 quotaObservations: previous?.quotaObservations ?? [],
                 checkpoint: previousCheckpoint,
                 damagedLineCount: 0,
-                resumedFromCheckpoint: true
+                resumedFromCheckpoint: true, pending: pending
             )
         }
-        let canResume = previousCheckpoint.map {
+        var bytesRead = 0
+        var prefixMatches = true
+        if let digest = previousCheckpoint?.prefixDigest, let length = previousCheckpoint?.prefixLength {
+            let prefixHandle = try FileHandle(forReadingFrom: fileURL)
+            defer { try? prefixHandle.close() }
+            var boundary = try prefixHandle.read(upToCount: length) ?? Data()
+            let offset = previousCheckpoint?.parsedOffset ?? 0
+            try prefixHandle.seek(toOffset: offset >= UInt64(length) ? offset - UInt64(length) : 0)
+            boundary.append(try prefixHandle.read(upToCount: length) ?? Data())
+            bytesRead += boundary.count
+            prefixMatches = IncrementalUsageDatabase.fingerprint(boundary) == digest
+        }
+        let canResume = prefixMatches && (previousCheckpoint.map {
             $0.path == fileURL.path && currentSize >= Int64($0.parsedOffset)
-        } ?? false
+                && ($0.fileIdentity == nil || $0.fileIdentity == fileIdentity)
+                && !(currentSize == $0.fileSize && $0.modifiedAt != nil && $0.modifiedAt != modifiedAt)
+        } ?? false)
         let startOffset = canResume ? previousCheckpoint?.parsedOffset ?? 0 : 0
         var dailyTokens = canResume ? previous?.dailyTokens ?? [:] : [:]
         var quotaObservations = canResume ? previous?.quotaObservations ?? [] : []
@@ -363,19 +481,38 @@ enum RolloutTokenParser {
 
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }
-        try handle.seek(toOffset: startOffset)
-
         var buffer = Data()
+        var readOffset = startOffset
+        if canResume, let pending, pending.path == fileURL.path, pending.fileIdentity == fileIdentity,
+           pending.parsedOffset == startOffset, UInt64(currentSize) >= pending.observedOffset,
+           !(UInt64(currentSize) == pending.observedOffset && pending.modifiedAt != modifiedAt) {
+            let length = min(pending.data.count, 4096)
+            try handle.seek(toOffset: startOffset)
+            let first = try handle.read(upToCount: length) ?? Data()
+            try handle.seek(toOffset: pending.observedOffset - UInt64(length))
+            let last = try handle.read(upToCount: length) ?? Data()
+            bytesRead += first.count + last.count
+            if first == pending.data.prefix(length), last == pending.data.suffix(length) {
+                buffer = pending.data
+                readOffset = pending.observedOffset
+            }
+        }
+        try handle.seek(toOffset: readOffset)
         var parsedOffset = startOffset
+        var searchedBytes = buffer.count
         while true {
+            try Task.checkCancellation()
             let chunk = try handle.read(upToCount: 64 * 1024) ?? Data()
             if chunk.isEmpty { break }
+            bytesRead += chunk.count
             buffer.append(chunk)
             var lineStart = buffer.startIndex
-            while let newline = buffer[lineStart...].firstIndex(of: 0x0A) {
+            var searchStart = buffer.index(buffer.startIndex, offsetBy: searchedBytes)
+            while let newline = buffer[searchStart...].firstIndex(of: 0x0A) {
                 let line = Data(buffer[lineStart..<newline])
                 let consumed = buffer.distance(from: lineStart, to: newline) + 1
                 lineStart = buffer.index(after: newline)
+                searchStart = lineStart
                 parsedOffset += UInt64(consumed)
                 guard !line.isEmpty else { continue }
                 guard let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else {
@@ -405,7 +542,7 @@ enum RolloutTokenParser {
                       increment >= 0,
                       let timestamp = date(event["timestamp"]) else { continue }
                 let day = dayKey(timestamp, calendar: calendar)
-                dailyTokens[day, default: 0] += increment
+                dailyTokens[day] = try TokenLedgerArithmetic.adding(dailyTokens[day, default: 0], increment)
                 let rateLimits = payload["rate_limits"] as? [String: Any]
                 currentContext = UsageExecutionContext(
                     modelID: currentContext.modelID,
@@ -443,21 +580,36 @@ enum RolloutTokenParser {
             if lineStart != buffer.startIndex {
                 buffer.removeSubrange(buffer.startIndex..<lineStart)
             }
+            searchedBytes = buffer.count
         }
 
+        let prefixLength = Int(min(parsedOffset, 4096))
+        try handle.seek(toOffset: 0)
+        var boundary = try handle.read(upToCount: prefixLength) ?? Data()
+        try handle.seek(toOffset: parsedOffset - UInt64(prefixLength))
+        boundary.append(try handle.read(upToCount: prefixLength) ?? Data())
+        bytesRead += boundary.count
+        let prefixDigest = IncrementalUsageDatabase.fingerprint(boundary)
         return ParsedRollout(
             dailyTokens: dailyTokens,
             quotaObservations: quotaObservations,
             checkpoint: UsageRolloutCheckpoint(
                 path: fileURL.path,
-                fileSize: currentSize,
+                fileSize: Int64(parsedOffset) + Int64(buffer.count),
                 parsedOffset: parsedOffset,
                 seenCumulativeTotals: seenTotals.sorted(),
                 lastModelID: currentContext.modelID,
-                lastExecutionContext: currentContext
+                lastExecutionContext: currentContext,
+                fileIdentity: fileIdentity,
+                modifiedAt: modifiedAt,
+                prefixDigest: prefixDigest,
+                prefixLength: prefixLength
             ),
             damagedLineCount: damagedLineCount,
-            resumedFromCheckpoint: canResume
+            resumedFromCheckpoint: canResume,
+            pending: buffer.isEmpty ? nil : RolloutPendingData(path: fileURL.path, fileIdentity: fileIdentity,
+                parsedOffset: parsedOffset, observedOffset: parsedOffset + UInt64(buffer.count), modifiedAt: modifiedAt, data: buffer),
+            bytesRead: bytesRead
         )
     }
 
@@ -573,7 +725,13 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
     private let codexHome: URL
     private let explicitDatabaseURL: URL?
     private let fileManager: FileManager
-    private let ledgerStore: UsageLedgerStore
+    private let ledgerStore: SQLiteUsageLedgerStore
+    private var databaseScores: [String: (signature: String, score: DatabaseScore)] = [:]
+    private var pendingRollouts: [String: RolloutPendingData] = [:]
+    internal private(set) var rolloutBytesReadLastRefresh = 0
+    private var rejectedTimezoneReplays: [String: String] = [:]
+    private var rolloutIndex: [String: URL]?
+    private var rolloutDirectories: [URL: String] = [:]
 
     public init(
         codexHome: URL? = nil,
@@ -594,7 +752,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         explicitDatabaseURL = stateDatabaseURL?.standardizedFileURL
         self.fileManager = fileManager
         let defaultLedger = ApplicationSupportLayout(fileManager: fileManager).usageLedgerURL
-        ledgerStore = UsageLedgerStore(fileURL: ledgerURL ?? defaultLedger)
+        ledgerStore = SQLiteUsageLedgerStore(fileURL: ledgerURL ?? defaultLedger)
     }
 
     public func selectedStateDatabase() throws -> URL {
@@ -602,7 +760,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             guard fileManager.fileExists(atPath: explicitDatabaseURL.path) else {
                 throw LocalCodexUsageError.stateDatabaseNotFound(codexHome)
             }
-            _ = try ReadOnlySQLiteDatabase(url: explicitDatabaseURL).score(path: explicitDatabaseURL.path)
+            _ = try databaseScore(explicitDatabaseURL)
             return explicitDatabaseURL
         }
 
@@ -616,8 +774,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             ) else { continue }
             for candidate in contents where candidate.lastPathComponent.hasPrefix("state_")
                 && candidate.pathExtension == "sqlite" {
-                guard let database = try? ReadOnlySQLiteDatabase(url: candidate),
-                      let score = try? database.score(path: candidate.path),
+                guard let score = try? databaseScore(candidate),
                       score.taskCount > 0 else { continue }
                 if best == nil || best!.0 < score { best = (score, candidate) }
             }
@@ -626,9 +783,20 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         return best.1
     }
 
+    private func fileSignature(_ url: URL) -> String {
+        guard let attributes = try? fileManager.attributesOfItem(atPath: url.path) else { return "missing" }
+        return "\(attributes[.systemFileNumber] ?? "")|\(attributes[.size] ?? "")|\((attributes[.modificationDate] as? Date)?.timeIntervalSinceReferenceDate ?? 0)"
+    }
+    private func databaseScore(_ url: URL) throws -> DatabaseScore {
+        let signature = fileSignature(url) + fileSignature(URL(fileURLWithPath: url.path + "-wal"))
+        if let cached = databaseScores[url.path], cached.signature == signature { return cached.score }
+        let score = try ReadOnlySQLiteDatabase.read(url) { try $0.score(path: url.path) }
+        databaseScores[url.path] = (signature, score)
+        return score
+    }
+
     public func nativeCatalogue(now: Date) async throws -> NativeCatalogue {
-        let db = try ReadOnlySQLiteDatabase(url: selectedStateDatabase())
-        return try db.nativeCatalogue(now: now)
+        try ReadOnlySQLiteDatabase.read(selectedStateDatabase()) { try $0.nativeCatalogue(now: now) }
     }
 
     public func readUsage(
@@ -638,14 +806,23 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         rateCardMode: RateCardMode,
         apiPriceCard: APIPriceManifest?
     ) async throws -> UsageHistory {
+        try Task.checkCancellation()
         let timezoneIdentifier = calendar.timeZone.identifier
         var ledger = try ledgerStore.load(timezoneIdentifier: timezoneIdentifier)
+        for id in ledger.threads.keys where ledger.threads[id]?.sourceTimezoneIdentifier == nil {
+            ledger.threads[id]?.sourceTimezoneIdentifier = ledger.timezoneIdentifier
+        }
+        ledger.timezoneIdentifier = timezoneIdentifier
         let databaseURL = try selectedStateDatabase()
-        let inventory = try ReadOnlySQLiteDatabase(url: databaseURL).inventory()
+        let inventory = try ReadOnlySQLiteDatabase.read(databaseURL) { try $0.inventory() }
         var fallbackRollouts: [String: URL]?
+        var pendingUpdates = pendingRollouts
+        var rejectedUpdates = rejectedTimezoneReplays
+        var bytesRead = 0
         var warnings: [String] = []
 
         for thread in inventory.threads.values {
+            try Task.checkCancellation()
             let rootID = rootID(for: thread.id, parents: inventory.parentByChild)
             let previous = ledger.threads[thread.id]
             let directRolloutURL = rolloutURL(for: thread, fallbackIndex: [:])
@@ -672,13 +849,63 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                 continue
             }
             do {
-                let parsed = try RolloutTokenParser.parse(
+                let changingTimezone = previous.map {
+                    ($0.sourceTimezoneIdentifier != nil && $0.sourceTimezoneIdentifier != timezoneIdentifier)
+                        || $0.dayBucketTimezones.values.contains { $0 != [timezoneIdentifier] }
+                } ?? false
+                let signature = fileSignature(rolloutURL) + timezoneIdentifier
+                if changingTimezone, rejectedUpdates[thread.id] == signature {
+                    ledger.threads[thread.id]?.rootTaskID = rootID
+                    ledger.threads[thread.id]?.title = thread.title
+                    continue
+                }
+                var sourceCalendar = calendar
+                if changingTimezone { sourceCalendar.timeZone = TimeZone(identifier: previous!.sourceTimezoneIdentifier!) ?? calendar.timeZone }
+                let retryingRejectedReplay = changingTimezone && rejectedUpdates[thread.id] != nil
+                var parsed = try RolloutTokenParser.parse(
                     fileURL: rolloutURL,
-                    previous: previous,
-                    calendar: calendar,
+                    previous: changingTimezone && !retryingRejectedReplay ? nil : previous,
+                    calendar: sourceCalendar,
                     rateCard: rateCard,
-                    rateCardMode: rateCardMode
+                    rateCardMode: rateCardMode,
+                    pending: changingTimezone && !retryingRejectedReplay ? nil : pendingRollouts[thread.id]
                 )
+                bytesRead += parsed.bytesRead
+                var retainedSourceTimezone = false
+                if changingTimezone, let previous {
+                    if !parsed.resumedFromCheckpoint, try Self.coversHistory(parsed, previous: previous, calendar: sourceCalendar) {
+                        var days: [String: Int64] = [:]
+                        for observation in parsed.quotaObservations {
+                            let day = Self.dayKey(observation.timestamp, calendar: calendar)
+                            days[day] = try TokenLedgerArithmetic.adding(days[day, default: 0], observation.tokenIncrement)
+                        }
+                        parsed = ParsedRollout(dailyTokens: days,
+                            quotaObservations: Self.preservingObservations(previous.quotaObservations, replayed: parsed.quotaObservations),
+                            checkpoint: parsed.checkpoint, damagedLineCount: parsed.damagedLineCount, resumedFromCheckpoint: false)
+                        rejectedUpdates.removeValue(forKey: thread.id)
+                    } else {
+                        if !parsed.resumedFromCheckpoint, !retryingRejectedReplay, previous.checkpoint != nil {
+                            parsed = try RolloutTokenParser.parse(fileURL: rolloutURL, previous: previous,
+                                calendar: sourceCalendar, rateCard: rateCard, rateCardMode: rateCardMode,
+                                pending: pendingRollouts[thread.id])
+                            bytesRead += parsed.bytesRead
+                        }
+                        if !parsed.resumedFromCheckpoint {
+                            // Unidentifiable old events cannot replace history. Start a conservative
+                            // checkpoint so subsequent, provably appended events still get counted.
+                            parsed = ParsedRollout(dailyTokens: previous.dailyTokens, quotaObservations: previous.quotaObservations,
+                                checkpoint: parsed.checkpoint, damagedLineCount: parsed.damagedLineCount,
+                                resumedFromCheckpoint: false, pending: parsed.pending)
+                        }
+                        retainedSourceTimezone = true
+                        rejectedUpdates[thread.id] = signature
+                    }
+                }
+                pendingUpdates[thread.id] = parsed.pending
+                var bucketTimezones = (parsed.resumedFromCheckpoint || retainedSourceTimezone) ? previous?.dayBucketTimezones ?? [:] : [:]
+                for day in bucketTimezones.keys where parsed.dailyTokens[day] != previous?.dailyTokens[day] {
+                    bucketTimezones[day] = Array(Set(bucketTimezones[day, default: []] + [sourceCalendar.timeZone.identifier])).sorted()
+                }
                 ledger.threads[thread.id] = ThreadUsageLedgerEntry(
                     threadID: thread.id,
                     rootTaskID: rootID,
@@ -686,12 +913,18 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                     dailyTokens: parsed.dailyTokens,
                     quotaObservations: parsed.quotaObservations,
                     checkpoint: parsed.checkpoint,
-                    isComplete: parsed.damagedLineCount == 0
-                        && (!parsed.resumedFromCheckpoint || previous?.isComplete != false)
+                    isComplete: !retainedSourceTimezone && parsed.damagedLineCount == 0
+                        && (!parsed.resumedFromCheckpoint || previous?.isComplete != false),
+                    sourceTimezoneIdentifier: retainedSourceTimezone ? previous?.sourceTimezoneIdentifier : timezoneIdentifier,
+                    dayBucketTimezones: bucketTimezones
                 )
                 if parsed.damagedLineCount > 0 {
                     warnings.append("任务 \(thread.id) 跳过了 \(parsed.damagedLineCount) 行损坏的 rollout 数据。")
                 }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch LocalCodexUsageError.tokenTotalOutOfRange {
+                throw LocalCodexUsageError.tokenTotalOutOfRange
             } catch {
                 var preserved = previous ?? ThreadUsageLedgerEntry(
                     threadID: thread.id,
@@ -713,19 +946,31 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         // history. This is required for archived/deleted local tasks.
         ledger.generatedAt = now
         ledger.warnings = warnings
-        let history = history(
+        let history = try history(
             from: ledger,
             now: now,
             rateCard: rateCard,
             rateCardMode: rateCardMode,
             apiPriceCard: apiPriceCard
         )
+        try Task.checkCancellation()
         try ledgerStore.save(ledger)
+        pendingRollouts = pendingUpdates.filter { inventory.threads[$0.key] != nil }
+        rejectedTimezoneReplays = rejectedUpdates.filter { inventory.threads[$0.key] != nil }
+        rolloutBytesReadLastRefresh = bytesRead
         return history
+    }
+
+    /// Release persistent storage after pending refresh work has finished.
+    public func close() { ledgerStore.close(); pendingRollouts = [:]; rejectedTimezoneReplays = [:] }
+
+    public func exportLegacyHistory() throws {
+        try ledgerStore.exportLegacyHistory()
     }
 
     public func clearHistory() async throws {
         try ledgerStore.clear()
+        pendingRollouts = [:]; rejectedTimezoneReplays = [:]
     }
 
     public func recordAccountQuotaSnapshot(
@@ -735,13 +980,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         accountKey: String? = nil
     ) async throws {
         guard !windows.isEmpty else { return }
-        let timezone = Calendar.current.timeZone.identifier
-        var ledger = try ledgerStore.load(timezoneIdentifier: timezone)
-        let minute = Int64(timestamp.timeIntervalSince1970 / 60)
-        ledger.accountObservations.removeAll { observation in
-            observation.accountKey == accountKey && Int64(observation.timestamp.timeIntervalSince1970 / 60) == minute
-        }
-        ledger.accountObservations.append(
+        try ledgerStore.recordAccountObservation(
             ThreadQuotaUsageObservation(
                 timestamp: timestamp,
                 tokenIncrement: 0,
@@ -754,13 +993,44 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                     hasAccountRateLimits: true
                 ),
                 windows: windows
-            )
+            ),
+            timezoneIdentifier: Calendar.current.timeZone.identifier
         )
-        let retentionStart = timestamp.addingTimeInterval(-90 * 24 * 60 * 60)
-        ledger.accountObservations = ledger.accountObservations
-            .filter { $0.timestamp >= retentionStart }
-            .sorted { $0.timestamp < $1.timestamp }
-        try ledgerStore.save(ledger)
+    }
+
+    private struct ObservationIdentity: Hashable {
+        var timestamp: Date
+        var tokens: Int64
+        init(_ value: ThreadQuotaUsageObservation) { timestamp = value.timestamp; tokens = value.tokenIncrement }
+    }
+    private static func coversHistory(_ parsed: ParsedRollout, previous: ThreadUsageLedgerEntry, calendar: Calendar) throws -> Bool {
+        guard parsed.damagedLineCount == 0, parsed.checkpoint.parsedOffset == UInt64(parsed.checkpoint.fileSize),
+              previous.dayBucketTimezones.values.allSatisfy({ $0 == [calendar.timeZone.identifier] }),
+              previous.dailyTokens.allSatisfy({ parsed.dailyTokens[$0.key, default: 0] >= $0.value }) else { return false }
+        // Daily totals alone cannot identify missing events: newer events can have the same sum.
+        var observedDays: [String: Int64] = [:]
+        for observation in previous.quotaObservations {
+            let day = dayKey(observation.timestamp, calendar: calendar)
+            observedDays[day] = try TokenLedgerArithmetic.adding(observedDays[day, default: 0], observation.tokenIncrement)
+        }
+        guard observedDays.filter({ $0.value != 0 }) == previous.dailyTokens.filter({ $0.value != 0 }) else { return false }
+        var counts = Dictionary(parsed.quotaObservations.map { (ObservationIdentity($0), 1) }, uniquingKeysWith: +)
+        for observation in previous.quotaObservations {
+            let key = ObservationIdentity(observation)
+            guard counts[key, default: 0] > 0 else { return false }
+            counts[key, default: 0] -= 1
+        }
+        return true
+    }
+    private static func preservingObservations(_ previous: [ThreadQuotaUsageObservation], replayed: [ThreadQuotaUsageObservation]) -> [ThreadQuotaUsageObservation] {
+        var result = previous
+        var counts = Dictionary(previous.map { (ObservationIdentity($0), 1) }, uniquingKeysWith: +)
+        for observation in replayed {
+            let key = ObservationIdentity(observation)
+            if counts[key, default: 0] > 0 { counts[key, default: 0] -= 1 }
+            else { result.append(observation) }
+        }
+        return result.sorted { $0.timestamp < $1.timestamp }
     }
 
     private func history(
@@ -769,7 +1039,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         rateCard: RateCardManifest?,
         rateCardMode: RateCardMode,
         apiPriceCard: APIPriceManifest?
-    ) -> UsageHistory {
+    ) throws -> UsageHistory {
         struct Aggregate {
             var tokens: Int64 = 0
             var observedTokens: Int64 = 0
@@ -793,9 +1063,20 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
         var quotaObservations: [LocalQuotaUsageObservation] = []
         var historyCalendar = Calendar(identifier: .gregorian)
         historyCalendar.timeZone = TimeZone(identifier: ledger.timezoneIdentifier) ?? .current
+        let mixedRoots = Set(ledger.threads.values.filter {
+            !$0.dayBucketTimezones.isEmpty
+        }.map(\.rootTaskID))
+        let foreignRoots = mixedRoots.union(ledger.threads.values.filter {
+            $0.sourceTimezoneIdentifier != nil && $0.sourceTimezoneIdentifier != ledger.timezoneIdentifier && !$0.dailyTokens.isEmpty
+        }.map(\.rootTaskID))
         for entry in ledger.threads.values {
+            try Task.checkCancellation()
+            var entryCalendar = historyCalendar
+            if let sourceTimezone = entry.sourceTimezoneIdentifier { entryCalendar.timeZone = TimeZone(identifier: sourceTimezone) ?? historyCalendar.timeZone }
             memberCountByRoot[entry.rootTaskID, default: 0] += 1
-            for observation in entry.quotaObservations {
+            for (observationIndex, observation) in entry.quotaObservations.enumerated() {
+                if observationIndex.isMultiple(of: 256) { try Task.checkCancellation() }
+                if mixedRoots.contains(entry.rootTaskID) { continue }
                 let estimate = observation.tokenBreakdown.flatMap { breakdown in
                     observation.executionContext.flatMap { context in
                         rateCard?.credits(
@@ -815,7 +1096,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                         )
                     }
                 }
-                quotaObservations.append(
+                if !foreignRoots.contains(entry.rootTaskID) { quotaObservations.append(
                     LocalQuotaUsageObservation(
                         timestamp: observation.timestamp,
                         rootTaskID: entry.rootTaskID,
@@ -828,9 +1109,10 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                         windows: observation.windows
                     )
                 )
-                let day = Self.dayKey(observation.timestamp, calendar: historyCalendar)
+                }
+                let day = Self.dayKey(observation.timestamp, calendar: entryCalendar)
                 var aggregate = byDayAndRoot[day, default: [:]][entry.rootTaskID, default: Aggregate()]
-                aggregate.observedTokens += observation.tokenIncrement
+                aggregate.observedTokens = try TokenLedgerArithmetic.adding(aggregate.observedTokens, observation.tokenIncrement)
                 if let estimate {
                     aggregate.credits += estimate.credits
                     aggregate.creditPrecision = Self.mergedPrecision(
@@ -842,10 +1124,10 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                 }
                 if let costEstimate {
                     aggregate.costUSD += costEstimate.amountUSD
-                    aggregate.pricedTokens += min(
+                    aggregate.pricedTokens = try TokenLedgerArithmetic.adding(aggregate.pricedTokens, min(
                         observation.tokenIncrement,
                         costEstimate.pricedTokens
-                    )
+                    ))
                     aggregate.costPrecision = Self.mergedCostPrecision(
                         aggregate.costPrecision,
                         costEstimate.precision
@@ -859,20 +1141,25 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
             }
             for (day, tokens) in entry.dailyTokens {
                 var aggregate = byDayAndRoot[day, default: [:]][entry.rootTaskID, default: Aggregate()]
-                aggregate.tokens += tokens
+                aggregate.tokens = try TokenLedgerArithmetic.adding(aggregate.tokens, tokens)
                 aggregate.memberIDs.insert(entry.threadID)
-                aggregate.complete = aggregate.complete && entry.isComplete
+                aggregate.complete = aggregate.complete && entry.isComplete && !foreignRoots.contains(entry.rootTaskID)
+                if foreignRoots.contains(entry.rootTaskID) { aggregate.hasUnpricedObservation = true; aggregate.costPrecision = .lowerBound }
                 byDayAndRoot[day, default: [:]][entry.rootTaskID] = aggregate
             }
         }
-        let days = byDayAndRoot.map { day, roots in
+        var fallbackTitles: [String: String] = [:]
+        for entry in ledger.threads.values where fallbackTitles[entry.rootTaskID] == nil {
+            fallbackTitles[entry.rootTaskID] = entry.title
+        }
+        let days = try byDayAndRoot.map { day, roots in
+            try Task.checkCancellation()
             let tasks = roots.map { rootID, aggregate in
                 let root = ledger.threads[rootID]
-                let fallback = ledger.threads.values.first { $0.rootTaskID == rootID }
                 return DailyTaskUsage(
                     dateKey: day,
                     rootTaskID: rootID,
-                    title: root?.title ?? fallback?.title ?? "未命名任务",
+                    title: root?.title ?? fallbackTitles[rootID] ?? "未命名任务",
                     tokens: aggregate.tokens,
                     credits: aggregate.hasUnpricedObservation
                         || aggregate.observedTokens < aggregate.tokens
@@ -889,8 +1176,8 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                     descendantCount: max(0, (memberCountByRoot[rootID] ?? aggregate.memberIDs.count) - 1)
                 )
             }
-            let totalTokens = tasks.reduce(0) { $0 + $1.tokens }
-            let pricedTokens = tasks.reduce(0) { $0 + $1.pricedTokens }
+            let totalTokens = try tasks.reduce(Int64(0)) { try TokenLedgerArithmetic.adding($0, $1.tokens) }
+            let pricedTokens = try tasks.reduce(Int64(0)) { try TokenLedgerArithmetic.adding($0, $1.pricedTokens) }
             let mergedCostPrecision = tasks.reduce(nil) { partial, task in
                 Self.mergedCostPrecision(partial, task.costPrecision)
             }
@@ -980,18 +1267,25 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
     }
 
     private func buildRolloutIndex() -> [String: URL] {
+        if let rolloutIndex, rolloutDirectories.allSatisfy({ fileSignature($0.key) == $0.value }) { return rolloutIndex }
+        var directories: [URL: String] = [:]
         var result: [String: URL] = [:]
         let roots = [
             codexHome.appendingPathComponent("archived_sessions", isDirectory: true),
             codexHome.appendingPathComponent("sessions", isDirectory: true)
         ]
         for root in roots {
+            directories[root] = fileSignature(root)
             guard let enumerator = fileManager.enumerator(
                 at: root,
-                includingPropertiesForKeys: [.isRegularFileKey],
+                includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
                 options: [.skipsHiddenFiles]
             ) else { continue }
-            for case let url as URL in enumerator where url.pathExtension == "jsonl" {
+            for case let url as URL in enumerator {
+                if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+                    directories[url] = fileSignature(url); continue
+                }
+                guard url.pathExtension == "jsonl" else { continue }
                 let filename = url.lastPathComponent
                 result[filename] = url
                 let stem = url.deletingPathExtension().lastPathComponent
@@ -1003,6 +1297,7 @@ public actor LocalCodexUsageReader: CodexUsageReading, UsageHistoryClearing, Acc
                 }
             }
         }
+        rolloutIndex = result; rolloutDirectories = directories
         return result
     }
 

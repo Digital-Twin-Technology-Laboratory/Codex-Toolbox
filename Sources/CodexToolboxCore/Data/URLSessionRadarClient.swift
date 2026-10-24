@@ -68,7 +68,13 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
             request.setValue(lastModified, forHTTPHeaderField: "If-Modified-Since")
         }
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await BoundedHTTPResponse.data(for: request, session: session, maximumBytes: 16 * 1024 * 1024)
+        } catch is BoundedHTTPResponse.Failure {
+            throw RadarClientError.invalidResponse
+        }
         guard let http = response as? HTTPURLResponse else {
             throw RadarClientError.invalidResponse
         }
@@ -89,8 +95,10 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
                 throw RadarClientError.invalidPayload("榜单响应过大。")
             }
             if usesManagedFeed {
-                return .modified(try JSONDecoder().decode(ManagedRadarFeed.self, from: data)
-                    .snapshot(fetchedAt: now(), validators: validators))
+                let snapshot = try JSONDecoder().decode(ManagedRadarFeed.self, from: data)
+                    .snapshot(fetchedAt: now(), validators: validators)
+                try Self.validateDurations(snapshot.benchmarks)
+                return .modified(snapshot)
             }
             let response = try JSONDecoder().decode(IntelligenceEfficiencyResponse.self, from: data)
             guard (2...3).contains(response.schema) else {
@@ -100,6 +108,7 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
                 throw RadarClientError.invalidPayload("聚合快照缺少 source_updated_at。")
             }
             let benchmarks = response.benchmarks
+            try Self.validateDurations(benchmarks)
             guard !benchmarks.isEmpty else {
                 throw RadarClientError.invalidPayload("聚合快照没有可用的模型数据。")
             }
@@ -119,4 +128,14 @@ public final class URLSessionRadarClient: RadarClient, @unchecked Sendable {
             throw RadarClientError.invalidPayload(error.localizedDescription)
         }
     }
+    static func validateDurations(_ benchmarks: [ModelBenchmark]) throws {
+        for model in benchmarks {
+            for record in [model.latest].compactMap({ $0 }) + model.recentDays {
+                if let seconds = record.wallSeconds, !seconds.isFinite || seconds < 0 || seconds >= Double(Int.max) {
+                    throw RadarClientError.invalidPayload("无效的指标数值。")
+                }
+            }
+        }
+    }
+
 }

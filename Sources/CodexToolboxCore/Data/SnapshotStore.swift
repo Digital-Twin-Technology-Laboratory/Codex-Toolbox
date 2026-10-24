@@ -74,12 +74,18 @@ public struct StoredRadarState: Codable, Hashable, Sendable {
 public protocol SnapshotStoring: Sendable {
     func load() async throws -> StoredRadarState?
     func save(_ state: StoredRadarState) async throws
+    func saveCheck(_ state: StoredRadarState) async throws
+}
+
+public extension SnapshotStoring {
+    func saveCheck(_ state: StoredRadarState) async throws { try await save(state) }
 }
 
 public actor SnapshotStore: SnapshotStoring {
     private let fileURL: URL
     private let legacyFileURL: URL?
     private let fileManager: FileManager
+    private var persistence: PublicCachePersistence
 
     public init(
         fileURL: URL? = nil,
@@ -98,12 +104,15 @@ public actor SnapshotStore: SnapshotStoring {
             // intelligence-efficiency cache namespace.
             self.legacyFileURL = legacyFileURL
         }
+        persistence = PublicCachePersistence(fileURL: self.fileURL)
     }
 
     public func load() async throws -> StoredRadarState? {
         if fileManager.fileExists(atPath: fileURL.path) {
             let data = try Data(contentsOf: fileURL)
-            return try Self.decode(data)
+            let state = try Self.decode(data)
+            guard let check = persistence.didLoad(data) else { return state }
+            return StoredRadarState(snapshot: state.snapshot.withCheck(check), costHistory: state.costHistory)
         }
         guard
             let legacyFileURL,
@@ -116,19 +125,28 @@ public actor SnapshotStore: SnapshotStoring {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try data.write(to: fileURL, options: .atomic)
+        try persistence.save(data)
         return state
     }
 
     public func save(_ state: StoredRadarState) async throws {
+        try Task.checkCancellation()
         let directory = fileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let data = try Self.encoder.encode(state)
-        try data.write(to: fileURL, options: .atomic)
+        try persistence.save(data)
+    }
+
+    public func saveCheck(_ state: StoredRadarState) async throws {
+        try Task.checkCancellation()
+        if try !persistence.saveCheck(fetchedAt: state.snapshot.fetchedAt, validators: state.snapshot.validators) {
+            try await save(state)
+        }
     }
 
     private static func decode(_ data: Data) throws -> StoredRadarState {
         let state = try decoder.decode(StoredRadarState.self, from: data)
+        try URLSessionRadarClient.validateDurations(state.snapshot.benchmarks)
         guard Set(state.snapshot.benchmarks.map(\.id)).count == state.snapshot.benchmarks.count else {
             throw RadarClientError.invalidPayload("重复的模型档位。")
         }

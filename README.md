@@ -12,7 +12,7 @@
 Codex Toolbox 是一款原生 macOS 菜单栏工具。它保留 Show Codex IQ 的模型智商、费用、耗时和综合排名，同时提供本机用量分析与账户额度、重置卡只读查询。三个模块各自刷新、各自缓存，任一数据源失败都不会清空其他结果。
 
 > [!TIP]
-> **v1.4.0 / Build 58 已正式发布，新增多菜单栏与账户额度，并改进每日任务用量。** 前往 [正式发布页](https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v1.4.0) 下载安装包，或查看 [1.4.0 更新日志](docs/releases/v1.4.0.md)。
+> **v1.4.2 / Build 65 已正式发布，修复卡顿、磁盘频繁读写和能耗偏高问题。** 前往 [正式发布页](https://github.com/Digital-Twin-Technology-Laboratory/Codex-Toolbox/releases/tag/v1.4.2) 下载安装包，或查看 [1.4.2 更新日志](docs/releases/v1.4.2.md)。
 
 > [!IMPORTANT]
 > 本项目与 OpenAI、ChatGPT 和 Codex 雷达均无官方隶属关系。模型排名来自 [codexradar.com](https://codexradar.com/)，详见[数据来源与授权说明](docs/data-source.md)。
@@ -97,6 +97,10 @@ Bundle ID 保持为 `io.github.zzzzzzjw.ShowCodexIQ`，因此原设置与登录�
 - 模型排名需要联网访问公共数据接口
 - Token 模块需要当前 Mac 上可读取的 Codex 本地数据
 - 重置卡模块需要已安装并登录的 Codex 或 ChatGPT；其他模块不受影响
+
+## 1.4.2 性能与能耗修复
+
+修复 1.4.1 中可能出现的卡顿、磁盘频繁读写和能耗偏高问题：历史用量与额度计算移到后台，历史记录改用增量存储，过期的后台任务及时取消。界面、刷新周期和统计口径保持不变。首次启动会自动迁移历史并保留备份。详见[1.4.2 发布说明](docs/releases/v1.4.2.md)。
 
 ## 1.4.1 稳定接口与动态数据适配
 

@@ -60,7 +60,8 @@ public enum MetricFormatter {
         metric: RankingMetric,
         overallMode: OverallRankingMode = .localWeighted
     ) -> String {
-        switch metric {
+        guard value.isFinite else { return "—" }
+        return switch metric {
         case .iq:
             formatNumber(value, maximumFractionDigits: value.rounded() == value ? 0 : 1)
         case .cost:
@@ -81,6 +82,7 @@ public enum MetricFormatter {
     ) -> String {
         switch metric {
         case .duration:
+            guard value.isFinite, value >= 0, value < Double(Int.max) else { return "—" }
             if value < 3_600 {
                 return "\(Int((value / 60).rounded()))m"
             }
@@ -122,6 +124,7 @@ public enum MetricFormatter {
     }
 
     private static func detailDuration(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0, seconds < Double(Int.max) else { return "—" }
         if seconds < 60 {
             return "\(Int(seconds.rounded())) 秒"
         }

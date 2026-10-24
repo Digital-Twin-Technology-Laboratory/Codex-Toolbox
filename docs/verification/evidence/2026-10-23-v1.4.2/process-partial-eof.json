@@ -1,0 +1,36 @@
+{
+  "baseline": [
+    {
+      "cpu_seconds": 1.750232,
+      "outcome": "timeout",
+      "wall_seconds": 2.006242334
+    },
+    {
+      "cpu_seconds": 1.995549,
+      "outcome": "timeout",
+      "wall_seconds": 2.004021792
+    },
+    {
+      "cpu_seconds": 1.996032,
+      "outcome": "timeout",
+      "wall_seconds": 2.003348166
+    }
+  ],
+  "candidate": [
+    {
+      "cpu_seconds": 0.0024070000000000003,
+      "outcome": "protocolIncompatible(\"app-server \u54cd\u5e94\u4e0d\u5b8c\u6574\u6216\u8d85\u8fc7\u9650\u5236\")",
+      "wall_seconds": 0.071274375
+    },
+    {
+      "cpu_seconds": 0.0024209999999999995,
+      "outcome": "protocolIncompatible(\"app-server \u54cd\u5e94\u4e0d\u5b8c\u6574\u6216\u8d85\u8fc7\u9650\u5236\")",
+      "wall_seconds": 0.07159325
+    },
+    {
+      "cpu_seconds": 0.0021080000000000005,
+      "outcome": "protocolIncompatible(\"app-server \u54cd\u5e94\u4e0d\u5b8c\u6574\u6216\u8d85\u8fc7\u9650\u5236\")",
+      "wall_seconds": 0.069414958
+    }
+  ]
+}

@@ -427,7 +427,7 @@ struct DashboardView: View {
             return nil
         case .tokenUsage:
             return DashboardSummaryFormatter.usage(
-                appModel.usageHistory?.summary(for: dayKey(Date())),
+                appModel.usageSummary(for: dayKey(Date())),
                 isLoading: appModel.isUsageInitialLoading,
                 showsCost: appModel.settings.showsLocalCostEstimates
             )

@@ -3,32 +3,46 @@ import Foundation
 public protocol StationRecommendationStoring: Sendable {
     func load() async throws -> StationRecommendationSnapshot?
     func save(_ snapshot: StationRecommendationSnapshot) async throws
+    func saveCheck(_ snapshot: StationRecommendationSnapshot) async throws
+}
+
+public extension StationRecommendationStoring {
+    func saveCheck(_ snapshot: StationRecommendationSnapshot) async throws { try await save(snapshot) }
 }
 
 public actor StationRecommendationStore: StationRecommendationStoring {
     private let fileURL: URL
     private let fileManager: FileManager
+    private var persistence: PublicCachePersistence
 
     public init(fileURL: URL? = nil, fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.fileURL = fileURL ?? ApplicationSupportLayout(fileManager: fileManager)
             .stationRecommendationsStateURL
+        persistence = PublicCachePersistence(fileURL: self.fileURL)
     }
 
     public func load() async throws -> StationRecommendationSnapshot? {
         guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
-        return try Self.decoder.decode(
-            StationRecommendationSnapshot.self,
-            from: Data(contentsOf: fileURL)
-        )
+        let data = try Data(contentsOf: fileURL)
+        let snapshot = try Self.decoder.decode(StationRecommendationSnapshot.self, from: data)
+        return persistence.didLoad(data).map { snapshot.withCheck($0) } ?? snapshot
     }
 
     public func save(_ snapshot: StationRecommendationSnapshot) async throws {
+        try Task.checkCancellation()
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try Self.encoder.encode(snapshot).write(to: fileURL, options: .atomic)
+        try persistence.save(Self.encoder.encode(snapshot))
+    }
+
+    public func saveCheck(_ snapshot: StationRecommendationSnapshot) async throws {
+        try Task.checkCancellation()
+        if try !persistence.saveCheck(fetchedAt: snapshot.fetchedAt, validators: snapshot.validators) {
+            try await save(snapshot)
+        }
     }
 
     private static let encoder: JSONEncoder = {
@@ -65,6 +79,8 @@ public actor StationRecommendationRepository {
     private let now: @Sendable () -> Date
     private var state: StationRecommendationRepositoryState = .empty
     private var refreshTask: Task<StationRecommendationRepositoryState, Never>?
+    private var refreshID: UUID?
+    private var lifecycleGeneration: UInt64 = 0
 
     public init(
         client: any StationRecommendationReading = URLSessionStationRecommendationClient(),
@@ -100,17 +116,45 @@ public actor StationRecommendationRepository {
 
     public func currentState() -> StationRecommendationRepositoryState { state }
 
+    public func cancelRefresh(generation: UInt64? = nil) {
+        guard advanceGeneration(to: generation) else { return }
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshID = nil
+    }
+
+    private func advanceGeneration(to generation: UInt64?) -> Bool {
+        guard let generation else { return true }
+        guard generation >= lifecycleGeneration else { return false }
+        if generation > lifecycleGeneration {
+            lifecycleGeneration = generation
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshID = nil
+        }
+        return true
+    }
+
     @discardableResult
-    public func refresh() async -> StationRecommendationRepositoryState {
-        if let refreshTask { return await refreshTask.value }
+    public func refresh(generation: UInt64? = nil) async -> StationRecommendationRepositoryState {
+        guard advanceGeneration(to: generation), !Task.isCancelled else { return state }
+        if let refreshTask {
+            let joinedID = refreshID
+            let joined = await refreshTask.value
+            return refreshID == joinedID ? joined : state
+        }
+        let id = UUID()
         let previous = state
         let client = client
         let store = store
         let now = now
         let task = Task<StationRecommendationRepositoryState, Never> {
             do {
+                try Task.checkCancellation()
                 let result = try await client.fetch(cacheValidators: previous.snapshot?.validators)
+                try Task.checkCancellation()
                 let snapshot: StationRecommendationSnapshot
+                let unchanged: Bool
                 switch result {
                 case let .modified(value):
                     if let oldSnapshot = previous.snapshot, let old = oldSnapshot.managed {
@@ -129,7 +173,9 @@ public actor StationRecommendationRepository {
                         throw StationRecommendationClientError.invalidPayload("源数据日期倒退，保留有效缓存。")
                     }
                     snapshot = value
+                    unchanged = previous.snapshot.map { value.hasSamePayload(as: $0) } ?? false
                 case let .notModified(validators):
+                    unchanged = true
                     guard let cached = previous.snapshot else {
                         throw StationRecommendationClientError.notModifiedWithoutCache
                     }
@@ -144,12 +190,17 @@ public actor StationRecommendationRepository {
                         managed: cached.managed
                     )
                 }
-                try await store.save(snapshot)
+                try Task.checkCancellation()
+                if unchanged { try await store.saveCheck(snapshot) }
+                else { try await store.save(snapshot) }
+                try Task.checkCancellation()
                 return StationRecommendationRepositoryState(
                     snapshot: snapshot,
                     isStale: snapshot.managed.map { $0.status != "current" } ?? false,
                     errorMessage: nil
                 )
+            } catch where Task.isCancelled {
+                return previous
             } catch {
                 PublicDataDiagnostics.record(error, feed: "recommendations")
                 return StationRecommendationRepositoryState(
@@ -160,9 +211,15 @@ public actor StationRecommendationRepository {
             }
         }
         refreshTask = task
-        let refreshed = await task.value
-        state = refreshed
+        refreshID = id
+        let refreshed = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: { task.cancel() }
+        guard refreshID == id else { return state }
         refreshTask = nil
+        refreshID = nil
+        guard !task.isCancelled else { return state }
+        state = refreshed
         return refreshed
     }
 }

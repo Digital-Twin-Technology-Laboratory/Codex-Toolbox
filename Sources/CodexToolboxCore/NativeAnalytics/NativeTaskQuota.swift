@@ -85,42 +85,6 @@ public struct DailyTaskQuotaValue: Codable, Equatable, Sendable {
     }
 }
 
-/// A separate journal keeps account-derived observations out of machine-wide Token history.
-public actor NativeTaskQuotaStore {
-    private struct Envelope: Codable { var schemaVersion = 1; var snapshots: [NativeTaskQuotaSnapshot] }
-    private let fileURL: URL
-    public init(fileURL: URL? = nil) {
-        self.fileURL = fileURL ?? ApplicationSupportLayout().currentDirectory.appendingPathComponent("native-task-quota-v1.json")
-    }
-    private func load() throws -> [NativeTaskQuotaSnapshot] {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { value in
-            let field = try value.singleValueContainer()
-            if let seconds = try? field.decode(Double.self) { return Date(timeIntervalSinceReferenceDate: seconds) }
-            guard let date = MetricFormatter.sourceDate(try field.decode(String.self)) else { throw NativeAnalyticsError.invalidResponse }
-            return date
-        }
-        let envelope = try decoder.decode(Envelope.self, from: Data(contentsOf: fileURL))
-        guard envelope.schemaVersion == 1 else { throw NativeAnalyticsError.invalidResponse }
-        return envelope.snapshots
-    }
-    public func snapshots(accountKey: String) throws -> [NativeTaskQuotaSnapshot] {
-        try load().filter { $0.accountKey == accountKey }
-    }
-    public func append(_ additions: [NativeTaskQuotaSnapshot], now: Date) throws {
-        guard !additions.isEmpty else { return }
-        var all = try load()
-        let cutoff = now.addingTimeInterval(-90 * 86400)
-        all.removeAll { $0.collectedAt < cutoff }
-        for snapshot in additions where !all.contains(snapshot) { all.append(snapshot) }
-        // Preserve subsecond watermarks exactly; legacy ISO strings remain readable.
-        let encoder = JSONEncoder()
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try encoder.encode(Envelope(snapshots: all)).write(to: fileURL, options: .atomic)
-    }
-}
-
 public enum DailyTaskQuotaAnalyzer {
     private struct Interval {
         let start: NativeTaskQuotaSnapshot
@@ -128,25 +92,41 @@ public enum DailyTaskQuotaAnalyzer {
         let percent: Double
         let observations: [LocalQuotaUsageObservation]
         let baselineAt: Date
-        var weight: Double { observations.reduce(0) { $0 + Double($1.tokenIncrement) } }
+        let weight: Double
+        init(start: NativeTaskQuotaSnapshot, end: NativeTaskQuotaSnapshot, percent: Double,
+             observations: [LocalQuotaUsageObservation], baselineAt: Date) {
+            self.start = start; self.end = end; self.percent = percent
+            self.observations = observations; self.baselineAt = baselineAt
+            self.weight = observations.reduce(0) { $0 + Double($1.tokenIncrement) }
+        }
     }
     public static func values(history: UsageHistory, snapshots: [NativeTaskQuotaSnapshot], accountKey: String, now: Date) -> [Int: [String: DailyTaskQuotaValue]] {
+        guard !Task.isCancelled else { return [:] }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: history.timezoneIdentifier) ?? .current
         let scoped = snapshots.filter { $0.accountKey == accountKey && $0.timezoneIdentifier == history.timezoneIdentifier && $0.collectedAt <= now }
-        let byRoot = Dictionary(grouping: scoped, by: { $0.thread.id })
+        let byRoot = Dictionary(grouping: scoped, by: { $0.thread.id }).mapValues {
+            $0.sorted { $0.collectedAt < $1.collectedAt }
+        }
         let local = Dictionary(grouping: history.quotaObservations.filter { !$0.isAccountSnapshot && $0.tokenIncrement > 0 }, by: \.rootTaskID)
+        let dayBounds = history.days.compactMap { day -> (DailyUsageSummary, Date, Date)? in
+            guard let start = date(day.dateKey, calendar: calendar),
+                  let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+            return (day, start, end)
+        }
         var result: [Int: [String: DailyTaskQuotaValue]] = [:]
         for metric in TaskQuotaMetric.allCases {
+            guard !Task.isCancelled else { return [:] }
             var intervals: [String: [Interval]] = [:]
             var baselines: [String: [Date: Date]] = [:]
-            for (root, unsorted) in byRoot {
-                let sorted = unsorted.sorted { $0.collectedAt < $1.collectedAt }
+            for (root, sorted) in byRoot {
+                guard !Task.isCancelled else { return [:] }
                 guard let first = sorted.first else { continue }
                 var baselineAt = first.collectedAt
                 baselines[root, default: [:]][first.collectedAt] = baselineAt
                 // Corrections and backwards watermarks create a baseline, never a negative usage day.
                 for (a, b) in zip(sorted, sorted.dropFirst()) {
+                    guard !Task.isCancelled else { return [:] }
                     let unchanged = a.epoch == b.epoch && a.row.status == "available" && b.row.status == "available"
                         && a.effectiveAt == b.effectiveAt && a.row.percent(metric) == b.row.percent(metric)
                     guard a.epoch == b.epoch, a.row.status == "available", b.row.status == "available",
@@ -157,7 +137,10 @@ public enum DailyTaskQuotaAnalyzer {
                         continue
                     }
                     baselines[root, default: [:]][b.collectedAt] = baselineAt
-                    let rows = (local[root] ?? []).filter {
+                    let source = local[root] ?? []
+                    let lower = SortedSearch.firstIndex(in: source) { $0.timestamp > a.effectiveAt }
+                    let upper = SortedSearch.firstIndex(in: source) { $0.timestamp > b.effectiveAt }
+                    let rows = source[lower..<upper].filter {
                         $0.timestamp > a.effectiveAt && $0.timestamp <= b.effectiveAt
                             && $0.executionContext?.authenticationMode == .chatGPT
                             && ($0.accountKey == nil || $0.accountKey == accountKey)
@@ -165,11 +148,13 @@ public enum DailyTaskQuotaAnalyzer {
                     intervals[root, default: []].append(Interval(start: a, end: b, percent: last - first, observations: rows, baselineAt: baselineAt))
                 }
             }
-            for day in history.days {
+            let rates = calibrationRates(intervals: intervals)
+            for (day, start, end) in dayBounds {
+                guard !Task.isCancelled else { return [:] }
                 for task in day.tasks {
-                    guard let samples = byRoot[task.rootTaskID]?.sorted(by: { $0.collectedAt < $1.collectedAt }),
+                    guard !Task.isCancelled else { return [:] }
+                    guard let samples = byRoot[task.rootTaskID],
                           let latest = samples.last(where: { $0.row.status != "unavailable" }) else { continue }
-                    guard let start = date(day.dateKey, calendar: calendar), let end = calendar.date(byAdding: .day, value: 1, to: start) else { continue }
                     let through = min(now, end)
                     let dayScope = samples.last(where: { $0.row.status != "unavailable" && $0.effectiveAt <= through }) ?? latest
                     let daySamples = samples.filter { $0.row.status != "unavailable" && $0.effectiveAt >= start && $0.effectiveAt < end }
@@ -198,11 +183,14 @@ public enum DailyTaskQuotaAnalyzer {
                     }
                     // Retain the old calibrated-rate approach, using account-scoped native steps.
                     // No historical rollout record receives the currently logged-in account ID.
-                    let rows = (local[task.rootTaskID] ?? []).filter { $0.timestamp >= start && $0.timestamp < through }
+                    let source = local[task.rootTaskID] ?? []
+                    let lower = SortedSearch.firstIndex(in: source) { $0.timestamp >= start }
+                    let upper = SortedSearch.firstIndex(in: source) { $0.timestamp >= through }
+                    let rows = lower < upper ? Array(source[lower..<upper]) : []
                     let canInfer = !rows.isEmpty && rows.allSatisfy {
                         $0.executionContext?.authenticationMode == .chatGPT && ($0.accountKey == nil || $0.accountKey == accountKey)
-                    } && rows.reduce(Int64(0), { $0 + $1.tokenIncrement }) == task.tokens
-                    if canInfer, let inferred = calibratedPercent(rows: rows, intervals: intervals, scope: dayScope) {
+                    } && tokenTotal(rows) == task.tokens
+                    if canInfer, let inferred = calibratedPercent(rows: rows, rates: rates, scope: dayScope) {
                         result[metric.rawValue, default: [:]][task.id] = DailyTaskQuotaValue(percent: max(measured, inferred), isExact: false,
                             updatedAt: latest.collectedAt, help: "当前账户原生差值校准本机逐轮 Token 的当日估算；账户归属未知的历史未被回填。并发、其他设备及模型变化可能影响精度。")
                     } else if let last = observed.last {
@@ -212,28 +200,52 @@ public enum DailyTaskQuotaAnalyzer {
                 }
             }
         }
-        return result
+        return Task.isCancelled ? [:] : result
     }
     private static func contextKey(_ row: LocalQuotaUsageObservation) -> String {
         let c = row.executionContext
         return "\(c?.modelID ?? "unknown")|\(c?.reasoningEffort ?? "unknown")|\(c?.serviceTier ?? "unknown")"
     }
-    private static func calibratedPercent(rows: [LocalQuotaUsageObservation], intervals: [String: [Interval]], scope: NativeTaskQuotaSnapshot) -> Double? {
-        guard scope.planType != nil else { return nil }
-        var rates: [String: [Double]] = [:]
-        for interval in intervals.values.flatMap({ $0 }) where interval.percent > 0 && interval.weight > 0
-            && interval.end.planType == scope.planType && interval.end.row.usageSource == scope.row.usageSource {
-            let keys = Set(interval.observations.map(contextKey))
-            guard keys.count == 1, let key = keys.first else { continue }
-            rates[key, default: []].append(interval.weight / interval.percent)
+    private struct CalibrationScope: Hashable {
+        let plan: String
+        let source: String
+    }
+    private static func calibrationRates(intervals: [String: [Interval]]) -> [CalibrationScope: [String: Double]] {
+        var grouped: [CalibrationScope: [String: [Double]]] = [:]
+        for group in intervals.values {
+            guard !Task.isCancelled else { return [:] }
+            for interval in group where interval.percent > 0 && interval.weight > 0 {
+                guard let plan = interval.end.planType else { continue }
+                let keys = Set(interval.observations.map(contextKey))
+                let rate = interval.weight / interval.percent
+                guard keys.count == 1, let key = keys.first, rate.isFinite && rate > 0 else { continue }
+                grouped[CalibrationScope(plan: plan, source: interval.end.row.usageSource), default: [:]][key, default: []].append(rate)
+            }
         }
+        return grouped.mapValues { contexts in
+            contexts.mapValues { values in
+                let ordered = values.sorted()
+                let median = ordered[ordered.count / 2]
+                let clean = ordered.count >= 5 ? ordered.filter { $0 >= median / 4 && $0 <= median * 4 } : ordered
+                return clean[clean.count / 2]
+            }
+        }
+    }
+    private static func tokenTotal(_ rows: [LocalQuotaUsageObservation]) -> Int64? {
+        var total: Int64 = 0
+        for row in rows {
+            let (next, overflow) = total.addingReportingOverflow(row.tokenIncrement)
+            guard !overflow else { return nil }
+            total = next
+        }
+        return total
+    }
+    private static func calibratedPercent(rows: [LocalQuotaUsageObservation], rates: [CalibrationScope: [String: Double]], scope: NativeTaskQuotaSnapshot) -> Double? {
+        guard let plan = scope.planType, let rates = rates[CalibrationScope(plan: plan, source: scope.row.usageSource)] else { return nil }
         var total = 0.0
         for (key, group) in Dictionary(grouping: rows, by: contextKey) {
-            guard let values = rates[key]?.filter({ $0.isFinite && $0 > 0 }).sorted(), !values.isEmpty else { return nil }
-            let median = values[values.count / 2]
-            let clean = values.count >= 5 ? values.filter { $0 >= median / 4 && $0 <= median * 4 } : values
-            guard !clean.isEmpty else { return nil }
-            total += group.reduce(0) { $0 + Double($1.tokenIncrement) } / clean[clean.count / 2]
+            guard !Task.isCancelled, let rate = rates[key] else { return nil }
+            total += group.reduce(0) { $0 + Double($1.tokenIncrement) } / rate
         }
         return total.isFinite ? total : nil
     }

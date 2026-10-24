@@ -69,7 +69,13 @@ public final class URLSessionStationRecommendationClient: StationRecommendationR
             request.setValue(lastModified, forHTTPHeaderField: "If-Modified-Since")
         }
 
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await BoundedHTTPResponse.data(for: request, session: session, maximumBytes: 4 * 1024 * 1024)
+        } catch is BoundedHTTPResponse.Failure {
+            throw StationRecommendationClientError.invalidResponse
+        }
         guard let http = response as? HTTPURLResponse else {
             throw StationRecommendationClientError.invalidResponse
         }

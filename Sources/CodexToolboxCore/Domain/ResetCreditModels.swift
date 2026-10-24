@@ -6,7 +6,10 @@ public struct AccountQuotaWindow: Codable, Hashable, Identifiable, Sendable {
     public let resetsAt: Date
 
     public var id: String {
-        "quota-window-\(durationMinutes)-\(Int(resetsAt.timeIntervalSince1970))"
+        guard let seconds = Int(exactly: resetsAt.timeIntervalSince1970.rounded(.towardZero)) else {
+            return "quota-window-\(durationMinutes)-invalid"
+        }
+        return "quota-window-\(durationMinutes)-\(seconds)"
     }
 
     public var displayName: String {
@@ -28,6 +31,26 @@ public struct AccountQuotaWindow: Codable, Hashable, Identifiable, Sendable {
         self.durationMinutes = max(1, durationMinutes)
         self.usedPercent = min(100, max(0, usedPercent))
         self.resetsAt = resetsAt
+    }
+
+    static func isSupportedDate(_ date: Date) -> Bool {
+        let seconds = date.timeIntervalSince1970
+        return seconds.isFinite && (-62_135_596_800...253_402_300_799).contains(seconds)
+    }
+
+    private enum CodingKeys: String, CodingKey { case durationMinutes, usedPercent, resetsAt }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let duration = try container.decode(Int.self, forKey: .durationMinutes)
+        let percent = try container.decode(Double.self, forKey: .usedPercent)
+        let reset = try container.decode(Date.self, forKey: .resetsAt)
+        guard duration > 0, percent.isFinite, Self.isSupportedDate(reset) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid quota window"))
+        }
+        durationMinutes = duration
+        usedPercent = percent
+        resetsAt = reset
     }
 }
 

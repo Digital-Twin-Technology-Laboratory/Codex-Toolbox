@@ -1,5 +1,23 @@
 # Codex Toolbox 项目记忆
 
+## 1.4.2 Build 65 发布候选（2026-10-24）
+
+用户要求复查后准备发布，并选择修复观察到的状态库读取失败、改出 Build 65；产物就绪后须等用户确认才合并 main、打标签、建 Release。Build 65 = Build 64 + Codex 状态库读取修复：`-wal` 缺失/为空时用 `immutable=1` 只读，瞬时错误短暂重试，查询中途失败不再静默截断。详见 `docs/verification/v1.4.2-build65.md`。发布说明 `docs/releases/v1.4.2.md`。多余的 `CodexToolbox 3/4.xcodeproj` 是用户原有材料，不提交不删除。
+
+## 1.4.2 Build 64 候选已交付（2026-10-23）
+
+用户已恢复完整性能优化实施。当前分支 `codex/1.4.2-performance`，HEAD/源码起点 `8e12091545ce9f6c82711a433cd098695c651340`；实现保存在未提交工作区，未推送。最终结果见 `docs/verification/v1.4.2-build64.md`，原暂停交接 `docs/plans/2026-10-23-v1.4.2-handoff.md` 已是历史记录。
+
+增量 SQLite、后台计算、刷新代次/取消、文件增量读取、子进程 EOF、公共缓存和数值保护已完成。续接修复了旧日桶覆盖误判、回退时区来源丢失；独立规格审查又发现并关闭了跨区后漏记追加、回退混合日桶来源两项 P1。保留历史并继续采集确定追加，混合日期不冒充精确额度/费用。
+
+最终 SwiftPM 273、Xcode Core 273、实际 AppModel 8、Rust 3、Python 3+6 通过；Universal 2 Debug/Release 构建、两轴独立审查及导出 CLI 隔离验证通过。最终 1x/5x 额度逐字段一致，历史计算 4.584s→0.215s、111.572s→1.238s；稳态追加写入降低 98.73%–99.97%，长线程追加组件 CPU 降低约 69.5%–69.8%，5 倍历史固定增量写入最多 1.19 倍。首次迁移单独计量；以上不是整应用或持续能耗验收。
+
+候选：`dist/Codex-Toolbox-1.4.2-Build64-local-test-universal.pkg`；SHA-256 `fac83c9e10393c447af979feda30b51ca729b7e4e351bb101e0204321259c1ed`。Apple 公证 `64aa4c7e-bc19-4634-a211-31106ed618b6` Accepted，装订和签名校验通过。未安装或替换运行应用，未发布 Release、标签或 appcast。真实选日/明细/滚动、主线程 100ms、30 分钟电池/接电及两小时持续能耗仍待用户安装验收。认证机制仍按用户要求暂不改造。最终技术源码清单、性能/门禁/包摘要在 `docs/verification/evidence/2026-10-23-v1.4.2/`，真实数据副本和完整输出仅在 `.build/performance-1.4.2/private/`，不得提交或上传。
+
+## 卡顿与高能耗待修（2026-10-22）
+
+用户要求将此次发现留待后续客户端更新修复，本轮仅记录和排查，未授权本轮安装或发布。待修清单：`docs/plans/2026-10-22-performance-energy-fix-backlog.md`；证据：`docs/verification/2026-10-17-performance-investigation.md`、`docs/verification/2026-10-22-energy-investigation.md`。重点为主线程历史额度计算、重复全量读写和后台周期性开销。10/17 独立数据副本基准为约 2.7 秒，不能当成完整 UI 实测；10/22 系统高能耗截图和 130 秒现场资源计数已归档（约 22.3 CPU 秒、190.652 MiB 写入）。保持界面、文案、额度语义、账户隔离与历史数据；后续需分别完成交互、CPU/I/O 与持续能耗验收，不能仅移到后台就宣称省电。
+
 ## UI 变更边界（2026-10-06）
 
 除非用户明确要求 UI 变化，不擅自修改或新增界面元素、文案、提示、注释或说明；数据迁移默认对用户无感。

@@ -75,7 +75,7 @@ public actor GitHubReleaseClient: ReleaseChecking {
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         request.setValue("Codex-Toolbox/\(AppMetadata.version)", forHTTPHeaderField: "User-Agent")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await boundedResponse(for: request)
         guard let response = response as? HTTPURLResponse else {
             throw ReleaseCheckError.invalidResponse
         }
@@ -98,6 +98,14 @@ public actor GitHubReleaseClient: ReleaseChecking {
         )
     }
 
+    private func boundedResponse(for request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await BoundedHTTPResponse.data(for: request, session: session, maximumBytes: 4 * 1024 * 1024)
+        } catch is BoundedHTTPResponse.Failure {
+            throw ReleaseCheckError.invalidResponse
+        }
+    }
+
     /// GitHub's unauthenticated REST quota is intentionally small. The public
     /// `/releases/latest` page redirects to the latest non-prerelease tag and
     /// therefore provides a credential-free fallback without scraping HTML.
@@ -107,7 +115,7 @@ public actor GitHubReleaseClient: ReleaseChecking {
         request.setValue("text/html", forHTTPHeaderField: "Accept")
         request.setValue("Codex-Toolbox/\(AppMetadata.version)", forHTTPHeaderField: "User-Agent")
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await boundedResponse(for: request)
         guard let response = response as? HTTPURLResponse,
               response.statusCode == 200,
               let finalURL = response.url else {

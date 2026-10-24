@@ -101,6 +101,8 @@ public actor RadarRepository {
     private let now: @Sendable () -> Date
     private var state: RadarRepositoryState = .empty
     private var refreshTask: Task<RadarRepositoryState, Never>?
+    private var refreshID: UUID?
+    private var lifecycleGeneration: UInt64 = 0
 
     public init(
         client: any RadarClient,
@@ -141,20 +143,45 @@ public actor RadarRepository {
         state
     }
 
+    public func cancelRefresh(generation: UInt64? = nil) {
+        guard advanceGeneration(to: generation) else { return }
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshID = nil
+    }
+
+    private func advanceGeneration(to generation: UInt64?) -> Bool {
+        guard let generation else { return true }
+        guard generation >= lifecycleGeneration else { return false }
+        if generation > lifecycleGeneration {
+            lifecycleGeneration = generation
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshID = nil
+        }
+        return true
+    }
+
     @discardableResult
-    public func refresh() async -> RadarRepositoryState {
+    public func refresh(generation: UInt64? = nil) async -> RadarRepositoryState {
+        guard advanceGeneration(to: generation), !Task.isCancelled else { return state }
         if let refreshTask {
-            return await refreshTask.value
+            let joinedID = refreshID
+            let joined = await refreshTask.value
+            return refreshID == joinedID ? joined : state
         }
 
+        let id = UUID()
         let previous = state
         let client = client
         let store = store
         let now = now
         let task = Task<RadarRepositoryState, Never> {
             do {
+                try Task.checkCancellation()
                 // HTTP validators belong to the owned endpoint, never the 1.4.0 upstream.
                 let result = try await client.fetch(cacheValidators: previous.snapshot?.managed != nil ? previous.snapshot?.validators : nil)
+                try Task.checkCancellation()
                 let snapshot: RadarSnapshot
                 switch result {
                 case let .modified(newSnapshot):
@@ -171,6 +198,11 @@ public actor RadarRepository {
                         validators: validators,
                         benchmarkID: cached.benchmarkID, aggregationMode: cached.aggregationMode, scoringMode: cached.scoringMode, priceRollingWindow: cached.priceRollingWindow, managed: cached.managed
                     )
+                    try Task.checkCancellation()
+                    try await store.saveCheck(StoredRadarState(snapshot: snapshot, costHistory: previous.costHistory))
+                    try Task.checkCancellation()
+                    return RadarRepositoryState(snapshot: snapshot, costHistory: previous.costHistory,
+                        isStale: snapshot.managed?.isStale ?? false, errorMessage: nil, checkedAt: now())
                 }
 
                 if let old = previous.snapshot?.managed, let new = snapshot.managed {
@@ -195,6 +227,13 @@ public actor RadarRepository {
                    let newDate = snapshot.sourceMonitoredAt.flatMap(MetricFormatter.sourceDate), newDate < previousDate {
                     throw RadarClientError.invalidPayload("上游快照时间倒退，保留较新的有效缓存。")
                 }
+                if let cached = previous.snapshot, snapshot.hasSamePayload(as: cached) {
+                    try Task.checkCancellation()
+                    try await store.saveCheck(StoredRadarState(snapshot: snapshot, costHistory: previous.costHistory))
+                    try Task.checkCancellation()
+                    return RadarRepositoryState(snapshot: snapshot, costHistory: previous.costHistory,
+                        isStale: snapshot.managed?.isStale ?? false, errorMessage: nil, checkedAt: now())
+                }
                 let oldPrices = Dictionary(uniqueKeysWithValues: (previous.snapshot?.benchmarks ?? []).map { ($0.id, $0.latest?.priceAggregation) })
                 let newPrices = Dictionary(uniqueKeysWithValues: snapshot.benchmarks.map { ($0.id, $0.latest?.priceAggregation) })
                 let compatibleHistory = !changedGeneration && previous.snapshot?.semanticsKey == snapshot.semanticsKey
@@ -205,7 +244,9 @@ public actor RadarRepository {
                     recordedAt: snapshot.fetchedAt
                 )
                 let stored = StoredRadarState(snapshot: snapshot, costHistory: history)
+                try Task.checkCancellation()
                 try await store.save(stored)
+                try Task.checkCancellation()
                 return RadarRepositoryState(
                     snapshot: snapshot,
                     costHistory: history,
@@ -213,6 +254,8 @@ public actor RadarRepository {
                     errorMessage: nil,
                     checkedAt: now()
                 )
+            } catch where Task.isCancelled {
+                return previous
             } catch {
                 PublicDataDiagnostics.record(error, feed: "radar")
                 let hasCache = previous.snapshot?.benchmarks.isEmpty == false
@@ -232,9 +275,15 @@ public actor RadarRepository {
             }
         }
         refreshTask = task
-        let refreshed = await task.value
-        state = refreshed
+        refreshID = id
+        let refreshed = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: { task.cancel() }
+        guard refreshID == id else { return state }
         refreshTask = nil
+        refreshID = nil
+        guard !task.isCancelled else { return state }
+        state = refreshed
         return refreshed
     }
 }

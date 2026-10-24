@@ -7,6 +7,10 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
     var seenCumulativeTotals: [Int64]
     var lastModelID: String?
     var lastExecutionContext: UsageExecutionContext?
+    var fileIdentity: UInt64?
+    var modifiedAt: Date?
+    var prefixDigest: Data?
+    var prefixLength: Int?
 
     init(
         path: String,
@@ -14,7 +18,11 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
         parsedOffset: UInt64,
         seenCumulativeTotals: [Int64],
         lastModelID: String?,
-        lastExecutionContext: UsageExecutionContext? = nil
+        lastExecutionContext: UsageExecutionContext? = nil,
+        fileIdentity: UInt64? = nil,
+        modifiedAt: Date? = nil,
+        prefixDigest: Data? = nil,
+        prefixLength: Int? = nil
     ) {
         self.path = path
         self.fileSize = fileSize
@@ -22,6 +30,10 @@ struct UsageRolloutCheckpoint: Codable, Hashable, Sendable {
         self.seenCumulativeTotals = seenCumulativeTotals
         self.lastModelID = lastModelID
         self.lastExecutionContext = lastExecutionContext
+        self.fileIdentity = fileIdentity
+        self.modifiedAt = modifiedAt
+        self.prefixDigest = prefixDigest
+        self.prefixLength = prefixLength
     }
 }
 
@@ -64,6 +76,8 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
     var quotaObservations: [ThreadQuotaUsageObservation]
     var checkpoint: UsageRolloutCheckpoint?
     var isComplete: Bool
+    var sourceTimezoneIdentifier: String?
+    var dayBucketTimezones: [String: [String]]
 
     init(
         threadID: String,
@@ -72,7 +86,9 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
         dailyTokens: [String: Int64],
         quotaObservations: [ThreadQuotaUsageObservation] = [],
         checkpoint: UsageRolloutCheckpoint?,
-        isComplete: Bool
+        isComplete: Bool,
+        sourceTimezoneIdentifier: String? = nil,
+        dayBucketTimezones: [String: [String]] = [:]
     ) {
         self.threadID = threadID
         self.rootTaskID = rootTaskID
@@ -81,6 +97,8 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
         self.quotaObservations = quotaObservations
         self.checkpoint = checkpoint
         self.isComplete = isComplete
+        self.sourceTimezoneIdentifier = sourceTimezoneIdentifier
+        self.dayBucketTimezones = dayBucketTimezones
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -91,6 +109,8 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
         case quotaObservations
         case checkpoint
         case isComplete
+        case sourceTimezoneIdentifier
+        case dayBucketTimezones
     }
 
     init(from decoder: any Decoder) throws {
@@ -108,7 +128,9 @@ struct ThreadUsageLedgerEntry: Codable, Hashable, Sendable {
                 UsageRolloutCheckpoint.self,
                 forKey: .checkpoint
             ),
-            isComplete: try container.decode(Bool.self, forKey: .isComplete)
+            isComplete: try container.decode(Bool.self, forKey: .isComplete),
+            sourceTimezoneIdentifier: try container.decodeIfPresent(String.self, forKey: .sourceTimezoneIdentifier),
+            dayBucketTimezones: try container.decodeIfPresent([String: [String]].self, forKey: .dayBucketTimezones) ?? [:]
         )
     }
 }
